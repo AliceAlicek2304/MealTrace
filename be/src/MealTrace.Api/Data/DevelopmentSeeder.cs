@@ -11,8 +11,6 @@ public static class DevelopmentSeeder
         (RoleNames.Admin, "admin@demo.mealtrace.local", "Admin demo", "0900000001"),
         (RoleNames.Teacher, "teacher@demo.mealtrace.local", "Giáo viên demo", "0900000002"),
         (RoleNames.KitchenStaff, "kitchen@demo.mealtrace.local", "Bếp demo", "0900000003"),
-        (RoleNames.Nutritionist, "nutrition@demo.mealtrace.local", "Dinh dưỡng demo", "0900000004"),
-        (RoleNames.Accountant, "accountant@demo.mealtrace.local", "Kế toán demo", "0900000005"),
         (RoleNames.Parent, "parent@demo.mealtrace.local", "Phụ huynh demo", "0900000006"),
     ];
 

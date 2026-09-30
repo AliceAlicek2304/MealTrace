@@ -2,7 +2,7 @@
 
 **Tên đề tài dự kiến:** MealTrace – Hệ thống quản lý bữa ăn bán trú và báo cáo dinh dưỡng có khả năng truy vết cho trường mầm non.
 
-**Phiên bản:** Bản đề xuất chỉnh sửa theo góp ý của giảng viên, ngày 30/09/2026. Đây là phạm vi dự kiến để trao đổi và chốt với giảng viên, chưa phải tuyên bố hệ thống đã hoàn thành hoặc đã được cơ quan chuyên môn công nhận.
+**Phiên bản:** Cập nhật ngày 30/09/2026 theo góp ý của giảng viên, quyết định nghiệp vụ và tiến độ hiện tại. Các mục tiêu MVP chưa hoàn thành được phân biệt tại mục tiến độ thực tế.
 
 ## 1. Tóm tắt
 
@@ -39,8 +39,6 @@ Các vai trò dưới đây mô tả **trách nhiệm trong quy trình**, không
 | Nhà trường / Admin | Quản lý tài khoản, niên khóa, lớp và trẻ; theo dõi số suất; duyệt/xuất báo cáo. |
 | Giáo viên | Xem danh sách lớp; kiểm tra báo vắng và ghi các trường hợp thực tế khác dự kiến; xác nhận số suất lớp nhận nếu trường áp dụng. |
 | Nhân viên bếp | Xem số suất chốt; lập thực đơn và công thức; ghi nhận chế biến, đổi món và ảnh món ăn. |
-| Người phụ trách dinh dưỡng | Kiểm tra dữ liệu thành phần thực phẩm, công thức, chỉ tiêu và thực đơn trước công bố; rà soát kết quả tính. |
-| Kế toán | Xem số suất và thống kê chi phí phục vụ đối soát; nghiệp vụ thu tiền chi tiết là phần mở rộng. |
 | Phụ huynh | Xem thông tin của trẻ được liên kết; báo vắng một ngày/dài hạn; khai báo lưu ý về ăn uống; xem thực đơn và thông tin bữa ăn đã công bố. |
 
 Hệ thống triển khai **ASP.NET Core, EF Core và PostgreSQL theo hướng code-first**: model và migration được phát triển theo từng use case đã chốt. Proposal chỉ nêu các khái niệm dữ liệu cần có như lớp, trẻ, quan hệ giám hộ, khoảng vắng, thực đơn, món/công thức, bản chốt suất, lượt thực hiện bữa ăn, minh chứng và báo cáo. Nhóm không khóa cứng trước một danh sách 32 bảng hay một ma trận quyền chi tiết khi quy trình thực tế của trường chưa được xác nhận. Thay đổi schema được quản lý bằng EF migrations và có kiểm thử dữ liệu cũ.
@@ -49,7 +47,15 @@ Hệ thống triển khai **ASP.NET Core, EF Core và PostgreSQL theo hướng c
 
 ### 5.1. Thiết lập niên khóa và danh sách trẻ
 
-Nhà trường tạo niên khóa/lớp hoặc nhập danh sách lớp từ tệp mẫu, sau đó nhập danh sách trẻ, gán trẻ vào lớp và liên kết tài khoản phụ huynh. Kết quả nhập thể hiện dòng thành công, trùng lặp và dòng cần sửa; việc nhập lại không tạo hai lớp hoặc hai trẻ do thao tác lặp. Trẻ có khoảng thời gian học bán trú hợp lệ mới được đưa vào danh sách dự kiến ăn.
+Nhà trường tạo lớp theo niên khóa, thêm trẻ và phân công giáo viên. Phiên bản hiện tại hỗ trợ tạo lớp/trẻ thủ công; import Excel chờ mẫu tệp thực tế để chốt cách ánh xạ dữ liệu. Mã trẻ ổn định và lịch sử ghi danh/chuyển lớp sẽ được bổ sung theo use case.
+
+Khi đăng ký nhập học, phụ huynh cung cấp họ tên, SĐT và email nếu có. Nhà trường lưu hồ sơ vào file Excel. SĐT thuộc phụ huynh/người giám hộ; phụ huynh không bắt buộc có email. Hệ thống cho phép đăng nhập bằng SĐT hoặc email và không yêu cầu OTP/xác minh SĐT trong phạm vi đã thống nhất.
+
+Khi import được triển khai, hệ thống xem trước dữ liệu, chuẩn hóa SĐT, gom phụ huynh theo SĐT và tạo tài khoản cho các số chưa tồn tại. Tài khoản đã có được dùng lại để liên kết với trẻ, không đặt lại mật khẩu. 100 trẻ có 100 SĐT mới khác nhau sẽ tạo 100 tài khoản; các trẻ cùng SĐT dùng chung tài khoản phụ huynh. Nhập lại cùng dữ liệu không tạo trùng trẻ, tài khoản hoặc quan hệ giám hộ. Tên cột và cách biểu diễn nhiều người giám hộ sẽ chốt sau khi có mẫu Excel.
+
+Admin vẫn có thể tạo hoặc liên kết phụ huynh thủ công tại màn Lớp và trẻ để bổ sung/sửa sai dữ liệu. Một trẻ có nhiều phụ huynh; một phụ huynh có nhiều con. Thêm người giám hộ không tự xóa quan hệ cũ. Thông tin sai được sửa trong quản lý tài khoản và danh sách trẻ liên kết.
+
+Mỗi tài khoản mới có mật khẩu tạm riêng, lưu hash/salt bằng Identity. Gửi thông tin đăng nhập qua SMS và qua email nếu có sẽ triển khai sau, chỉ thực hiện sau khi giao dịch import/tạo tài khoản thành công. Hiện chưa có dịch vụ gửi tin nhắn.
 
 ### 5.2. Khai báo báo vắng theo ngoại lệ
 
@@ -59,13 +65,13 @@ Giáo viên xem danh sách theo lớp và ghi **ngoại lệ** khi trẻ có m�
 
 ### 5.3. Chốt suất và gửi bếp
 
-Đến giờ chốt cấu hình cho trường (đề xuất ban đầu: **07:30** theo giờ địa phương, cần trường xác nhận), hệ thống tạo bản chốt theo **ngày, phiên ăn và lớp**, gồm danh sách trẻ đủ điều kiện, báo vắng đã nhận đúng hạn, tổng số suất và thời điểm chốt. Giáo viên/nhà trường kiểm tra ngoại lệ; bếp nhận cùng một phiên bản số liệu. Hệ thống ghi nhận người xác nhận và thời điểm nhận nếu quy trình trường yêu cầu.
+Giờ chốt hiện tại cố định **07:30 UTC+7**. Từ giờ chốt trở đi, Admin thực hiện thao tác chốt; hệ thống lưu bản chốt theo **ngày, phiên ăn và lớp**, gồm danh sách trẻ đủ điều kiện, báo vắng đã nhận đúng hạn, tổng số suất và thời điểm chốt. Giáo viên/nhà trường kiểm tra ngoại lệ; bếp nhận cùng một phiên bản số liệu. Hệ thống ghi nhận người xác nhận và thời điểm nhận nếu quy trình trường yêu cầu.
 
-Nếu có thay đổi sau giờ chốt, người có quyền lập điều chỉnh với lý do, thời điểm, người thao tác và liên kết bản chốt cũ. Quy tắc có chuẩn bị thêm/giảm suất và quy tắc hoàn phí là hai quyết định riêng của nhà trường; không mặc định báo vắng muộn sẽ tự hủy suất hoặc tự hoàn tiền.
+Chức năng điều chỉnh sau chốt chưa triển khai. Trong quy trình mục tiêu, nếu có thay đổi sau giờ chốt, người có quyền lập điều chỉnh với lý do, thời điểm, người thao tác và liên kết bản chốt cũ. Quy tắc có chuẩn bị thêm/giảm suất và quy tắc hoàn phí là hai quyết định riêng của nhà trường; không mặc định báo vắng muộn sẽ tự hủy suất hoặc tự hoàn tiền.
 
 ### 5.4. Lập, kiểm tra và công bố thực đơn
 
-Bếp lập thực đơn theo tuần và định lượng cho từng món; người phụ trách dinh dưỡng kiểm tra công thức, dữ liệu nguyên liệu, cảnh báo dinh dưỡng và các lưu ý ăn uống được nhà trường xác nhận. Bản công bố có thời điểm, người duyệt và phiên bản. **Đề xuất** hạn công bố là trước 16:00 của ngày học trước ngày ăn; quy tắc cụ thể phải được trường/giảng viên chốt. Sửa sau công bố tạo phiên bản mới, nêu lý do và thông báo cho người liên quan.
+Bếp lập thực đơn theo tuần và định lượng cho từng món; nhà trường và bếp kiểm tra công thức, dữ liệu nguyên liệu, cảnh báo dinh dưỡng và các lưu ý ăn uống được nhà trường xác nhận. Bản công bố có thời điểm, người duyệt và phiên bản. **Đề xuất** hạn công bố là trước 16:00 của ngày học trước ngày ăn; quy tắc cụ thể phải được trường/giảng viên chốt. Sửa sau công bố tạo phiên bản mới, nêu lý do và thông báo cho người liên quan.
 
 Thông tin dinh dưỡng được tính từ định lượng và dữ liệu thành phần thực phẩm có nguồn; khi cần nhập số liệu thủ công, phải ghi đơn vị, nguồn và người xác nhận. Hệ thống không cho nhập một chỉ số báo cáo rời khỏi các dữ liệu tạo ra nó.
 
@@ -96,16 +102,16 @@ Nhà trường có thể xuất báo cáo/minh chứng để gửi cơ quan chuy
 5. Gửi số suất cho bếp; ghi món thực tế, thay thế món và ảnh món ăn; phụ huynh xem bản đã công bố.
 6. Báo cáo suất ăn và dinh dưỡng cơ bản; từ một chỉ số có thể mở dữ liệu nguồn; bản đã duyệt và bản tính lại được lưu riêng.
 
-**Mở rộng nếu còn thời gian sau khi MVP đạt tiêu chí:** thực đơn cá nhân theo xác nhận chuyên môn; nhập liệu offline và đồng bộ ảnh; quản lý phí/sổ cái/đối soát tháng; thông báo đa kênh; dashboard nâng cao; bộ báo cáo nhiều mẫu. Thống kê **chi phí nguyên liệu** có thể thực hiện trong MVP khi dữ liệu giá đủ tin cậy, nhưng không được đồng nhất với **mức phí nhà trường thu phụ huynh**.
+**Mở rộng nếu còn thời gian sau khi MVP đạt tiêu chí:** gửi thông tin tài khoản qua SMS/email, quyền thanh tra chỉ đọc có thời hạn, thực đơn cá nhân theo xác nhận chuyên môn; nhập liệu offline và đồng bộ ảnh; quản lý phí/sổ cái/đối soát tháng; thông báo đa kênh; dashboard nâng cao; bộ báo cáo nhiều mẫu. Thống kê **chi phí nguyên liệu** có thể thực hiện trong MVP khi dữ liệu giá đủ tin cậy, nhưng không được đồng nhất với **mức phí nhà trường thu phụ huynh**.
 
-**Ngoài phạm vi:** thanh toán trực tuyến, quản lý nhà cung cấp và kho theo kiểu ERP, truy vết tới nông trại, IoT, AI sinh thực đơn/tính dinh dưỡng, ứng dụng iOS/Android native, quyết định khẩu phần điều trị hoặc xác nhận an toàn dị ứng tự động. MVP dùng web responsive; Docker không phải điều kiện để chạy hay nghiệm thu trên máy phát triển.
+**Ngoài phạm vi:** thanh toán trực tuyến, quản lý nhà cung cấp và kho theo kiểu ERP, truy vết tới nông trại, IoT, AI sinh thực đơn/tính dinh dưỡng, ứng dụng iOS/Android native trong MVP (thư mục mobile hiện chỉ giữ chỗ), quyết định khẩu phần điều trị hoặc xác nhận an toàn dị ứng tự động. MVP dùng web responsive; Docker không phải điều kiện để chạy hay nghiệm thu trên máy phát triển.
 
 ## 7. Yêu cầu chất lượng và cách kiểm chứng
 
 | Nhóm | Yêu cầu có thể kiểm chứng |
 | --- | --- |
 | Tính đúng số suất | Bộ kịch bản gồm báo vắng đúng hạn, vắng dài hạn, hủy báo vắng, chuyển lớp, ngày nghỉ và báo vắng sau chốt phải cho kết quả đúng quy tắc đã thống nhất; bản chốt cũ không đổi sau điều chỉnh. |
-| Dinh dưỡng | Công thức, đơn vị, dữ liệu nguồn và quy tắc làm tròn được ghi rõ; bộ ca mẫu được người phụ trách dinh dưỡng đối chiếu với kết quả tính độc lập trước khi dùng để báo cáo. |
+| Dinh dưỡng | Công thức, đơn vị, dữ liệu nguồn và quy tắc làm tròn được ghi rõ; bộ ca mẫu được nhà trường và bếp đối chiếu với kết quả tính độc lập trước khi dùng để báo cáo. |
 | Truy vết | Từ ít nhất một số suất và một chỉ số dinh dưỡng trong báo cáo mẫu, người dùng mở được bản ghi và phiên bản nguồn; có thể tái lập bản đã duyệt sau khi dữ liệu mới được điều chỉnh. |
 | Quyền riêng tư | API kiểm tra phụ huynh–trẻ và giáo viên–lớp; ảnh không có URL công khai, có thời hạn truy cập và nhật ký truy cập; xác định thời hạn lưu/xóa theo quy định và chính sách của trường. |
 | Nhập tệp | Hiển thị lỗi theo dòng và không tạo bản ghi trùng khi nhập lại cùng tệp. |
@@ -114,7 +120,7 @@ Nhà trường có thể xuất báo cáo/minh chứng để gửi cơ quan chuy
 
 ## 8. Hướng kỹ thuật và kế hoạch 14 tuần
 
-Frontend dùng React/TypeScript responsive; backend dùng ASP.NET Core; PostgreSQL lưu dữ liệu qua EF Core code-first migrations. API là nơi kiểm tra quyền; giao diện chỉ hiển thị hành động phù hợp. Những dữ liệu có ảnh hưởng đến bản chốt hoặc báo cáo đã duyệt được lưu phiên bản/điều chỉnh; không ghi đè vật lý bản đã phát hành. Ảnh được lưu ngoài bảng dữ liệu lớn, trong DB chỉ lưu metadata, quyền truy cập và liên kết hồ sơ.
+Repository gồm fe, be và mobile song song; mobile chỉ giữ chỗ. Frontend dùng React/TypeScript responsive với style claymorphism và Sonner toast; backend dùng ASP.NET Core; PostgreSQL lưu dữ liệu qua EF Core code-first migrations. API là nơi kiểm tra quyền; giao diện chỉ hiển thị hành động phù hợp. Những dữ liệu có ảnh hưởng đến bản chốt hoặc báo cáo đã duyệt được lưu phiên bản/điều chỉnh; không ghi đè vật lý bản đã phát hành. Ảnh được lưu ngoài bảng dữ liệu lớn, trong DB chỉ lưu metadata, quyền truy cập và liên kết hồ sơ.
 
 | Giai đoạn | Tuần | Sản phẩm kiểm chứng |
 | --- | --- | --- |
@@ -125,7 +131,7 @@ Frontend dùng React/TypeScript responsive; backend dùng ASP.NET Core; PostgreS
 | Báo cáo và truy vết | 11–12 | Báo cáo mẫu, drill-down, bản đã duyệt, điều chỉnh và so sánh tính lại. |
 | Hoàn thiện | 13–14 | Kiểm thử tình huống, quyền riêng tư, nhập tệp, hiệu năng mẫu, trình diễn luồng từ đầu đến cuối. |
 
-Kế hoạch này là phân bổ dự kiến. Nhóm chỉ nhận thêm phần mở rộng sau khi luồng bắt buộc chạy ổn định và có kiểm thử.
+Kế hoạch 14 tuần là phân bổ tham khảo, không phải xác nhận các giai đoạn đã hoàn thành. Import triển khai sau khi có mẫu Excel; SMS/email làm sau luồng tạo tài khoản. Nhóm chỉ nhận thêm phần mở rộng sau khi luồng bắt buộc chạy ổn định và có kiểm thử.
 
 ## 9. Kịch bản trình diễn cuối kỳ
 
@@ -133,7 +139,7 @@ Nhà trường nhập hai lớp và danh sách trẻ; phụ huynh A báo vắng 
 
 ## 10. Điểm cần giảng viên và trường xác nhận
 
-1. Hạn công bố thực đơn, giờ chốt suất, múi giờ và cách xử lý ngày nghỉ/lễ.
+1. Mẫu Excel nhập học, cách biểu diễn nhiều người giám hộ; hạn công bố thực đơn, giờ chốt suất, múi giờ và cách xử lý ngày nghỉ/lễ.
 2. Trẻ mặc định dự kiến ăn khi nào; cách xử lý trẻ mới nhập học, chuyển lớp hoặc tạm ngừng bán trú.
 3. Giáo viên có cần xác nhận danh sách ngoại lệ hay hệ thống tự chốt hoàn toàn; ai được sửa sau chốt.
 4. Báo vắng muộn tác động thế nào đến chuẩn bị suất và hoàn phí; không suy ra hai quy tắc này là một.
@@ -160,3 +166,29 @@ Nhà trường nhập hai lớp và danh sách trẻ; phụ huynh A báo vắng 
 | Phụ huynh theo dõi thực đơn | Mục 5.6: chỉ xem thực đơn/món của trẻ liên kết và đã công bố. |
 | Phụ huynh khai báo thông tin trẻ; thực đơn riêng là optional | Mục 5.6: lưu ý ăn uống có xác nhận; thực đơn cá nhân ở phần mở rộng. |
 | Nhà trường lập báo cáo gửi cơ quan chuyên trách | Mục 5.7: xuất báo cáo/minh chứng để nhà trường rà soát và gửi theo quy trình được xác nhận. |
+
+## 12. Tiến độ thực tế đến ngày 30/09/2026
+
+| Hạng mục | Trạng thái |
+| --- | --- |
+| Đăng nhập email/SĐT, 4 vai trò, quản lý tài khoản/phạm vi | Đã triển khai. |
+| Tạo lớp/trẻ thủ công, phân công giáo viên | Đã triển khai. |
+| Tạo/liên kết Parent bằng SĐT, nhiều con/nhiều người giám hộ | Đã triển khai; Admin có thể bổ sung và sửa liên kết. |
+| Báo/hủy vắng theo ngày/khoảng ngày | Đã triển khai, tối đa 90 ngày. |
+| Ngoại lệ giáo viên trước chốt | API có; UI hiện chỉ ghi vắng, chưa có hoàn tác ngoại lệ. |
+| Tạo phiên ăn, xem và chốt số suất theo lớp | Đã triển khai; chốt thủ công bởi Admin từ 07:30 UTC+7, một lần mỗi phiên. |
+| Xem danh sách/chi tiết ngày ăn | Đã có phần đọc; món/ảnh có thể chưa có dữ liệu. |
+| Import Excel và cấp tài khoản hàng loạt | Chưa triển khai; chờ mẫu tệp. |
+| Gửi SMS/email, OTP | SMS/email làm sau; OTP không thuộc phạm vi đã thống nhất. |
+| Enrollment/chuyển lớp, ngày nghỉ, điều chỉnh sau chốt | Chưa hoàn thiện. |
+| Công thức/thực đơn, món thực tế/ảnh, báo cáo dinh dưỡng | Có model nền tảng; chưa có workflow hoàn chỉnh. |
+| Quyền thanh tra | Có grant có thời hạn; chưa có quyền đọc nghiệp vụ hoàn chỉnh. |
+| Mobile | Chỉ có thư mục giữ chỗ. |
+
+Bản chốt lưu danh sách ID/tên trẻ nguồn theo lớp và không thay đổi khi hủy báo vắng hoặc thêm trẻ sau chốt. Đây là số suất dự kiến, không phải xác nhận có mặt thực tế. Bếp xem bản chốt trong hệ thống; chưa có thông báo gửi tự động.
+
+Kết quả kiểm tra gần nhất: BE 9/9 kiểm thử tích hợp đạt, FE 5/5 kiểm thử logic đạt, build thành công. Kiểm thử API dùng SQLite biệt lập; DB phát triển dùng PostgreSQL. Chưa hoàn tất kiểm thử đồng thời PostgreSQL và kiểm tra trực quan UI. Danh mục chọn phạm vi hiện giới hạn 200 lớp/trẻ, cần tìm kiếm/phân trang khi mở rộng.
+
+**Thứ tự tiếp theo:** hoàn thiện dữ liệu nền/mã trẻ/enrollment và giới hạn hiện tại → import khi có mẫu Excel → quy trình ngoại lệ/điều chỉnh sau chốt → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết → gửi SMS/email và hoàn thiện kiểm thử. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
+
+**Cập nhật vai trò:** Hệ thống còn 4 vai trò ADMIN, TEACHER, KITCHEN_STAFF và PARENT. Bỏ NUTRITIONIST và ACCOUNTANT; phần công thức/dinh dưỡng thuộc trách nhiệm phối hợp của bếp và Admin, báo cáo do Admin quản lý. Nghiệp vụ tài chính chi tiết vẫn thuộc phần mở rộng.

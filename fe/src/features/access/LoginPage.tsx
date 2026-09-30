@@ -9,8 +9,6 @@ const accounts = [
   ['ADMIN', 'admin@demo.mealtrace.local'],
   ['TEACHER', 'teacher@demo.mealtrace.local'],
   ['KITCHEN_STAFF', 'kitchen@demo.mealtrace.local'],
-  ['NUTRITIONIST', 'nutrition@demo.mealtrace.local'],
-  ['ACCOUNTANT', 'accountant@demo.mealtrace.local'],
   ['PARENT', 'parent@demo.mealtrace.local'],
 ] as const
 

@@ -70,8 +70,8 @@ public sealed class AuthenticationTests
         var create = await client.PostAsJsonAsync("/api/admin/users", new
         {
             fullName = "Nhân viên kiêm nhiệm", email = "multi@test.local",
-            roles = new[] { RoleNames.KitchenStaff, RoleNames.Accountant }, status = "ACTIVE",
-            classIds = Array.Empty<Guid>(), studentIds = Array.Empty<Guid>(),
+            roles = new[] { RoleNames.KitchenStaff, RoleNames.Teacher }, status = "ACTIVE",
+            classIds = new[] { seeded.ClassId }, studentIds = Array.Empty<Guid>(),
             inspectorAccessUntil = (DateOnly?)null,
         });
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
@@ -83,7 +83,7 @@ public sealed class AuthenticationTests
         var me = await client.GetFromJsonAsync<JsonElement>("/api/auth/me");
         var roles = me.GetProperty("roles").EnumerateArray().Select(x => x.GetString()).ToArray();
         Assert.Contains(RoleNames.KitchenStaff, roles);
-        Assert.Contains(RoleNames.Accountant, roles);
+        Assert.Contains(RoleNames.Teacher, roles);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/users")).StatusCode);
 
         var newPassword = "Changed!9" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
@@ -336,6 +336,23 @@ public sealed class AuthenticationTests
         var history = await client.GetFromJsonAsync<JsonElement>("/api/parent/absences");
         Assert.Empty(history.EnumerateArray());
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync($"/api/parent/absences/{absenceId}/cancel", null)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("NUTRITIONIST")]
+    [InlineData("ACCOUNTANT")]
+    public async Task AdminCannotAssignRetiredRoles(string retiredRole)
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        var token = await LoginAsync(client, seeded.AdminEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await client.PostAsJsonAsync("/api/admin/users", new {
+            fullName = "Retired role", email = "retired@test.local", roles = new[] { retiredRole }, status = "ACTIVE",
+            classIds = Array.Empty<Guid>(), studentIds = Array.Empty<Guid>(), inspectorAccessUntil = (DateOnly?)null,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     private static async Task<string> LoginAsync(HttpClient client, string email, string password)

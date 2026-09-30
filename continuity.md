@@ -1,23 +1,23 @@
 # MealTrace — Continuity
 
-> Cập nhật 30/09/2026. Proposal đang áp dụng: [PROPOSAL.md](PROPOSAL.md). Mã nguồn đã push gần nhất: `77cb2ee`; phần workflow dưới đây còn ở working tree. Không dùng Docker. `README.md` để trống theo yêu cầu.
+> Cập nhật 30/09/2026. Proposal đang áp dụng: [PROPOSAL.md](PROPOSAL.md). Mã nguồn đã push gần nhất: `04587ee` (main); workflow, đăng nhập SĐT và giao diện đã được push. Không dùng Docker. `README.md` để trống theo yêu cầu.
 
 `mobile/` hiện chỉ có `.gitkeep` để giữ chỗ trong Git; chưa có ứng dụng mobile hoặc thay đổi phạm vi MVP. Chạy web local bằng `dotnet run --project be/src/MealTrace.Api/MealTrace.Api.csproj --launch-profile http` ở root và `npm run dev` trong `fe/` (cổng 5184 và 5173).
 
 ## Trạng thái hiện tại
 
-**Đã có lát cắt đầu tiên của workflow chính, chưa phải MVP hoàn chỉnh.** Hệ thống đang có đăng nhập/6 vai trò, quản lý tài khoản, lớp và trẻ tạo thủ công, phụ huynh báo vắng ngày/khoảng ngày, xem danh sách dự kiến ăn theo lớp và chốt số suất gửi bếp. Backend dùng ASP.NET Core 8, EF Core code-first, PostgreSQL; frontend React/TypeScript. Swagger hoạt động trong Development.
+**Đã có lát cắt đầu tiên của workflow chính, chưa phải MVP hoàn chỉnh.** Hệ thống đang có đăng nhập/4 vai trò, quản lý tài khoản, lớp và trẻ tạo thủ công, phụ huynh báo vắng ngày/khoảng ngày, xem danh sách dự kiến ăn theo lớp và chốt số suất gửi bếp. Backend dùng ASP.NET Core 8, EF Core code-first, PostgreSQL; frontend React/TypeScript. Swagger hoạt động trong Development.
 
 Mặc định trẻ đang hoạt động trong lớp của niên khóa được **dự kiến ăn** vào `MealDay` đã tạo. Báo vắng được tính nếu ghi trước `CutoffAt`. Giáo viên có thể ghi ngoại lệ trước giờ chốt cho lớp được giao. Bản chốt lưu danh sách ID và tên trẻ theo lớp; sau chốt, báo vắng bị hủy hoặc thêm trẻ mới không thay đổi số suất đã gửi. Đây là số suất dự kiến, **không phải điểm danh có mặt thực tế**.
 
 ## Những gì đã chạy và kiểm chứng
 
-- Auth: Identity, mật khẩu hash/salt qua PasswordHasher của ASP.NET Identity, JWT, kiểm tra role/scope tại API; 6 tài khoản demo chỉ trong Development.
+- Auth: Identity, mật khẩu hash/salt qua PasswordHasher của ASP.NET Identity, JWT, kiểm tra role/scope tại API; 4 tài khoản demo chỉ trong Development.
 - Admin: tạo lớp, thêm trẻ và liên kết giáo viên/phụ huynh qua quản trị tài khoản. Nhập lớp/trẻ từ tệp **chưa có**.
 - Admin có thể liên kết một trẻ với phụ huynh ngay tại màn **Lớp và trẻ** bằng SĐT. SĐT đã tồn tại được ghép vào tài khoản đang hoạt động; SĐT mới tạo tài khoản Parent với mật khẩu tạm chỉ hiển thị một lần. Một phụ huynh có thể liên kết nhiều trẻ và một trẻ có thể có nhiều người giám hộ. Danh sách tài khoản lọc theo lớp giáo viên phụ trách ở API trước khi phân trang.
 - Parent: xem trẻ được liên kết; gửi/hủy báo vắng một ngày hoặc tối đa 90 ngày. Không được báo vắng cho trẻ ngoài liên kết.
 - Teacher: xem danh sách dự kiến ăn chỉ cho lớp được phân công; ghi ngoại lệ trước giờ chốt.
-- Admin: tạo phiên ăn với niên khóa, giờ chốt mặc định 07:30 UTC+7; chốt số suất theo lớp. Kitchen/Nutritionist xem bản chốt.
+- Admin: tạo phiên ăn với niên khóa, giờ chốt mặc định 07:30 UTC+7; chốt số suất theo lớp. Kitchen xem bản chốt.
 - EF migrations `CoreMealWorkflow` và `WorkflowSettlementState` đã áp dụng lên PostgreSQL local `mealtrace`.
 - `dotnet test be/MealTrace.sln --no-restore`: 5/5 pass, gồm kịch bản parent báo vắng, quyền xem lớp, bản chốt không đổi sau hủy báo vắng/thêm trẻ, tạo/ghép phụ huynh và lọc giáo viên theo lớp. `npm run build` và `npm test` trong `fe/`: pass.
 - Smoke trên PostgreSQL local: API chạy, Parent lấy được danh sách một trẻ demo; Admin lấy danh sách phiên workflow, danh sách trẻ trong lớp và tài khoản được lọc theo lớp. Chưa thử thao tác tạo/chốt/liên kết mới trên PostgreSQL thật; test nghiệp vụ tự động hiện dùng SQLite.
@@ -129,3 +129,18 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 - Review còn Important: grant thanh tra chưa có policy/màn đọc nghiệp vụ hoàn chỉnh; scope-options cắt 200 lớp/trẻ; mutation đồng thời cần bảo vệ báo vắng chồng và xử lý conflict DB thống nhất. Chưa coi toàn bộ workflow/quyền là hoàn chỉnh.
 - UI ngoại lệ giáo viên hiện chỉ ghi vắng; hoàn tác ngoại lệ trên UI chưa có. Search/role filter tài khoản hiện chỉ áp dụng trang đang xem; filter lớp giáo viên ở BE trước phân trang.
 - Giữ BE/FE tắt. Các bản sửa sau review được đưa vào đợt push tiếp theo theo yêu cầu; báo cáo review và checklist không nằm trong commit.
+
+## Proposal cập nhật 30/09/2026
+
+- PROPOSAL.md đã đồng bộ SĐT phụ huynh, không OTP, import Excel chờ mẫu, liên kết thủ công, SMS/email làm sau và bảng tiến độ thực tế.
+- Giữ hướng actor/EF code-first, chốt thủ công từ 07:30 UTC+7 và mobile giữ chỗ. Bản sửa tài liệu được đưa vào đợt commit/push cùng thay đổi bỏ role.
+
+## Cập nhật: bỏ hai vai trò chuyên viên dinh dưỡng và kế toán
+
+- Vai trò hiện hành: ADMIN, TEACHER, KITCHEN_STAFF, PARENT. Các mục lịch sử ghi 6 vai trò ở trên đã được thay thế bởi quyết định này.
+- FE bỏ hai lựa chọn role và hai tài khoản seed tương ứng; BE không chấp nhận cấp các role đã bỏ. Bếp/Admin phụ trách dữ liệu công thức/dinh dưỡng; Admin quản lý báo cáo.
+- Migration RetireNutritionAndAccountingRoles xóa hai role và liên kết quyền trong DB, thu hồi token người bị ảnh hưởng; khóa tài khoản không còn role được hỗ trợ hoặc grant thanh tra đang hiệu lực. Không xóa hồ sơ tài khoản hay lịch sử nghiệp vụ; tài khoản đa role giữ các quyền còn lại. Hai tài khoản demo nutrition/accountant không còn dùng để đăng nhập.
+- Các tài khoản demo còn lại giữ nguyên SĐT: Admin 0900000001, Teacher 0900000002, Kitchen 0900000003, Parent 0900000006; mật khẩu demo không đổi.
+- Rollback migration chỉ khôi phục định nghĩa role, không tự cấp lại quyền đã gỡ.
+
+- Kiểm chứng sau bỏ role: BE 11/11 tests, FE 5/5 tests; build qua. Migration đã áp dụng vào PostgreSQL local; BE khởi động lại và FE tiếp tục chạy để người dùng test. Các thay đổi role được đưa vào đợt commit/push theo yêu cầu.

@@ -35,7 +35,7 @@ public static class WorkflowEndpoints
             }
             return await query.OrderBy(x => x.SchoolYear).ThenBy(x => x.Name)
                 .Select(x => new { x.Id, x.Name, x.SchoolYear, StudentCount = x.Students.Count(s => s.IsActive) }).ToListAsync();
-        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff, RoleNames.Nutritionist));
+        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
         api.MapPost("/classes", async (CreateClass input, MealTraceDbContext db) =>
         {
@@ -202,7 +202,7 @@ public static class WorkflowEndpoints
             await db.MealDays.AsNoTracking().OrderByDescending(x => x.Date).ThenBy(x => x.MealType).Take(60)
                 .Select(x => new { x.Id, x.Date, x.MealType, x.SchoolYear, x.CutoffAt,
                     IsSettled = x.SettledAt != null })
-                .ToListAsync()).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff, RoleNames.Nutritionist));
+                .ToListAsync()).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
         api.MapPost("/meal-days/{id:guid}/exceptions", async (Guid id, RecordException input, ClaimsPrincipal principal, MealTraceDbContext db) =>
         {
@@ -230,13 +230,13 @@ public static class WorkflowEndpoints
             if (day is null) return Results.NotFound();
             var preview = await BuildPortions(db, day);
             if (principal.IsInRole(RoleNames.Teacher) && !principal.IsInRole(RoleNames.Admin) &&
-                !principal.IsInRole(RoleNames.KitchenStaff) && !principal.IsInRole(RoleNames.Nutritionist))
+                !principal.IsInRole(RoleNames.KitchenStaff))
             {
                 var assigned = await db.TeacherAssignments.Where(x => x.UserId == CurrentUserId(principal)).Select(x => x.ClassId).ToListAsync();
                 preview = preview.Where(x => assigned.Contains(x.ClassId)).ToList();
             }
             return Results.Ok(new { day.Id, day.Date, day.MealType, day.CutoffAt, Classes = preview });
-        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff, RoleNames.Nutritionist));
+        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
         api.MapPost("/meal-days/{id:guid}/settle", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db) =>
         {

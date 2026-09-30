@@ -13,7 +13,7 @@ import { PortionsPage } from './features/workflow/PortionsPage'
 import { LandingPage } from './features/landing/LandingPage'
 
 type Page = 'accounts' | 'classes' | 'portions' | 'absences' | 'meals' | 'profile'
-const mealRoles = ['ADMIN', 'KITCHEN_STAFF', 'NUTRITIONIST', 'ACCOUNTANT']
+const mealRoles = ['ADMIN', 'KITCHEN_STAFF']
 
 export default function App() {
   const queryClient = useQueryClient()
@@ -22,7 +22,7 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false)
   const isAdmin = user?.roles.includes('ADMIN') ?? false
   const isMealStaff = user?.roles.some(role => mealRoles.includes(role)) ?? false
-  const canSeePortions = user?.roles.some(role => ['ADMIN', 'TEACHER', 'KITCHEN_STAFF', 'NUTRITIONIST'].includes(role)) ?? false
+  const canSeePortions = user?.roles.some(role => ['ADMIN', 'TEACHER', 'KITCHEN_STAFF'].includes(role)) ?? false
   const isParent = user?.roles.includes('PARENT') ?? false
 
   function clearSession() {
@@ -52,7 +52,7 @@ export default function App() {
     setUser(result.user)
     setPage(result.user.roles.includes('ADMIN') ? 'portions'
       : result.user.roles.includes('PARENT') ? 'absences'
-      : result.user.roles.some(role => ['TEACHER', 'KITCHEN_STAFF', 'NUTRITIONIST'].includes(role)) ? 'portions'
+      : result.user.roles.some(role => ['TEACHER', 'KITCHEN_STAFF'].includes(role)) ? 'portions'
       : result.user.roles.some(role => mealRoles.includes(role)) ? 'meals' : 'profile')
   }
 

@@ -29,7 +29,7 @@ if (-not (Get-Secret $secrets 'Jwt:Key')) {
     Save-Secret 'Jwt:Key' ([Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(64)))
 }
 
-$roles = @('ADMIN', 'TEACHER', 'KITCHEN_STAFF', 'NUTRITIONIST', 'ACCOUNTANT', 'PARENT')
+$roles = @('ADMIN', 'TEACHER', 'KITCHEN_STAFF', 'PARENT')
 foreach ($role in $roles) {
     $secrets = Read-Secrets
     $key = "Seed:Passwords:$role"
