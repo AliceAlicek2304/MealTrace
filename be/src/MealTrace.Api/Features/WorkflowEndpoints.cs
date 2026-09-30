@@ -15,7 +15,7 @@ public static class WorkflowEndpoints
     private static readonly TimeOnly DefaultCutoff = new(7, 30);
 
     private sealed record CreateClass(string Name, string SchoolYear);
-    private sealed record CreateStudent(string FullName, Guid ClassId);
+    private sealed record CreateStudent(string FullName, Guid ClassId, string? StudentCode = null, DateOnly? StartDate = null);
     private sealed record LinkParent(string? Email, string? FullName, string? PhoneNumber = null);
     private sealed record CreateMealDay(DateOnly Date, string MealType, string SchoolYear);
     private sealed record ReportAbsence(Guid StudentId, DateOnly FromDate, DateOnly ToDate, string Reason);
@@ -24,6 +24,12 @@ public static class WorkflowEndpoints
     public static IEndpointRouteBuilder MapWorkflowEndpoints(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").RequireAuthorization().WithTags("Meal workflow");
+        api.AddEndpointFilter(async (context, next) =>
+        {
+            try { return await next(context); }
+            catch (Exception ex) when (DatabaseConflicts.IsConflict(ex))
+            { return Results.Conflict(new { message = "Dữ liệu trùng hoặc vừa thay đổi. Hãy tải lại và thử lại." }); }
+        });
 
         api.MapGet("/classes", async (ClaimsPrincipal principal, MealTraceDbContext db) =>
         {
@@ -33,8 +39,9 @@ public static class WorkflowEndpoints
                 var userId = CurrentUserId(principal);
                 query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == userId && a.ClassId == x.Id));
             }
+            var date = SchoolToday();
             return await query.OrderBy(x => x.SchoolYear).ThenBy(x => x.Name)
-                .Select(x => new { x.Id, x.Name, x.SchoolYear, StudentCount = x.Students.Count(s => s.IsActive) }).ToListAsync();
+                .Select(x => new { x.Id, x.Name, x.SchoolYear, StudentCount = db.Enrollments.Count(s => s.ClassId == x.Id && s.StartDate <= date && (s.EndDate == null || s.EndDate > date)) }).ToListAsync();
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
         api.MapPost("/classes", async (CreateClass input, MealTraceDbContext db) =>
@@ -42,7 +49,7 @@ public static class WorkflowEndpoints
             var name = input.Name?.Trim();
             var year = input.SchoolYear?.Trim();
             if (string.IsNullOrWhiteSpace(name) || name.Length > 100 || string.IsNullOrWhiteSpace(year) ||
-                !System.Text.RegularExpressions.Regex.IsMatch(year, @"^\d{4}-\d{4}$"))
+                !System.Text.RegularExpressions.Regex.IsMatch(year, @"^\d{4}-\d{4}$") || int.Parse(year[5..]) != int.Parse(year[..4]) + 1)
                 return Results.BadRequest(new { message = "Tên lớp hoặc niên khóa không hợp lệ." });
             if (await db.Classes.AnyAsync(x => x.Name == name && x.SchoolYear == year))
                 return Results.Conflict(new { message = "Lớp đã tồn tại trong niên khóa." });
@@ -55,33 +62,48 @@ public static class WorkflowEndpoints
         api.MapGet("/classes/{classId:guid}/students", async (Guid classId, ClaimsPrincipal principal, MealTraceDbContext db) =>
         {
             if (!await CanReadClass(db, principal, classId)) return Results.Forbid();
-            var students = await db.Students.AsNoTracking().Where(x => x.ClassId == classId && x.IsActive)
-                .OrderBy(x => x.FullName).Select(x => new { x.Id, x.FullName, x.ClassId }).ToListAsync();
+            var students = await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).Where(x => x.ClassId == classId)
+                .OrderBy(x => x.Student.FullName).Select(x => new { Id = x.StudentId, x.Student.StudentCode, x.Student.FullName, x.ClassId }).ToListAsync();
             var ids = students.Select(x => x.Id).ToArray();
             var parents = await db.ParentStudents.AsNoTracking().Where(x => ids.Contains(x.StudentId))
                 .Select(x => new { x.StudentId, x.User.Id, x.User.FullName, x.User.Email, x.User.PhoneNumber }).ToListAsync();
             return Results.Ok(students.Select(x => new
             {
-                x.Id, x.FullName, x.ClassId,
+                x.Id, x.StudentCode, x.FullName, x.ClassId,
                 Parents = parents.Where(p => p.StudentId == x.Id).Select(p => new { p.Id, p.FullName, p.Email, p.PhoneNumber }).ToArray(),
             }));
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher));
 
-        api.MapPost("/students", async (CreateStudent input, MealTraceDbContext db) =>
+        api.MapPost("/students", async (CreateStudent input, ClaimsPrincipal principal, MealTraceDbContext db) =>
         {
             var name = input.FullName?.Trim();
             if (string.IsNullOrWhiteSpace(name) || name.Length > 150 || !await db.Classes.AnyAsync(x => x.Id == input.ClassId))
                 return Results.BadRequest(new { message = "Tên trẻ hoặc lớp không hợp lệ." });
             var student = new Student { FullName = name, ClassId = input.ClassId };
+            if (!string.IsNullOrWhiteSpace(input.StudentCode))
+            {
+                var code = input.StudentCode.Trim().ToUpperInvariant();
+                if (code == "HS-DEMO-0001") return Results.BadRequest(new { message = "Mã HS-DEMO-0001 dành riêng cho dữ liệu demo." });
+                if (!System.Text.RegularExpressions.Regex.IsMatch(code, @"^[A-Z0-9][A-Z0-9-]{2,39}$"))
+                    return Results.BadRequest(new { message = "Mã trẻ gồm 3–40 ký tự chữ không dấu, số hoặc dấu gạch ngang." });
+                student.StudentCode = code;
+            }
+            if (await db.Students.AnyAsync(x => x.StudentCode == student.StudentCode))
+                return Results.Conflict(new { message = "Mã trẻ đã tồn tại." });
+            var start = input.StartDate ?? SchoolToday();
+            if (start < SchoolToday()) return Results.BadRequest(new { message = "Ghi danh mới không được lùi ngày về quá khứ." });
+            student.Enrollments.Add(new Enrollment { ClassId = input.ClassId, StartDate = start, RecordedByUserId = CurrentUserId(principal) });
             db.Students.Add(student);
-            await db.SaveChangesAsync();
-            return Results.Created($"/api/students/{student.Id}", new { student.Id, student.FullName, student.ClassId });
+            try { await db.SaveChangesAsync(); }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation)
+            { return Results.Conflict(new { message = "Mã trẻ đã tồn tại." }); }
+            return Results.Created($"/api/students/{student.Id}", new { student.Id, student.StudentCode, student.FullName, student.ClassId, student.Revision });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
 
         api.MapPost("/admin/students/{studentId:guid}/parents", async (Guid studentId, LinkParent input,
             MealTraceDbContext db, UserManager<ApplicationUser> users) =>
         {
-            if (!await db.Students.AnyAsync(x => x.Id == studentId && x.IsActive)) return Results.NotFound();
+            if (!await db.Students.AnyAsync(x => x.Id == studentId)) return Results.NotFound();
             var email = input.Email?.Trim().ToLowerInvariant();
             var phone = PhoneNumbers.Normalize(input.PhoneNumber);
             if (!string.IsNullOrWhiteSpace(input.PhoneNumber) && phone is null)
@@ -132,15 +154,20 @@ public static class WorkflowEndpoints
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
 
         api.MapGet("/parent/students", async (ClaimsPrincipal principal, MealTraceDbContext db) =>
-            await db.ParentStudents.AsNoTracking().Where(x => x.UserId == CurrentUserId(principal) && x.Student.IsActive)
+            await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).Where(x => db.ParentStudents.Any(p => p.UserId == CurrentUserId(principal) && p.StudentId == x.StudentId))
                 .OrderBy(x => x.Student.FullName)
-                .Select(x => new { x.StudentId, x.Student.FullName, x.Student.ClassId, ClassName = x.Student.Class.Name })
+                .Select(x => new { x.StudentId, x.Student.StudentCode, x.Student.FullName, x.ClassId, ClassName = x.Class.Name })
                 .ToListAsync()).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 
         api.MapPost("/parent/absences", async (ReportAbsence input, ClaimsPrincipal principal, MealTraceDbContext db) =>
         {
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            // Lock a shared parent row so two guardians cannot create overlapping absence intervals.
+            if (db.Database.IsNpgsql())
+                await db.Students.FromSqlInterpolated($"SELECT * FROM \"Students\" WHERE \"Id\" = {input.StudentId} FOR UPDATE").ToListAsync();
             var userId = CurrentUserId(principal);
-            if (!await db.ParentStudents.AnyAsync(x => x.UserId == userId && x.StudentId == input.StudentId && x.Student.IsActive))
+            if (!await db.ParentStudents.AnyAsync(x => x.UserId == userId && x.StudentId == input.StudentId) ||
+                !await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).AnyAsync(x => x.StudentId == input.StudentId))
                 return Results.Forbid();
             var today = SchoolToday();
             if (input.FromDate < today || input.ToDate < input.FromDate || input.ToDate.DayNumber - input.FromDate.DayNumber > 89 ||
@@ -156,13 +183,14 @@ public static class WorkflowEndpoints
             };
             db.MealAbsences.Add(absence);
             await db.SaveChangesAsync();
+            await transaction.CommitAsync();
             return Results.Created($"/api/parent/absences/{absence.Id}", new
             { absence.Id, absence.StudentId, absence.FromDate, absence.ToDate, absence.Reason, absence.ReportedAt });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 
         api.MapGet("/parent/absences", async (ClaimsPrincipal principal, MealTraceDbContext db) =>
             await db.MealAbsences.AsNoTracking().Where(x => x.ReportedByUserId == CurrentUserId(principal) &&
-                db.ParentStudents.Any(p => p.UserId == CurrentUserId(principal) && p.StudentId == x.StudentId) && x.Student.IsActive)
+                db.ParentStudents.Any(p => p.UserId == CurrentUserId(principal) && p.StudentId == x.StudentId))
                 .OrderByDescending(x => x.ReportedAt).Take(100)
                 .Select(x => new { x.Id, x.StudentId, StudentName = x.Student.FullName, x.FromDate, x.ToDate, x.Reason, x.ReportedAt, x.CancelledAt })
                 .ToListAsync()).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
@@ -171,7 +199,7 @@ public static class WorkflowEndpoints
         {
             var absence = await db.MealAbsences.FirstOrDefaultAsync(x => x.Id == id && x.ReportedByUserId == CurrentUserId(principal));
             if (absence is null) return Results.NotFound();
-            if (!await db.ParentStudents.AnyAsync(x => x.UserId == CurrentUserId(principal) && x.StudentId == absence.StudentId && x.Student.IsActive))
+            if (!await db.ParentStudents.AnyAsync(x => x.UserId == CurrentUserId(principal) && x.StudentId == absence.StudentId))
                 return Results.Forbid();
             if (absence.CancelledAt is not null) return Results.Conflict(new { message = "Báo vắng đã được hủy." });
             absence.CancelledAt = DateTimeOffset.UtcNow;
@@ -211,7 +239,8 @@ public static class WorkflowEndpoints
             if (DateTimeOffset.UtcNow >= day.CutoffAt) return Results.Conflict(new { message = "Đã qua giờ chốt; không thể đổi số suất dự kiến." });
             if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
                 return Results.BadRequest(new { message = "Cần ghi lý do ngoại lệ." });
-            var student = await db.Students.AsNoTracking().FirstOrDefaultAsync(x => x.Id == input.StudentId && x.IsActive);
+            var student = await StudentAdministrationEndpoints.OnDate(db, day.Date).Where(x => x.StudentId == input.StudentId)
+                .Select(x => new { Id = x.StudentId, x.ClassId }).FirstOrDefaultAsync();
             if (student is null) return Results.NotFound();
             if (day.SchoolYear is not null && !await db.Classes.AnyAsync(x => x.Id == student.ClassId && x.SchoolYear == day.SchoolYear))
                 return Results.BadRequest(new { message = "Trẻ không thuộc niên khóa của phiên ăn." });
@@ -290,11 +319,12 @@ public static class WorkflowEndpoints
             return settled.Select(x => new PortionRow(x.ClassId!.Value, x.ClassName ?? x.Class!.Name,
                 x.Class?.SchoolYear ?? day.SchoolYear ?? "", x.Students.Select(s => s.StudentId).ToList(),
                 x.Students.Select(s => s.StudentName).ToList(), [], true)).ToList();
-        var classes = await db.Classes.AsNoTracking().Where(x => x.Students.Any(s => s.IsActive) && (day.SchoolYear == null || x.SchoolYear == day.SchoolYear))
-            .OrderBy(x => x.Name).Select(x => new { x.Id, x.Name, x.SchoolYear }).ToListAsync();
-        var students = await db.Students.AsNoTracking().Where(x => x.IsActive)
-            .Select(x => new { x.Id, x.FullName, x.ClassId }).ToListAsync();
         var asOf = DateTimeOffset.UtcNow < day.CutoffAt ? DateTimeOffset.UtcNow : day.CutoffAt;
+        var students = await StudentAdministrationEndpoints.OnDate(db, day.Date).Where(x => x.RecordedAt <= asOf && (day.SchoolYear == null || x.Class.SchoolYear == day.SchoolYear))
+            .Select(x => new { Id = x.StudentId, x.Student.FullName, x.ClassId }).ToListAsync();
+        var classIds = students.Select(x => x.ClassId).Distinct().ToArray();
+        var classes = await db.Classes.AsNoTracking().Where(x => classIds.Contains(x.Id))
+            .OrderBy(x => x.Name).Select(x => new { x.Id, x.Name, x.SchoolYear }).ToListAsync();
         var absences = await db.MealAbsences.AsNoTracking().Where(x => x.FromDate <= day.Date && x.ToDate >= day.Date)
             .Select(x => new { x.StudentId, x.ReportedAt, x.CancelledAt }).ToListAsync();
         var absentIds = absences.Where(x => x.ReportedAt <= asOf && (x.CancelledAt is null || x.CancelledAt > asOf))

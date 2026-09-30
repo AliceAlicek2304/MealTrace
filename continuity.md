@@ -168,3 +168,35 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 - Tất cả button trong mã TSX có type rõ ràng: submit cho nút gửi form, button cho điều hướng/thao tác.
 - Modal có onKeyDown xử lý Escape, ngăn đóng khi busy và vẫn hỗ trợ native onCancel. Không thêm handler rỗng để né cảnh báo accessibility.
 - Chưa chạy lại Sonar server; cần scan mới để xác nhận trạng thái issue.
+
+## Cập nhật: mã trẻ và lịch sử ghi danh (30/09/2026)
+
+### Đã triển khai
+- StudentCode cố định, unique, chuẩn hóa chữ hoa; nhập 3–40 ký tự A-Z/số/gạch ngang hoặc tự sinh. Mã không đổi khi sửa tên/chuyển lớp. HS-DEMO-0001 dành riêng cho seed; seeder tìm trẻ/lớp demo qua mã/lịch sử để không tạo lại chỉ vì sửa tên/chuyển lớp.
+- Enrollment: StartDate inclusive, EndDate exclusive, lớp, người/lý do ghi danh và kết thúc, thời điểm ghi nhận. Lịch sử không bị xóa khi chuyển lớp/ngừng học/ghi danh lại. Giữ nguyên ParentStudent.
+- API Admin: GET /admin/classes và /admin/students có tìm kiếm/phân trang, PUT /admin/classes/{id} sửa tên, PUT /admin/students/{id} sửa hồ sơ, GET/POST /admin/students/{id}/enrollments xem lịch sử/chuyển lớp/ngừng học/ghi danh lại.
+- FE Lớp và trẻ: thêm mã/ngày bắt đầu, danh sách tìm kiếm/phân trang/lọc trạng thái/lớp, các form sửa dùng Modal, xem lịch sử bằng Modal. Niên khóa lớp và mã trẻ không sửa trong form chỉnh hồ sơ.
+- ScopePicker/ClassPicker có tìm kiếm/phân trang 25 mục; không còn cắt 200 mục. Các ID đã chọn vẫn giữ khi đổi trang/bộ lọc và có danh sách riêng để bỏ chọn. Parent được giữ liên kết với trẻ chưa học/đã ngừng học, không bị mất liên kết khi sửa tài khoản.
+- Student.ClassId là pointer lớp ghi danh mới nhất để tương thích; trạng thái/lớp hiện tại và số suất theo ngày phải lấy Enrollment. Student.IsActive không phải nguồn tính trạng thái theo ngày.
+- Sau 07:30 UTC+7, chuyển lớp/ngừng học áp dụng sớm nhất ngày mai; không cho hồi tố hay chồng khoảng ngày, ngày thay đổi phải sau StartDate của lần ghi danh mới nhất. EndDate là ngày đầu ngừng học. Nếu lập nhiều thay đổi tương lai, phải theo thứ tự ngày tăng dần.
+- Student.Revision bảo vệ cập nhật đồng thời; phiên bản cũ trả 409, không ghi đè hồ sơ/lịch sử. Transaction bảo đảm đóng ghi danh cũ và mở ghi danh mới cùng thành công. DB có unique mã trẻ, ngày bắt đầu/student, một ghi danh mở/student và check EndDate > StartDate.
+- Báo vắng PostgreSQL khóa row Student trong transaction trước kiểm tra trùng; hai người giám hộ gửi cùng khoảng ngày chỉ một yêu cầu thành công. Xung đột unique/serialization/deadlock kể cả exception bọc từ Npgsql trả 409.
+
+### Migration và giới hạn dữ liệu cũ
+- Migration 20260930142728_StudentEnrollmentHistory đã áp dụng DB local. Trẻ cũ có mã riêng; trẻ IsActive được tạo Enrollment từ ngày migration, lý do ghi rõ chuyển đổi dữ liệu cũ. Không biết ngày nhập học/chuyển lớp thật nên không tự dựng lịch sử trước migration. Hồ sơ đã inactive chưa có lịch sử sẽ giữ không có Enrollment.
+- RecordedAt của bản ghi chuyển đổi là thời điểm migration: phiên ăn chưa chốt có cutoff trước thời điểm chuyển đổi không tự nhận bản ghi mới này. Bản chốt cũ giữ nguyên. Khi cần phục dựng lịch sử thực, phải thiết kế luồng đối chiếu hồ sơ/audit; không sửa SQL tùy tiện.
+- Chưa có hủy/sửa lịch chuyển lớp tương lai, điều chỉnh sau chốt, lịch ngày nghỉ hoặc import Excel. Parent báo vắng tối đa 90 ngày; suất vẫn chỉ lấy trẻ có Enrollment hiệu lực vào ngày ăn.
+- Các API legacy GET /classes và /classes/{id}/students vẫn giữ response array để tương thích; màn Admin mới dùng các API phân trang. Không coi tất cả API đọc đã được phân trang.
+
+### Kiểm chứng
+- BE 17 tests SQLite đạt (14 cũ + 3 mới): mã unique/giữ nguyên sau sửa/stale revision, chuyển lớp/ngừng học/ghi danh lại theo ngày và giữ phụ huynh, tìm trẻ ngoài 200 mục/phạm vi đã chọn ngoài trang.
+- Hai tests PostgreSQL thực đạt: chuyển lớp đồng thời chỉ mở một Enrollment; báo vắng đồng thời/chốt suất đồng thời không nhân đôi. Test tạo schema mealtrace_test_<GUID>, không sửa bảng dữ liệu người dùng, xóa schema khi kết thúc. Để chạy lại, đặt MEALTRACE_TEST_CONNECTION bằng connection local (không in/commit secrets); mặc định 2 test này skip khi thiếu biến.
+- FE 5 tests đạt, build FE/BE thành công. Smoke qua proxy 5173: đăng nhập Admin bằng SĐT thành công, GET lớp/trẻ/phạm vi thành công, cả 4 trẻ local có mã, health OK; Swagger có endpoint ghi danh.
+- Chưa visual QA toàn bộ UI, chưa chạy lại Sonar. README tiếp tục để trống; checklist local vẫn ignore.
+- BE http://localhost:5184 và FE http://localhost:5173 đã chạy để test. Swagger: http://localhost:5184/swagger.
+
+### Bước tiếp theo
+1. Người dùng test tạo trẻ, sửa tên lớp/trẻ, chuyển lớp tương lai, ngừng/ghi danh lại, kiểm tra lịch sử và phụ huynh.
+2. Hoàn thiện ngoại lệ giáo viên (có/vắng/hoàn tác), lịch ngày nghỉ và quy trình điều chỉnh sau chốt có audit.
+3. Thực đơn/công thức/dinh dưỡng; món thực tế và ảnh; phụ huynh xem thông tin công bố; báo cáo/truy vết.
+4. Import khi có mẫu Excel; gửi SMS/email sau. Mobile vẫn giữ chỗ.

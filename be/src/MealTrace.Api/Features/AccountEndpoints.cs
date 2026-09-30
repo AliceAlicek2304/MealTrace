@@ -65,13 +65,31 @@ public static class AccountEndpoints
                 user.IsActive ? "ACTIVE" : "SUSPENDED", classIds, studentIds, grant?.ExpiresOn, user.PhoneNumber));
         }).WithName("GetUser");
 
-        group.MapGet("/scope-options", async (MealTraceDbContext db) => Results.Ok(new
+        group.MapGet("/scope-options", async (string? search, Guid? classId, int? classPage, int? studentPage,
+            string? selectedClassIds, string? selectedStudentIds, MealTraceDbContext db) =>
         {
-            classes = await db.Classes.AsNoTracking().OrderBy(x => x.Name).Take(200)
-                .Select(x => new { id = x.Id, name = x.Name }).ToListAsync(),
-            students = await db.Students.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.FullName).Take(200)
-                .Select(x => new { id = x.Id, name = x.FullName, classId = x.ClassId }).ToListAsync(),
-        })).WithName("GetScopeOptions");
+            var cp = Math.Clamp(classPage ?? 1, 1, 100000); var sp = Math.Clamp(studentPage ?? 1, 1, 100000); const int size = 25;
+            if (!TryIds(selectedClassIds, out var classIds) || !TryIds(selectedStudentIds, out var studentIds))
+                return Results.BadRequest(new { message = "Danh sách ID phạm vi không hợp lệ hoặc vượt quá 1000 mục." });
+            var classes = db.Classes.AsNoTracking(); var students = db.Students.AsNoTracking(); var date = StudentAdministrationEndpoints.Today;
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                classes = classes.Where(x => x.Name.ToLower().Contains(term) || x.SchoolYear.Contains(term));
+                students = students.Where(x => x.FullName.ToLower().Contains(term) || x.StudentCode.ToLower().Contains(term));
+            }
+            if (classId.HasValue) students = students.Where(x => db.Enrollments.Any(e => e.StudentId == x.Id && e.ClassId == classId && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
+            return Results.Ok(new
+            {
+                classes = await classes.OrderBy(x => x.SchoolYear).ThenBy(x => x.Name).ThenBy(x => x.Id).Skip((cp - 1) * size).Take(size)
+                    .Select(x => new { id = x.Id, name = x.Name + " · " + x.SchoolYear }).ToListAsync(),
+                students = await students.OrderBy(x => x.FullName).ThenBy(x => x.Id).Skip((sp - 1) * size).Take(size)
+                    .Select(x => new { id = x.Id, name = x.StudentCode + " · " + x.FullName, classId = x.ClassId }).ToListAsync(),
+                selectedClasses = await db.Classes.Where(x => classIds.Contains(x.Id)).Select(x => new { id = x.Id, name = x.Name + " · " + x.SchoolYear }).ToListAsync(),
+                selectedStudents = await db.Students.Where(x => studentIds.Contains(x.Id)).Select(x => new { id = x.Id, name = x.StudentCode + " · " + x.FullName, classId = x.ClassId }).ToListAsync(),
+                classTotal = await classes.CountAsync(), studentTotal = await students.CountAsync(), classPage = cp, studentPage = sp, pageSize = size,
+            });
+        }).WithName("GetScopeOptions");
 
         group.MapPost("/users", async (AccountInput input, ClaimsPrincipal principal, HttpContext http,
             MealTraceDbContext db, UserManager<ApplicationUser> manager) =>
@@ -197,7 +215,7 @@ public static class AccountEndpoints
         if (input.Roles.Contains(RoleNames.Teacher) && input.ClassIds.Length == 0) return "Giáo viên cần được phân công lớp.";
         if (input.Roles.Contains(RoleNames.Parent) && input.StudentIds.Length == 0) return "Phụ huynh cần được liên kết học sinh.";
         if (input.ClassIds.Length > 0 && (!input.Roles.Contains(RoleNames.Teacher) || await db.Classes.CountAsync(x => input.ClassIds.Contains(x.Id)) != input.ClassIds.Distinct().Count())) return "Phạm vi lớp không hợp lệ.";
-        if (input.StudentIds.Length > 0 && (!input.Roles.Contains(RoleNames.Parent) || await db.Students.CountAsync(x => input.StudentIds.Contains(x.Id) && x.IsActive) != input.StudentIds.Distinct().Count())) return "Phạm vi học sinh không hợp lệ.";
+        if (input.StudentIds.Length > 0 && (!input.Roles.Contains(RoleNames.Parent) || await db.Students.CountAsync(x => input.StudentIds.Contains(x.Id)) != input.StudentIds.Distinct().Count())) return "Phạm vi học sinh không hợp lệ.";
         return null;
     }
 
@@ -215,6 +233,14 @@ public static class AccountEndpoints
             else { grant.ExpiresOn = input.InspectorAccessUntil.Value; grant.GrantedById = adminId; grant.GrantedAt = DateTimeOffset.UtcNow; }
         }
         await db.SaveChangesAsync();
+    }
+
+    private static bool TryIds(string? value, out Guid[] ids)
+    {
+        var parts = (value ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+        ids = [];
+        if (parts.Length > 1000 || parts.Any(x => !Guid.TryParse(x, out _))) return false;
+        ids = parts.Select(Guid.Parse).Distinct().ToArray(); return true;
     }
 
     private static AccountView ToView(ApplicationUser user, AccountInput input) =>

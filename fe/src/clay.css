@@ -302,3 +302,18 @@ h1 { color: #28374e; }
   .modal-body .form-actions .button { flex: 1 1 140px; }
   .modal-body .credential-once { margin: 18px; }
 }
+
+/* Enrollment directory and paginated scope selectors share the clay form language. */
+.entry-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; max-width: 520px; }
+.class-picker { display: grid; gap: 10px; min-width: 0; }
+.toolbar > .class-picker { min-width: 220px; }
+.panel-head > input { padding: 10px 12px; border: 2px solid #e8e0d8; border-radius: 11px; background: #fff; color: #334058; font: inherit; }
+.class-picker .pagination { margin: 0; padding: 0; flex-wrap: wrap; }
+.workflow-lists > .pagination { padding: 18px 24px; }
+.student-entry > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.workflow-form textarea { width: 100%; min-height: 100px; resize: vertical; padding: 12px; border: 2px solid #eaded4; border-radius: 14px; font: inherit; color: inherit; background: #fff; }
+@media (max-width: 760px) {
+  .student-entry { align-items: stretch; flex-direction: column; }
+  .entry-actions { justify-content: flex-start; max-width: none; }
+  .panel-head > input { min-width: 0; width: 100%; }
+}

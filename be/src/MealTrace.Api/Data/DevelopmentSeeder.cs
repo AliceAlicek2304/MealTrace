@@ -61,18 +61,29 @@ public static class DevelopmentSeeder
         }
 
         // Scope records are seeded only for local exploration, never with real student data.
-        var demoClass = await db.Classes.FirstOrDefaultAsync(x => x.Name == "Lớp demo" && x.SchoolYear == "2026-2027");
+        const string demoCode = "HS-DEMO-0001";
+        var demoStudent = await db.Students.FirstOrDefaultAsync(x => x.StudentCode == demoCode);
+        // Once marked, find the original class through enrollment history even if names/class pointers changed.
+        var originalClassId = demoStudent is null ? (Guid?)null : await db.Enrollments.Where(x => x.StudentId == demoStudent.Id)
+            .OrderBy(x => x.StartDate).Select(x => (Guid?)x.ClassId).FirstOrDefaultAsync();
+        var demoClass = originalClassId.HasValue ? await db.Classes.FindAsync(originalClassId.Value)
+            : await db.Classes.FirstOrDefaultAsync(x => x.Name == "Lớp demo" && x.SchoolYear == "2026-2027");
         if (demoClass is null)
         {
             demoClass = new SchoolClass { Name = "Lớp demo", SchoolYear = "2026-2027" };
             db.Classes.Add(demoClass);
             await db.SaveChangesAsync();
         }
-        var demoStudent = await db.Students.FirstOrDefaultAsync(x => x.FullName == "Học sinh demo" && x.ClassId == demoClass.Id);
+        demoStudent ??= await db.Students.FirstOrDefaultAsync(x => x.FullName == "Học sinh demo" && x.ClassId == demoClass.Id);
         if (demoStudent is null)
         {
-            demoStudent = new Student { FullName = "Học sinh demo", ClassId = demoClass.Id };
+            demoStudent = new Student { FullName = "Học sinh demo", ClassId = demoClass.Id, StudentCode = demoCode };
             db.Students.Add(demoStudent);
+            await db.SaveChangesAsync();
+        }
+        else if (demoStudent.StudentCode != demoCode)
+        {
+            demoStudent.StudentCode = demoCode;
             await db.SaveChangesAsync();
         }
         var teacher = (await users.FindByEmailAsync("teacher@demo.mealtrace.local"))!;

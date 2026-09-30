@@ -126,6 +126,7 @@ app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapMealEndpoints();
 app.MapWorkflowEndpoints();
+app.MapStudentAdministrationEndpoints();
 app.Run();
 
 public partial class Program;

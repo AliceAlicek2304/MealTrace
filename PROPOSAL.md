@@ -47,7 +47,7 @@ Hệ thống triển khai **ASP.NET Core, EF Core và PostgreSQL theo hướng c
 
 ### 5.1. Thiết lập niên khóa và danh sách trẻ
 
-Nhà trường tạo lớp theo niên khóa, thêm trẻ và phân công giáo viên. Phiên bản hiện tại hỗ trợ tạo lớp/trẻ thủ công; import Excel chờ mẫu tệp thực tế để chốt cách ánh xạ dữ liệu. Mã trẻ ổn định và lịch sử ghi danh/chuyển lớp sẽ được bổ sung theo use case.
+Nhà trường tạo lớp theo niên khóa, thêm trẻ và phân công giáo viên. Trẻ có mã định danh cố định, nhập thủ công hoặc tự sinh, không đổi khi sửa tên/chuyển lớp. Mỗi lần ghi danh lưu lớp, khoảng ngày hiệu lực, lý do và người xử lý. Hệ thống hỗ trợ sửa tên lớp/hồ sơ trẻ bằng modal, chuyển lớp, ngừng học, ghi danh lại và xem lịch sử. Import Excel chờ mẫu tệp thực tế để chốt cách ánh xạ dữ liệu.
 
 Khi đăng ký nhập học, phụ huynh cung cấp họ tên, SĐT và email nếu có. Nhà trường lưu hồ sơ vào file Excel. SĐT thuộc phụ huynh/người giám hộ; phụ huynh không bắt buộc có email. Hệ thống cho phép đăng nhập bằng SĐT hoặc email và không yêu cầu OTP/xác minh SĐT trong phạm vi đã thống nhất.
 
@@ -180,16 +180,20 @@ Nhà trường nhập hai lớp và danh sách trẻ; phụ huynh A báo vắng 
 | Xem danh sách/chi tiết ngày ăn | Đã có phần đọc; món/ảnh có thể chưa có dữ liệu. |
 | Import Excel và cấp tài khoản hàng loạt | Chưa triển khai; chờ mẫu tệp. |
 | Gửi SMS/email, OTP | SMS/email làm sau; OTP không thuộc phạm vi đã thống nhất. |
-| Enrollment/chuyển lớp, ngày nghỉ, điều chỉnh sau chốt | Chưa hoàn thiện. |
+| Mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại | Đã triển khai, lưu lịch sử theo ngày hiệu lực; giữ liên kết phụ huynh. |
+| Tìm kiếm/phân trang lớp, trẻ và danh mục phạm vi | Đã triển khai; giữ lựa chọn khi tìm kiếm/đổi trang. |
+| Lịch ngày nghỉ, điều chỉnh sau chốt | Chưa triển khai workflow hoàn chỉnh. |
 | Công thức/thực đơn, món thực tế/ảnh, báo cáo dinh dưỡng | Có model nền tảng; chưa có workflow hoàn chỉnh. |
 | Quyền thanh tra | Có grant có thời hạn; chưa có quyền đọc nghiệp vụ hoàn chỉnh. |
 | Mobile | Chỉ có thư mục giữ chỗ. |
 
 Bản chốt lưu danh sách ID/tên trẻ nguồn theo lớp và không thay đổi khi hủy báo vắng hoặc thêm trẻ sau chốt. Đây là số suất dự kiến, không phải xác nhận có mặt thực tế. Bếp xem bản chốt trong hệ thống; chưa có thông báo gửi tự động.
 
-Kết quả kiểm tra gần nhất: BE 9/9 kiểm thử tích hợp đạt, FE 5/5 kiểm thử logic đạt, build thành công. Kiểm thử API dùng SQLite biệt lập; DB phát triển dùng PostgreSQL. Chưa hoàn tất kiểm thử đồng thời PostgreSQL và kiểm tra trực quan UI. Danh mục chọn phạm vi hiện giới hạn 200 lớp/trẻ, cần tìm kiếm/phân trang khi mở rộng.
+Kết quả kiểm tra gần nhất: BE 17 kiểm thử tích hợp SQLite và 2 kiểm thử đồng thời PostgreSQL đạt; FE 5 kiểm thử logic đạt; build thành công. Test PostgreSQL dùng schema riêng và xóa schema sau test. Đã kiểm tra chuyển lớp cùng phiên bản, báo vắng trùng khoảng ngày và chốt suất đồng thời. Danh mục phạm vi đã thay giới hạn 200 mục bằng tìm kiếm/phân trang. Chưa kiểm tra trực quan toàn bộ UI hoặc chạy lại Sonar.
 
-**Thứ tự tiếp theo:** hoàn thiện dữ liệu nền/mã trẻ/enrollment và giới hạn hiện tại → import khi có mẫu Excel → quy trình ngoại lệ/điều chỉnh sau chốt → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết → gửi SMS/email và hoàn thiện kiểm thử. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
+**Thứ tự tiếp theo:** kiểm thử nghiệp vụ lớp/trẻ với người dùng → quy trình ngoại lệ/điều chỉnh sau chốt và lịch ngày nghỉ → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết → gửi SMS/email và hoàn thiện kiểm thử. Import triển khai khi có mẫu Excel. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
+
+Ngày bắt đầu ghi danh bao gồm ngày đó; ngày kết thúc không bao gồm ngày đó. Sau 07:30 UTC+7, chuyển lớp/ngừng học áp dụng sớm nhất từ ngày mai, không sửa lùi ngày vào quá khứ. Số suất lấy lớp theo ngày ăn và chỉ tính dữ liệu ghi danh đã có trước giờ chốt; bản chốt đã lưu giữ nguyên. Dữ liệu trẻ cũ chưa có ngày ghi danh thật được chuyển đổi với ngày bắt đầu là ngày migration, có chú thích để đối chiếu hồ sơ; không suy diễn lịch sử lớp trước thời điểm này. Chưa có thao tác hủy lịch chuyển lớp đã lên kế hoạch.
 
 **Cập nhật vai trò:** Hệ thống còn 4 vai trò ADMIN, TEACHER, KITCHEN_STAFF và PARENT. Bỏ NUTRITIONIST và ACCOUNTANT; phần công thức/dinh dưỡng thuộc trách nhiệm phối hợp của bếp và Admin, báo cáo do Admin quản lý. Nghiệp vụ tài chính chi tiết vẫn thuộc phần mở rộng.
 

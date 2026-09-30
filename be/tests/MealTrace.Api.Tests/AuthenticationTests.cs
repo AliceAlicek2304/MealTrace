@@ -435,7 +435,7 @@ public sealed class AuthenticationTests
         Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"/api/admin/users/{Guid.NewGuid()}/reset-password", new { reason = "Missing" })).StatusCode);
     }
 
-    private static async Task<string> LoginAsync(HttpClient client, string email, string password)
+    internal static async Task<string> LoginAsync(HttpClient client, string email, string password)
     {
         client.DefaultRequestHeaders.Authorization = null;
         var response = await client.PostAsJsonAsync("/api/auth/login", new { email, password });
@@ -458,15 +458,30 @@ public sealed class AuthenticationTests
         }
     }
 
-    private sealed class AuthTestFactory : WebApplicationFactory<Program>
+    internal sealed class AuthTestFactory : WebApplicationFactory<Program>
     {
         private readonly SqliteConnection _connection = new("Data Source=:memory:");
         private readonly string _key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         private readonly Dictionary<string, string?> _previousEnvironment = new();
+        private readonly string? _postgresConnection;
+        private readonly string? _schema;
+        private bool _disposed;
 
-        public AuthTestFactory()
+        public AuthTestFactory(bool postgres = false)
         {
-            _connection.Open();
+            if (postgres)
+            {
+                var connection = Environment.GetEnvironmentVariable("MEALTRACE_TEST_CONNECTION")
+                    ?? throw new InvalidOperationException("PostgreSQL test connection is not configured.");
+                _schema = "mealtrace_test_" + Guid.NewGuid().ToString("N");
+                using var admin = new Npgsql.NpgsqlConnection(connection);
+                admin.Open();
+                using var command = admin.CreateCommand();
+                command.CommandText = $"CREATE SCHEMA \"{_schema}\"";
+                command.ExecuteNonQuery();
+                _postgresConnection = new Npgsql.NpgsqlConnectionStringBuilder(connection) { SearchPath = _schema }.ConnectionString;
+            }
+            else _connection.Open();
             foreach (var setting in new Dictionary<string, string>
             {
                 ["ConnectionStrings__MealTrace"] = "Host=localhost;Database=unused;Username=unused;Password=unused",
@@ -493,7 +508,11 @@ public sealed class AuthenticationTests
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<MealTraceDbContext>>();
-                services.AddDbContext<MealTraceDbContext>(options => options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteTestModelCustomizer>());
+                services.AddDbContext<MealTraceDbContext>(options =>
+                {
+                    if (_postgresConnection is not null) options.UseNpgsql(_postgresConnection);
+                    else options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteTestModelCustomizer>();
+                });
             });
         }
 
@@ -501,7 +520,8 @@ public sealed class AuthenticationTests
         {
             using var scope = Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
-            await db.Database.EnsureCreatedAsync();
+            if (_postgresConnection is not null) await db.Database.ExecuteSqlRawAsync(db.Database.GenerateCreateScript());
+            else await db.Database.EnsureCreatedAsync();
             var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             foreach (var role in RoleNames.All)
@@ -521,12 +541,25 @@ public sealed class AuthenticationTests
 
         protected override void Dispose(bool disposing)
         {
+            if (_disposed) return;
+            _disposed = true;
             base.Dispose(disposing: disposing);
             if (disposing)
             {
                 _connection.Dispose();
                 foreach (var setting in _previousEnvironment)
                     Environment.SetEnvironmentVariable(setting.Key, setting.Value);
+                if (_postgresConnection is not null)
+                {
+                    // Only the randomly generated test schema is removed; never delete the database.
+                    if (_schema is null || !System.Text.RegularExpressions.Regex.IsMatch(_schema, "^mealtrace_test_[a-f0-9]{32}$"))
+                        throw new InvalidOperationException("Unsafe test schema name.");
+                    using var admin = new Npgsql.NpgsqlConnection(_postgresConnection);
+                    admin.Open();
+                    using var command = admin.CreateCommand();
+                    command.CommandText = $"DROP SCHEMA IF EXISTS \"{_schema}\" CASCADE";
+                    command.ExecuteNonQuery();
+                }
             }
         }
     }

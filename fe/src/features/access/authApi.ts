@@ -6,6 +6,11 @@ export type LoginResponse = { accessToken: string; expiresAt: string; user: Curr
 export type ScopeOptions = {
   classes: { id: string; name: string }[]
   students: { id: string; name: string; classId: string }[]
+  selectedClasses?: { id: string; name: string }[]
+  selectedStudents?: { id: string; name: string; classId: string }[]
+  classTotal?: number
+  studentTotal?: number
+  pageSize?: number
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
@@ -15,8 +20,8 @@ export type UserPage = { items: SchoolUser[]; total: number; page: number; pageS
 export async function listUsers(page: number, classId: string): Promise<UserPage> {
   return (await api.get<UserPage>('/admin/users', { params: { page, pageSize: 25, classId: classId || undefined } })).data
 }
-export async function getScopeOptions(): Promise<ScopeOptions> {
-  return (await api.get<ScopeOptions>('/admin/scope-options')).data
+export async function getScopeOptions(params: { search?: string; classId?: string; classPage?: number; studentPage?: number; selectedClassIds?: string; selectedStudentIds?: string } = {}): Promise<ScopeOptions> {
+  return (await api.get<ScopeOptions>('/admin/scope-options', { params })).data
 }
 export async function createUser(draft: UserDraft): Promise<{ user: SchoolUser; temporaryPassword: string }> {
   return (await api.post<{ user: SchoolUser; temporaryPassword: string }>('/admin/users', draft)).data
