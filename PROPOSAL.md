@@ -192,3 +192,7 @@ Kết quả kiểm tra gần nhất: BE 9/9 kiểm thử tích hợp đạt, FE 
 **Thứ tự tiếp theo:** hoàn thiện dữ liệu nền/mã trẻ/enrollment và giới hạn hiện tại → import khi có mẫu Excel → quy trình ngoại lệ/điều chỉnh sau chốt → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết → gửi SMS/email và hoàn thiện kiểm thử. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
 
 **Cập nhật vai trò:** Hệ thống còn 4 vai trò ADMIN, TEACHER, KITCHEN_STAFF và PARENT. Bỏ NUTRITIONIST và ACCOUNTANT; phần công thức/dinh dưỡng thuộc trách nhiệm phối hợp của bếp và Admin, báo cáo do Admin quản lý. Nghiệp vụ tài chính chi tiết vẫn thuộc phần mở rộng.
+
+### Bổ sung: Khôi phục mật khẩu qua nhà trường
+
+Admin đối chiếu hồ sơ người dùng, cập nhật SĐT/email nếu cần trên tài khoản hiện có và cấp mật khẩu tạm mới. Hệ thống thu hồi phiên đăng nhập cũ, giữ nguyên quyền/liên kết với trẻ và lưu người xử lý, thời điểm, lý do. Mật khẩu lưu hash/salt; mật khẩu tạm chỉ hiển thị một lần để nhà trường chuyển cho người dùng. Chức năng này đã triển khai; khôi phục tự động qua SMS/email làm sau. Kiểm thử gần nhất sau bổ sung: BE 14/14, FE 5/5 đạt.

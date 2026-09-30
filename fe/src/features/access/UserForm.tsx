@@ -10,11 +10,12 @@ type Props = {
   scopes: ScopeOptions
   onSave: (draft: UserDraft) => Promise<void>
   onCancel: () => void
+  onSavingChange?: (saving: boolean) => void
 }
 
 const toggle = <T,>(items: T[], item: T): T[] => items.includes(item) ? items.filter(value => value !== item) : [...items, item]
 
-export function UserForm({ current, users, scopes, onSave, onCancel }: Props) {
+export function UserForm({ current, users, scopes, onSave, onCancel, onSavingChange }: Props) {
   const [draft, setDraft] = useState<UserDraft>(() => current ? {
     fullName: current.fullName, email: current.email, phoneNumber: current.phoneNumber ?? '', roles: [...current.roles], status: current.status,
     classIds: [...current.classIds], studentIds: [...current.studentIds], inspectorAccessUntil: current.inspectorAccessUntil,
@@ -27,11 +28,11 @@ export function UserForm({ current, users, scopes, onSave, onCancel }: Props) {
     event.preventDefault()
     const normalized: UserDraft = { ...draft, fullName: draft.fullName.trim(), email: draft.email.trim().toLowerCase() }
     const validationError = validateUserDraft(normalized, users, current?.id ?? null)
-    if (validationError) { toast.error(validationError); return }
-    setSaving(true)
+    if (validationError) { toast.error(validationError, { toasterId: 'edit-modal' }); return }
+    setSaving(true); onSavingChange?.(true)
     try { await onSave(normalized) }
-    catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Không lưu được tài khoản.') }
-    finally { setSaving(false) }
+    catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Không lưu được tài khoản.', { toasterId: 'edit-modal' }) }
+    finally { setSaving(false); onSavingChange?.(false) }
   }
 
   return <form className="user-form" onSubmit={submit}>

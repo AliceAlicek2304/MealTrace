@@ -24,3 +24,8 @@ export async function createUser(draft: UserDraft): Promise<{ user: SchoolUser; 
 export async function updateUser(id: string, draft: UserDraft): Promise<SchoolUser> {
   return (await api.put<SchoolUser>(`/admin/users/${id}`, draft)).data
 }
+
+export type ResetPasswordResult = { userId: string; fullName: string; phoneNumber: string | null; email: string | null; temporaryPassword: string; isActive: boolean }
+export async function resetUserPassword(id: string, reason: string): Promise<ResetPasswordResult> {
+  return (await api.post<ResetPasswordResult>(`/admin/users/${id}/reset-password`, { reason })).data
+}

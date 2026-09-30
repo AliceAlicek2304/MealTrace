@@ -7,6 +7,7 @@ namespace MealTrace.Api.Data;
 public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
+    public DbSet<AccountPasswordResetAudit> AccountPasswordResetAudits => Set<AccountPasswordResetAudit>();
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
     public DbSet<InspectorGrant> InspectorGrants => Set<InspectorGrant>();
@@ -29,6 +30,10 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.Entity<AccountPasswordResetAudit>().Property(x => x.Reason).HasMaxLength(500);
+        model.Entity<AccountPasswordResetAudit>().HasIndex(x => new { x.UserId, x.PerformedAt });
+        model.Entity<AccountPasswordResetAudit>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<AccountPasswordResetAudit>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.PerformedByUserId).OnDelete(DeleteBehavior.Restrict);
         model.Entity<ApplicationUser>().HasIndex(x => x.PhoneNumber).IsUnique();
         model.Entity<ApplicationUser>().HasIndex(x => x.NormalizedEmail).IsUnique();
         model.Entity<TeacherAssignment>().HasKey(x => new { x.UserId, x.ClassId });

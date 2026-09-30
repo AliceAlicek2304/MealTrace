@@ -355,6 +355,86 @@ public sealed class AuthenticationTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AdminResetPasswordRevokesOldCredentialsPreservesParentLinksAndAuditsReason(bool isActive)
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        Guid childId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var child = new Student { FullName = "Reset child", ClassId = seeded.ClassId };
+            db.Students.Add(child); await db.SaveChangesAsync(); childId = child.Id;
+        }
+        var adminToken = await LoginAsync(client, seeded.AdminEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var parentResponse = await client.PostAsJsonAsync($"/api/admin/students/{childId}/parents", new { phoneNumber = "0905555666", fullName = "Reset parent" });
+        parentResponse.EnsureSuccessStatusCode();
+        var parent = await parentResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var parentId = parent.GetProperty("parentId").GetGuid();
+        var oldPassword = parent.GetProperty("temporaryPassword").GetString()!;
+        var parentToken = await LoginAsync(client, "0905555666", oldPassword);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var manager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = (await manager.FindByIdAsync(parentId.ToString()))!;
+            user.IsActive = isActive;
+            Assert.True((await manager.UpdateAsync(user)).Succeeded);
+            Assert.True((await manager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddMinutes(15))).Succeeded);
+            Assert.True((await manager.AccessFailedAsync(user)).Succeeded);
+        }
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var invalid = await client.PostAsJsonAsync($"/api/admin/users/{parentId}/reset-password", new { reason = " " });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var reset = await client.PostAsJsonAsync($"/api/admin/users/{parentId}/reset-password", new { reason = "Verified school enrollment record" });
+        Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+        Assert.Contains("no-store", reset.Headers.CacheControl!.ToString());
+        var result = await reset.Content.ReadFromJsonAsync<JsonElement>();
+        var password = result.GetProperty("temporaryPassword").GetString()!;
+        Assert.NotEqual(oldPassword, password);
+        Assert.Equal(isActive, result.GetProperty("isActive").GetBoolean());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", parentToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/me")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = "0905555666", password = oldPassword })).StatusCode);
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = "0905555666", password });
+        Assert.Equal(isActive ? HttpStatusCode.OK : HttpStatusCode.Unauthorized, login.StatusCode);
+        using var checkScope = factory.Services.CreateScope();
+        var dbCheck = checkScope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        var audit = Assert.Single(await dbCheck.AccountPasswordResetAudits.ToListAsync());
+        Assert.Equal(parentId, audit.UserId);
+        Assert.Equal("Verified school enrollment record", audit.Reason);
+        Assert.Equal(seeded.AdminEmail, (await dbCheck.Users.FindAsync(audit.PerformedByUserId))!.Email);
+        Assert.True(await dbCheck.ParentStudents.AnyAsync(x => x.UserId == parentId && x.StudentId == childId));
+        var managerCheck = checkScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var updatedUser = (await managerCheck.FindByIdAsync(parentId.ToString()))!;
+        Assert.True(await managerCheck.IsInRoleAsync(updatedUser, RoleNames.Parent));
+        Assert.Equal(isActive, updatedUser.IsActive);
+        Assert.Null(updatedUser.LockoutEnd);
+    }
+
+    [Fact]
+    public async Task ResetPasswordRequiresAdminAndRejectsSelfResetOrMissingUser()
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        var path = $"/api/admin/users/{seeded.TeacherId}/reset-password";
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync(path, new { reason = "Reset" })).StatusCode);
+        var teacherToken = await LoginAsync(client, seeded.TeacherEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", teacherToken);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path, new { reason = "Reset" })).StatusCode);
+        var adminToken = await LoginAsync(client, seeded.AdminEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var me = await client.GetFromJsonAsync<JsonElement>("/api/auth/me");
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/admin/users/{me.GetProperty("id").GetGuid()}/reset-password", new { reason = "Self" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"/api/admin/users/{Guid.NewGuid()}/reset-password", new { reason = "Missing" })).StatusCode);
+    }
+
     private static async Task<string> LoginAsync(HttpClient client, string email, string password)
     {
         client.DefaultRequestHeaders.Authorization = null;

@@ -10,6 +10,7 @@ namespace MealTrace.Api.Features;
 
 public static class AccountEndpoints
 {
+    public sealed record ResetPasswordInput(string Reason);
     public sealed record AccountInput(string FullName, string? Email, string[] Roles, string Status,
         Guid[] ClassIds, Guid[] StudentIds, DateOnly? InspectorAccessUntil, string? PhoneNumber = null);
     public sealed record AccountView(Guid Id, string FullName, string Email, string[] Roles, string Status,
@@ -147,6 +148,37 @@ public static class AccountEndpoints
             await transaction.CommitAsync();
             return Results.Ok(ToView(user, input));
         }).WithName("UpdateUser");
+
+        group.MapPost("/users/{id:guid}/reset-password", async (Guid id, ResetPasswordInput input,
+            ClaimsPrincipal principal, MealTraceDbContext db, UserManager<ApplicationUser> manager) =>
+        {
+            var actorId = Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+            if (id == actorId)
+                return Results.BadRequest(new { message = "Đổi mật khẩu của chính bạn tại Hồ sơ của tôi." });
+            var reason = input.Reason?.Trim();
+            if (string.IsNullOrWhiteSpace(reason) || reason.Length > 500)
+                return Results.BadRequest(new { message = "Cần lý do đặt lại mật khẩu, tối đa 500 ký tự." });
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var user = await manager.FindByIdAsync(id.ToString());
+            if (user is null) return Results.NotFound(new { message = "Không tìm thấy tài khoản." });
+            var temporaryPassword = TemporaryPassword.Generate();
+            var token = await manager.GeneratePasswordResetTokenAsync(user);
+            // Identity hashes the password and changes SecurityStamp, revoking old JWTs.
+            var result = await manager.ResetPasswordAsync(user, token, temporaryPassword);
+            if (!result.Succeeded)
+                return Results.Conflict(new { message = "Không thể đặt lại mật khẩu. Hãy tải lại và thử lại." });
+            var unlock = await manager.SetLockoutEndDateAsync(user, null);
+            var clearFailures = await manager.ResetAccessFailedCountAsync(user);
+            if (!unlock.Succeeded || !clearFailures.Succeeded)
+                return Results.Conflict(new { message = "Không thể hoàn tất khôi phục tài khoản. Hãy thử lại." });
+            db.AccountPasswordResetAudits.Add(new AccountPasswordResetAudit
+            { UserId = user.Id, PerformedByUserId = actorId, Reason = reason });
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return Results.Ok(new { userId = user.Id, user.FullName, user.PhoneNumber, user.Email, temporaryPassword,
+                message = "Mật khẩu tạm chỉ hiển thị một lần. Các phiên đăng nhập cũ đã được thu hồi.",
+                isActive = user.IsActive });
+        }).WithName("AdminResetPassword");
 
         return app;
     }

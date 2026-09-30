@@ -144,3 +144,21 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 - Rollback migration chỉ khôi phục định nghĩa role, không tự cấp lại quyền đã gỡ.
 
 - Kiểm chứng sau bỏ role: BE 11/11 tests, FE 5/5 tests; build qua. Migration đã áp dụng vào PostgreSQL local; BE khởi động lại và FE tiếp tục chạy để người dùng test. Các thay đổi role được đưa vào đợt commit/push theo yêu cầu.
+
+## Cập nhật: Admin đặt lại mật khẩu
+
+- API POST /api/admin/users/{id}/reset-password chỉ cho Admin, bắt buộc lý do tối đa 500 ký tự; Swagger có endpoint AdminResetPassword.
+- FE Quản lý tài khoản có nút biểu tượng chìa khóa; mở form nêu rõ tài khoản, nhập lý do và xác nhận cấp mật khẩu tạm. Mật khẩu chỉ trả trong response no-store và giữ tạm trong state, không lưu localStorage/cache/query/log; ẩn hoặc tải lại sẽ mất.
+- ResetPasswordAsync của Identity hash/salt mật khẩu mới và đổi SecurityStamp, thu hồi JWT cũ. Gỡ lockout do nhập sai nhưng không thay đổi IsActive, role, SĐT/email hay liên kết trẻ/lớp. Tài khoản Admin khóa vẫn không đăng nhập được cho đến khi mở khóa riêng.
+- Lưu AccountPasswordResetAudit gồm người xử lý, tài khoản đích, lý do và thời điểm; không lưu mật khẩu/token. Reset và audit trong cùng transaction. Migration AccountPasswordResetAudit đã áp dụng PostgreSQL.
+- Không cho Admin cấp mật khẩu tạm cho chính mình qua endpoint này; dùng Đổi mật khẩu tại Hồ sơ của tôi. Khôi phục cho phụ huynh mất SĐT/email: đối chiếu hồ sơ, sửa SĐT/email trên tài khoản cũ rồi cấp mật khẩu tạm, giữ lịch sử/liên kết.
+- Chưa có tự khôi phục qua SMS/email. BE 14/14 tests, FE 5/5 tests qua; build thành công. BE được khởi động lại để test, FE tiếp tục chạy; chưa push thay đổi này.
+
+- CSS form đặt lại mật khẩu: dùng panel-head có padding, tách SĐT khỏi lời giải thích; thông báo nền kem/cam nằm trong form, nút tự xuống dòng trên mobile.
+
+## Quy tắc giao diện: chỉnh sửa dùng modal
+
+- Các thao tác sửa tài khoản, cấp lại mật khẩu, liên kết phụ huynh và đổi mật khẩu tại hồ sơ đều mở modal, không chèn form ở đầu/cuối trang. Thêm tài khoản dùng cùng modal; thông tin mật khẩu tạm hiển thị trong modal riêng hoặc modal liên kết.
+- Component dùng chung fe/src/components/Modal.tsx, native dialog + portal: khóa cuộn nền, giữ focus bàn phím trong dialog, đóng bằng X/Escape/click ngoài; chặn đóng khi đang gửi. Modal có cuộn riêng và responsive.
+- Toast lỗi form được hiển thị trong modal qua Sonner toaster có ID riêng để không bị native dialog che phía sau.
+- Chức năng chỉnh sửa bổ sung về sau phải dùng Modal và giữ dữ liệu nhập khi lưu thất bại; chỉ đóng khi thành công hoặc người dùng hủy. Form tạo lớp/trẻ và báo vắng hiện giữ bố cục trang.
