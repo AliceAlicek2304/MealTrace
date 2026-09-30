@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.env
+**/.env.local
+.vs/
+fe/src/assets/hero.png

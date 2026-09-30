@@ -1,0 +1,7 @@
+@MealTraceApi = http://localhost:5184
+
+GET {{MealTraceApi}}/api/health
+
+###
+
+GET {{MealTraceApi}}/api/meal-days
