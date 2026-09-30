@@ -1,0 +1,85 @@
+using MealTrace.Api.Security;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+namespace MealTrace.Api.Data;
+
+public static class DevelopmentSeeder
+{
+    private static readonly (string Role, string Email, string FullName)[] Accounts =
+    [
+        (RoleNames.Admin, "admin@demo.mealtrace.local", "Admin demo"),
+        (RoleNames.Teacher, "teacher@demo.mealtrace.local", "Giáo viên demo"),
+        (RoleNames.KitchenStaff, "kitchen@demo.mealtrace.local", "Bếp demo"),
+        (RoleNames.Nutritionist, "nutrition@demo.mealtrace.local", "Dinh dưỡng demo"),
+        (RoleNames.Accountant, "accountant@demo.mealtrace.local", "Kế toán demo"),
+        (RoleNames.Parent, "parent@demo.mealtrace.local", "Phụ huynh demo"),
+    ];
+
+    public static async Task SeedAsync(IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        await db.Database.MigrateAsync();
+
+        foreach (var role in RoleNames.All)
+        {
+            if (!await roles.RoleExistsAsync(role))
+            {
+                var created = await roles.CreateAsync(new IdentityRole<Guid>(role));
+                EnsureSucceeded(created, $"tạo role {role}");
+            }
+        }
+
+        foreach (var account in Accounts)
+        {
+            var user = await users.FindByEmailAsync(account.Email);
+            if (user is null)
+            {
+                var password = configuration[$"Seed:Passwords:{account.Role}"];
+                if (string.IsNullOrWhiteSpace(password))
+                    throw new InvalidOperationException($"Thiếu User Secret Seed:Passwords:{account.Role}. Chạy script be/scripts/setup-dev-secrets.ps1.");
+                user = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(), UserName = account.Email, Email = account.Email,
+                    EmailConfirmed = true, FullName = account.FullName, IsActive = true,
+                };
+                EnsureSucceeded(await users.CreateAsync(user, password), $"tạo tài khoản {account.Role}");
+            }
+            if (!await users.IsInRoleAsync(user, account.Role))
+                EnsureSucceeded(await users.AddToRoleAsync(user, account.Role), $"gán role {account.Role}");
+        }
+
+        // Scope records are seeded only for local exploration, never with real student data.
+        var demoClass = await db.Classes.FirstOrDefaultAsync(x => x.Name == "Lớp demo" && x.SchoolYear == "2026-2027");
+        if (demoClass is null)
+        {
+            demoClass = new SchoolClass { Name = "Lớp demo", SchoolYear = "2026-2027" };
+            db.Classes.Add(demoClass);
+            await db.SaveChangesAsync();
+        }
+        var demoStudent = await db.Students.FirstOrDefaultAsync(x => x.FullName == "Học sinh demo" && x.ClassId == demoClass.Id);
+        if (demoStudent is null)
+        {
+            demoStudent = new Student { FullName = "Học sinh demo", ClassId = demoClass.Id };
+            db.Students.Add(demoStudent);
+            await db.SaveChangesAsync();
+        }
+        var teacher = (await users.FindByEmailAsync("teacher@demo.mealtrace.local"))!;
+        var parent = (await users.FindByEmailAsync("parent@demo.mealtrace.local"))!;
+        if (!await db.TeacherAssignments.AnyAsync(x => x.UserId == teacher.Id && x.ClassId == demoClass.Id))
+            db.TeacherAssignments.Add(new TeacherAssignment { UserId = teacher.Id, ClassId = demoClass.Id });
+        if (!await db.ParentStudents.AnyAsync(x => x.UserId == parent.Id && x.StudentId == demoStudent.Id))
+            db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = demoStudent.Id });
+        await db.SaveChangesAsync();
+    }
+
+    private static void EnsureSucceeded(IdentityResult result, string operation)
+    {
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"Không thể {operation}: {string.Join("; ", result.Errors.Select(x => x.Description))}");
+    }
+}

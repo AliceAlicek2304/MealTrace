@@ -1,17 +1,70 @@
-import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
-import { CalendarDays, Database, Leaf, UtensilsCrossed } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users } from 'lucide-react'
+import { api, setAccessToken } from './lib/api'
+import { AccountsPage } from './features/access/AccountsPage'
+import type { CurrentUser, LoginResponse } from './features/access/authApi'
+import { LoginPage } from './features/access/LoginPage'
+import { ProfilePage } from './features/access/ProfilePage'
+import { MealDaysPage } from './features/meals/MealDaysPage'
 
-type MealDay = { id: string; date: string; mealType: string; publishedAt: string | null; settledPortions: number | null; dishes: { id: string; name: string; recipeVersionId: string }[] }
-type Detail = Omit<MealDay, 'settledPortions'> & { cutoffAt: string; settlements: { id: string; count: number; settledAt: string; reason: string | null }[]; evidence: { id: string; kind: string; description: string; capturedAt: string; syncedAt: string; photoUrl: string | null }[] }
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL ?? '/api' })
-const date = (value: string) => new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' }).format(new Date(`${value}T00:00:00`))
+type Page = 'accounts' | 'meals' | 'profile'
+const mealRoles = ['ADMIN', 'KITCHEN_STAFF', 'NUTRITIONIST', 'ACCOUNTANT']
 
 export default function App() {
-  const [selected, setSelected] = useState<string | null>(null)
-  const days = useQuery({ queryKey: ['meal-days'], queryFn: async () => (await api.get<MealDay[]>('/meal-days')).data })
-  const detail = useQuery({ queryKey: ['meal-day', selected], queryFn: async () => (await api.get<Detail>(`/meal-days/${selected}`)).data, enabled: !!selected })
-  const items = days.data ?? []
-  return <div className="shell"><aside className="sidebar"><div className="brand"><span className="logo"><Leaf size={22} /></span><span>meal<b>trace</b><small>School meal operations</small></span></div><p className="side-label">KHÔNG GIAN LÀM VIỆC</p><button className="nav" onClick={() => setSelected(null)}><CalendarDays size={18} /> Ngày ăn</button><div className="side-foot">Dữ liệu có thể truy vết</div></aside><div className="content"><header>MealTrace / Tổng quan <span>MVP foundation</span></header><main>{selected ? <><button className="back" onClick={() => setSelected(null)}>← Quay lại tổng quan</button><div className="eyebrow">HỒ SƠ THỰC HIỆN BỮA ĂN</div>{detail.isPending ? <p>Đang tải…</p> : detail.isError ? <p className="error">Không tải được hồ sơ.</p> : detail.data && <><h1>{detail.data.mealType} · {date(detail.data.date)}</h1><p className="lead">Đối chiếu thực đơn, số suất chốt và minh chứng.</p><div className="grid"><section className="panel"><h2>Thực đơn dự kiến</h2>{detail.data.dishes.length ? detail.data.dishes.map(d => <div className="entry" key={d.id}>{d.name}<small>Recipe version: {d.recipeVersionId}</small></div>) : <p className="empty">Chưa có món ăn.</p>}</section><section className="panel"><h2>Số suất chốt</h2><strong className="big">{detail.data.settlements.at(-1)?.count ?? '—'}</strong><p className="note">Cut-off: {new Date(detail.data.cutoffAt).toLocaleString('vi-VN')}</p><p className="note">{detail.data.settlements.length} bản ghi lịch sử</p></section></div><section className="panel evidence"><h2>Minh chứng bữa ăn</h2>{detail.data.evidence.length ? detail.data.evidence.map(e => <div className="entry" key={e.id}><strong>{e.kind}</strong> — {e.description}<small>Chụp: {new Date(e.capturedAt).toLocaleString('vi-VN')} · Đồng bộ: {new Date(e.syncedAt).toLocaleString('vi-VN')}</small>{e.photoUrl && <a href={e.photoUrl} target="_blank" rel="noreferrer">Xem ảnh</a>}</div>) : <p className="empty">Chưa có minh chứng.</p>}</section></>}</> : <><div className="eyebrow">HỆ THỐNG QUẢN LÝ BỮA ĂN BÁN TRÚ</div><h1>Tổng quan ngày ăn</h1><p className="lead">Theo dõi thực đơn, số suất đã chốt và hồ sơ thực hiện bữa ăn.</p><div className="stats"><div><span>Ngày ăn ghi nhận</span><strong>{days.isPending ? '—' : items.length}</strong></div><div><span>Thực đơn công bố</span><strong>{days.isPending ? '—' : items.filter(x => x.publishedAt).length}</strong></div><div><span>Ngày đã chốt suất</span><strong>{days.isPending ? '—' : items.filter(x => x.settledPortions !== null).length}</strong></div></div><section className="panel"><div className="panel-head"><div><h2>Danh sách ngày ăn</h2><p>Dữ liệu trực tiếp từ MealTrace API.</p></div><UtensilsCrossed size={22} /></div>{days.isPending ? <p className="empty">Đang tải dữ liệu…</p> : days.isError ? <p className="empty error">Chưa kết nối được API. Hãy chạy backend và PostgreSQL theo README.</p> : !items.length ? <div className="empty"><Database size={30} /><h3>Chưa có ngày ăn</h3><p>Database đã sẵn sàng cho thực đơn đầu tiên.</p></div> : items.map(day => <button className="row" key={day.id} onClick={() => setSelected(day.id)}><span className="date">{day.date.slice(8, 10)}<small>THÁNG {day.date.slice(5, 7)}</small></span><span className="row-text"><strong>{day.mealType} · {date(day.date)}</strong><small>{day.dishes.map(d => d.name).join(' · ') || 'Chưa gắn món ăn'}</small></span><span className="badge">{day.settledPortions === null ? 'Chưa chốt suất' : `${day.settledPortions} suất`}</span>›</button>)}</section><div className="principle"><Leaf size={20} /> Mỗi con số trong báo cáo cần dẫn về đúng dữ liệu và phiên bản đã dùng.</div></>}</main></div></div>
+  const queryClient = useQueryClient()
+  const [user, setUser] = useState<CurrentUser | null>(null)
+  const [page, setPage] = useState<Page>('profile')
+  const isAdmin = user?.roles.includes('ADMIN') ?? false
+  const isMealStaff = user?.roles.some(role => mealRoles.includes(role)) ?? false
+
+  function clearSession() {
+    setAccessToken(null)
+    setUser(null)
+    setPage('profile')
+    queryClient.clear()
+  }
+
+  async function logout() {
+    try { await api.post('/auth/logout') }
+    catch { /* Clear the local session even when the API is unreachable. */ }
+    finally { clearSession() }
+  }
+
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(undefined, error => {
+      if (error.response?.status === 401 && user) clearSession()
+      return Promise.reject(error)
+    })
+    return () => api.interceptors.response.eject(interceptor)
+  }, [user])
+
+  function onLogin(result: LoginResponse) {
+    setAccessToken(result.accessToken)
+    setUser(result.user)
+    setPage(result.user.roles.includes('ADMIN') ? 'accounts'
+      : result.user.roles.some(role => mealRoles.includes(role)) ? 'meals' : 'profile')
+  }
+
+  if (!user) return <LoginPage onLogin={onLogin} />
+  const pageName = page === 'accounts' ? 'Tài khoản' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
+
+  return <div className="shell">
+    <aside className="sidebar">
+      <div className="brand"><span className="logo"><Leaf size={22} /></span><span>meal<b>trace</b><small>School meal operations</small></span></div>
+      <p className="side-label">KHÔNG GIAN LÀM VIỆC</p>
+      <nav aria-label="Điều hướng chính">
+        {isAdmin && <button className={`nav ${page === 'accounts' ? 'active' : ''}`} onClick={() => setPage('accounts')}><Users size={18} /> Tài khoản</button>}
+        {isMealStaff && <button className={`nav ${page === 'meals' ? 'active' : ''}`} onClick={() => setPage('meals')}><CalendarDays size={18} /> Ngày ăn</button>}
+        <button className={`nav ${page === 'profile' ? 'active' : ''}`} onClick={() => setPage('profile')}><UserRound size={18} /> Hồ sơ của tôi</button>
+      </nav>
+      <div className="side-foot"><ShieldCheck size={17} /> Dữ liệu có thể truy vết</div>
+    </aside>
+    <div className="content">
+      <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
+      <main>{page === 'accounts' && isAdmin ? <AccountsPage />
+        : page === 'meals' && isMealStaff ? <MealDaysPage />
+        : <ProfilePage user={user} onPasswordChanged={clearSession} />}</main>
+    </div>
+  </div>
 }

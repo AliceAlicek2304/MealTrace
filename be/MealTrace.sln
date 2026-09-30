@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{036C2B81-FB0
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MealTrace.Api", "src\MealTrace.Api\MealTrace.Api.csproj", "{F2A52EE4-C836-4E3C-AEF8-21BD004F1B11}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{FAC46588-0D35-4C73-812C-790C41F0D4DF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MealTrace.Api.Tests", "tests\MealTrace.Api.Tests\MealTrace.Api.Tests.csproj", "{6E794C91-340D-475A-9C62-0646BF9A66E8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +24,13 @@ Global
 		{F2A52EE4-C836-4E3C-AEF8-21BD004F1B11}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F2A52EE4-C836-4E3C-AEF8-21BD004F1B11}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F2A52EE4-C836-4E3C-AEF8-21BD004F1B11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E794C91-340D-475A-9C62-0646BF9A66E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E794C91-340D-475A-9C62-0646BF9A66E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E794C91-340D-475A-9C62-0646BF9A66E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E794C91-340D-475A-9C62-0646BF9A66E8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{F2A52EE4-C836-4E3C-AEF8-21BD004F1B11} = {036C2B81-FB0C-4A3D-8A7B-B27DE8990683}
+		{6E794C91-340D-475A-9C62-0646BF9A66E8} = {FAC46588-0D35-4C73-812C-790C41F0D4DF}
 	EndGlobalSection
 EndGlobal

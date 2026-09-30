@@ -4,5 +4,6 @@
 **/dist/
 **/.env
 **/.env.local
+be/src/MealTrace.Api/appsettings.Development.local.json
 .vs/
 fe/src/assets/hero.png

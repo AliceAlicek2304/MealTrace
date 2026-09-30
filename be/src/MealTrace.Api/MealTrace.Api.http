@@ -4,4 +4,28 @@ GET {{MealTraceApi}}/api/health
 
 ###
 
+POST {{MealTraceApi}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@demo.mealtrace.local",
+  "password": "PASTE_LOCAL_SEED_PASSWORD"
+}
+
+###
+
+# Đặt token trả về từ /api/auth/login vào biến bên dưới trước khi thử endpoint có quyền.
+@token = PASTE_ACCESS_TOKEN
+
+GET {{MealTraceApi}}/api/auth/me
+Authorization: Bearer {{token}}
+
+###
+
+GET {{MealTraceApi}}/api/admin/users
+Authorization: Bearer {{token}}
+
+###
+
 GET {{MealTraceApi}}/api/meal-days
+Authorization: Bearer {{token}}

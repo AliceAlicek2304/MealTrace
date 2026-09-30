@@ -1,9 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace MealTrace.Api.Data;
 
-public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> options) : DbContext(options)
+public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
+    public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
+    public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
+    public DbSet<InspectorGrant> InspectorGrants => Set<InspectorGrant>();
     public DbSet<SchoolClass> Classes => Set<SchoolClass>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
@@ -20,6 +26,12 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
 
     protected override void OnModelCreating(ModelBuilder model)
     {
+        base.OnModelCreating(model);
+        model.Entity<TeacherAssignment>().HasKey(x => new { x.UserId, x.ClassId });
+        model.Entity<ParentStudent>().HasKey(x => new { x.UserId, x.StudentId });
+        model.Entity<InspectorGrant>().HasKey(x => x.UserId);
+        model.Entity<InspectorGrant>().HasOne(x => x.User).WithOne(x => x.InspectorGrant).HasForeignKey<InspectorGrant>(x => x.UserId);
+        model.Entity<InspectorGrant>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.GrantedById).OnDelete(DeleteBehavior.Restrict);
         model.Entity<SchoolClass>().HasIndex(x => new { x.SchoolYear, x.Name }).IsUnique();
         model.Entity<MealDay>().HasIndex(x => new { x.Date, x.MealType }).IsUnique();
         model.Entity<IngredientVersion>().HasIndex(x => new { x.IngredientId, x.Version }).IsUnique();

@@ -1,5 +1,6 @@
 using MealTrace.Api.Data;
 using Microsoft.EntityFrameworkCore;
+using MealTrace.Api.Security;
 
 namespace MealTrace.Api.Features;
 
@@ -7,7 +8,7 @@ public static class MealEndpoints
 {
     public static IEndpointRouteBuilder MapMealEndpoints(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api");
+        var api = app.MapGroup("/api").WithTags("Meals").RequireAuthorization();
 
         api.MapGet("/meal-days", async (DateOnly? from, DateOnly? to, MealTraceDbContext db) =>
         {
@@ -21,7 +22,7 @@ public static class MealEndpoints
                 SettledPortions = x.Settlements.OrderByDescending(s => s.SettledAt)
                     .Select(s => (int?)s.Count).FirstOrDefault()
             }).ToListAsync();
-        }).WithName("ListMealDays");
+        }).RequireAuthorization(policy => policy.RequireRole(RoleNames.MealStaff)).WithName("ListMealDays");
 
         api.MapGet("/meal-days/{id:guid}", async (Guid id, MealTraceDbContext db) =>
         {
@@ -35,7 +36,7 @@ public static class MealEndpoints
                 { e.Id, e.Kind, e.Description, e.PhotoUrl, e.CapturedAt, e.SyncedAt, e.AmendsId })
             }).FirstOrDefaultAsync();
             return day is null ? Results.NotFound() : Results.Ok(day);
-        }).WithName("GetMealDay");
+        }).RequireAuthorization(policy => policy.RequireRole(RoleNames.MealStaff)).WithName("GetMealDay");
 
         api.MapGet("/reports/{id:guid}/lineage", async (Guid id, MealTraceDbContext db) =>
         {
@@ -45,7 +46,7 @@ public static class MealEndpoints
                 x.EnergyKcalPerPortion, x.CostPerPortion, x.SourceJson
             }).FirstOrDefaultAsync();
             return report is null ? Results.NotFound() : Results.Ok(report);
-        }).WithName("GetReportLineage");
+        }).RequireAuthorization(policy => policy.RequireRole(RoleNames.ReportReaders)).WithName("GetReportLineage");
 
         return app;
     }
