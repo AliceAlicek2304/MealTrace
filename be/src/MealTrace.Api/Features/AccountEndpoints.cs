@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Data;
 using MealTrace.Api.Data;
 using MealTrace.Api.Security;
@@ -11,10 +10,10 @@ namespace MealTrace.Api.Features;
 
 public static class AccountEndpoints
 {
-    public sealed record AccountInput(string FullName, string Email, string[] Roles, string Status,
-        Guid[] ClassIds, Guid[] StudentIds, DateOnly? InspectorAccessUntil);
+    public sealed record AccountInput(string FullName, string? Email, string[] Roles, string Status,
+        Guid[] ClassIds, Guid[] StudentIds, DateOnly? InspectorAccessUntil, string? PhoneNumber = null);
     public sealed record AccountView(Guid Id, string FullName, string Email, string[] Roles, string Status,
-        Guid[] ClassIds, Guid[] StudentIds, DateOnly? InspectorAccessUntil);
+        Guid[] ClassIds, Guid[] StudentIds, DateOnly? InspectorAccessUntil, string? PhoneNumber = null);
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -26,12 +25,15 @@ public static class AccountEndpoints
             return await next(context);
         });
 
-        group.MapGet("/users", async (int? page, int? pageSize, MealTraceDbContext db) =>
+        group.MapGet("/users", async (int? page, int? pageSize, Guid? classId, MealTraceDbContext db) =>
         {
             var number = Math.Max(1, page ?? 1);
             var size = Math.Clamp(pageSize ?? 25, 1, 100);
-            var total = await db.Users.CountAsync();
-            var users = await db.Users.AsNoTracking().OrderBy(x => x.Email)
+            var query = db.Users.AsNoTracking().AsQueryable();
+            if (classId is not null)
+                query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == x.Id && a.ClassId == classId));
+            var total = await query.CountAsync();
+            var users = await query.OrderBy(x => x.Email)
                 .Skip((number - 1) * size).Take(size).ToListAsync();
             var ids = users.Select(x => x.Id).ToArray();
             var roleRows = await (from link in db.UserRoles.AsNoTracking()
@@ -41,12 +43,12 @@ public static class AccountEndpoints
             var teacherRows = await db.TeacherAssignments.AsNoTracking().Where(x => ids.Contains(x.UserId)).ToListAsync();
             var parentRows = await db.ParentStudents.AsNoTracking().Where(x => ids.Contains(x.UserId)).ToListAsync();
             var grants = await db.InspectorGrants.AsNoTracking().Where(x => ids.Contains(x.UserId)).ToListAsync();
-            var items = users.Select(user => new AccountView(user.Id, user.FullName, user.Email!,
+            var items = users.Select(user => new AccountView(user.Id, user.FullName, user.Email ?? "",
                 roleRows.Where(x => x.UserId == user.Id).Select(x => x.Role).ToArray(),
                 user.IsActive ? "ACTIVE" : "SUSPENDED",
                 teacherRows.Where(x => x.UserId == user.Id).Select(x => x.ClassId).ToArray(),
                 parentRows.Where(x => x.UserId == user.Id).Select(x => x.StudentId).ToArray(),
-                grants.FirstOrDefault(x => x.UserId == user.Id)?.ExpiresOn)).ToArray();
+                grants.FirstOrDefault(x => x.UserId == user.Id)?.ExpiresOn, user.PhoneNumber)).ToArray();
             return Results.Ok(new { items, total, page = number, pageSize = size });
         }).WithName("ListUsers");
 
@@ -58,8 +60,8 @@ public static class AccountEndpoints
             var classIds = await db.TeacherAssignments.AsNoTracking().Where(x => x.UserId == id).Select(x => x.ClassId).ToArrayAsync();
             var studentIds = await db.ParentStudents.AsNoTracking().Where(x => x.UserId == id).Select(x => x.StudentId).ToArrayAsync();
             var grant = await db.InspectorGrants.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == id);
-            return Results.Ok(new AccountView(user.Id, user.FullName, user.Email!, roles,
-                user.IsActive ? "ACTIVE" : "SUSPENDED", classIds, studentIds, grant?.ExpiresOn));
+            return Results.Ok(new AccountView(user.Id, user.FullName, user.Email ?? "", roles,
+                user.IsActive ? "ACTIVE" : "SUSPENDED", classIds, studentIds, grant?.ExpiresOn, user.PhoneNumber));
         }).WithName("GetUser");
 
         group.MapGet("/scope-options", async (MealTraceDbContext db) => Results.Ok(new
@@ -76,16 +78,19 @@ public static class AccountEndpoints
             http.Response.Headers.CacheControl = "no-store";
             var error = await ValidateAsync(input, db);
             if (error is not null) return Results.BadRequest(new { message = error });
-            var email = input.Email.Trim().ToLowerInvariant();
-            if (await manager.FindByEmailAsync(email) is not null)
+            var email = string.IsNullOrWhiteSpace(input.Email) ? null : input.Email.Trim().ToLowerInvariant();
+            var phone = PhoneNumbers.Normalize(input.PhoneNumber);
+            if (email is not null && await manager.FindByEmailAsync(email) is not null)
                 return Results.Conflict(new { message = "Email đã được sử dụng." });
 
+            if (phone is not null && await db.Users.AnyAsync(x => x.PhoneNumber == phone))
+                return Results.Conflict(new { message = "SĐT đã được sử dụng." });
             var user = new ApplicationUser
             {
-                Id = Guid.NewGuid(), UserName = email, Email = email, EmailConfirmed = true,
+                Id = Guid.NewGuid(), UserName = email ?? phone, Email = email, PhoneNumber = phone, EmailConfirmed = false,
                 FullName = input.FullName.Trim(), IsActive = input.Status == "ACTIVE",
             };
-            var temporaryPassword = "Mt!9" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).TrimEnd('=').Replace('+', 'A').Replace('/', 'b');
+            var temporaryPassword = TemporaryPassword.Generate();
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var created = await manager.CreateAsync(user, temporaryPassword);
             if (!created.Succeeded) return Results.BadRequest(new { message = string.Join("; ", created.Errors.Select(x => x.Description)) });
@@ -107,10 +112,13 @@ public static class AccountEndpoints
             if (error is not null) return Results.BadRequest(new { message = error });
             var user = await manager.FindByIdAsync(id.ToString());
             if (user is null) return Results.NotFound();
-            var email = input.Email.Trim().ToLowerInvariant();
-            var other = await manager.FindByEmailAsync(email);
+            var email = string.IsNullOrWhiteSpace(input.Email) ? null : input.Email.Trim().ToLowerInvariant();
+            var phone = PhoneNumbers.Normalize(input.PhoneNumber);
+            var other = email is null ? null : await manager.FindByEmailAsync(email);
             if (other is not null && other.Id != id) return Results.Conflict(new { message = "Email đã được sử dụng." });
 
+            if (phone is not null && await db.Users.AnyAsync(x => x.PhoneNumber == phone && x.Id != id))
+                return Results.Conflict(new { message = "SĐT đã được sử dụng." });
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var oldRoles = await manager.GetRolesAsync(user);
             if (user.IsActive && oldRoles.Contains(RoleNames.Admin) && (input.Status != "ACTIVE" || !input.Roles.Contains(RoleNames.Admin)))
@@ -123,7 +131,10 @@ public static class AccountEndpoints
             user.FullName = input.FullName.Trim();
             user.IsActive = input.Status == "ACTIVE";
             user.Email = email;
-            user.UserName = email;
+            user.UserName = email ?? phone;
+            user.PhoneNumber = phone;
+            user.PhoneNumberConfirmed = false;
+            user.EmailConfirmed = false;
             var updated = await manager.UpdateAsync(user);
             if (!updated.Succeeded) return Results.BadRequest(new { message = string.Join("; ", updated.Errors.Select(x => x.Description)) });
             var remove = await manager.RemoveFromRolesAsync(user, oldRoles.Except(input.Roles));
@@ -143,7 +154,9 @@ public static class AccountEndpoints
     private static async Task<string?> ValidateAsync(AccountInput input, MealTraceDbContext db)
     {
         if (string.IsNullOrWhiteSpace(input.FullName) || input.FullName.Length > 120) return "Họ tên không hợp lệ.";
-        if (string.IsNullOrWhiteSpace(input.Email) || input.Email.Length > 254 || !input.Email.Contains('@')) return "Email không hợp lệ.";
+        if (string.IsNullOrWhiteSpace(input.Email) && string.IsNullOrWhiteSpace(input.PhoneNumber)) return "Cần SĐT hoặc email đăng nhập.";
+        if (!string.IsNullOrWhiteSpace(input.Email) && (input.Email.Length > 254 || !System.Net.Mail.MailAddress.TryCreate(input.Email.Trim(), out var parsed) || parsed.Address != input.Email.Trim())) return "Email không hợp lệ.";
+        if (!string.IsNullOrWhiteSpace(input.PhoneNumber) && PhoneNumbers.Normalize(input.PhoneNumber) is null) return "SĐT không hợp lệ (10 số, bắt đầu bằng 0 hoặc +84).";
         if (input.Roles is null || input.ClassIds is null || input.StudentIds is null) return "Thiếu danh sách vai trò hoặc phạm vi.";
         if (input.Roles.Distinct().Count() != input.Roles.Length || input.Roles.Any(x => !RoleNames.All.Contains(x))) return "Vai trò không hợp lệ.";
         if (input.Status is not ("ACTIVE" or "SUSPENDED")) return "Trạng thái không hợp lệ.";
@@ -173,5 +186,5 @@ public static class AccountEndpoints
     }
 
     private static AccountView ToView(ApplicationUser user, AccountInput input) =>
-        new(user.Id, user.FullName, user.Email!, input.Roles, user.IsActive ? "ACTIVE" : "SUSPENDED", input.ClassIds, input.StudentIds, input.InspectorAccessUntil);
+        new(user.Id, user.FullName, user.Email ?? "", input.Roles, user.IsActive ? "ACTIVE" : "SUSPENDED", input.ClassIds, input.StudentIds, input.InspectorAccessUntil, user.PhoneNumber);
 }

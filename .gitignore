@@ -7,3 +7,6 @@
 be/src/MealTrace.Api/appsettings.Development.local.json
 .vs/
 fe/src/assets/hero.png
+
+# Local manual QA checklist
+docs/manual-test-plan.md

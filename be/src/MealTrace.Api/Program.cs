@@ -27,7 +27,7 @@ if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt:Key must contai
 builder.Services.AddDbContext<MealTraceDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
-    options.User.RequireUniqueEmail = true;
+    options.User.RequireUniqueEmail = false;
     options.Password.RequiredLength = builder.Environment.IsDevelopment() ? 8 : 12;
     options.Password.RequireDigit = true;
     options.Password.RequireNonAlphanumeric = true;
@@ -107,6 +107,7 @@ if (app.Environment.IsDevelopment())
 {
     if (app.Configuration.GetValue("Seed:Enabled", true))
         await DevelopmentSeeder.SeedAsync(app.Services);
+    if (args.Contains("--seed-only")) return;
     app.UseSwagger();
     app.UseSwaggerUI();
 }
@@ -124,6 +125,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok", service = "MealT
 app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapMealEndpoints();
+app.MapWorkflowEndpoints();
 app.Run();
 
 public partial class Program;

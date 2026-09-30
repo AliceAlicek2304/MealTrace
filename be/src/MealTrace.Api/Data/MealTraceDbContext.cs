@@ -20,13 +20,17 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
     public DbSet<MealDay> MealDays => Set<MealDay>();
     public DbSet<MenuDish> MenuDishes => Set<MenuDish>();
     public DbSet<MealRegistration> MealRegistrations => Set<MealRegistration>();
+    public DbSet<MealAbsence> MealAbsences => Set<MealAbsence>();
     public DbSet<PortionSettlement> PortionSettlements => Set<PortionSettlement>();
+    public DbSet<SettlementStudent> SettlementStudents => Set<SettlementStudent>();
     public DbSet<MealEvidence> MealEvidence => Set<MealEvidence>();
     public DbSet<ReportSnapshot> ReportSnapshots => Set<ReportSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.Entity<ApplicationUser>().HasIndex(x => x.PhoneNumber).IsUnique();
+        model.Entity<ApplicationUser>().HasIndex(x => x.NormalizedEmail).IsUnique();
         model.Entity<TeacherAssignment>().HasKey(x => new { x.UserId, x.ClassId });
         model.Entity<ParentStudent>().HasKey(x => new { x.UserId, x.StudentId });
         model.Entity<InspectorGrant>().HasKey(x => x.UserId);
@@ -37,7 +41,12 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
         model.Entity<IngredientVersion>().HasIndex(x => new { x.IngredientId, x.Version }).IsUnique();
         model.Entity<RecipeVersion>().HasIndex(x => new { x.RecipeId, x.Version }).IsUnique();
         model.Entity<MealRegistration>().HasIndex(x => new { x.MealDayId, x.StudentId, x.RecordedAt });
+        model.Entity<MealAbsence>().HasIndex(x => new { x.StudentId, x.FromDate, x.ToDate });
+        model.Entity<MealAbsence>().HasOne(x => x.ReportedBy).WithMany().HasForeignKey(x => x.ReportedByUserId).OnDelete(DeleteBehavior.Restrict);
         model.Entity<PortionSettlement>().HasIndex(x => new { x.MealDayId, x.SettledAt });
+        model.Entity<PortionSettlement>().HasIndex(x => new { x.MealDayId, x.ClassId }).IsUnique().HasFilter("\"ClassId\" IS NOT NULL");
+        model.Entity<SettlementStudent>().HasKey(x => new { x.PortionSettlementId, x.StudentId });
+        model.Entity<SettlementStudent>().HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         model.Entity<IngredientVersion>().Property(x => x.EnergyKcalPer100G).HasPrecision(12, 3);
         model.Entity<IngredientVersion>().Property(x => x.ProteinGPer100G).HasPrecision(12, 3);
         model.Entity<IngredientVersion>().Property(x => x.PricePerKg).HasPrecision(14, 2);

@@ -1,153 +1,131 @@
 # MealTrace — Continuity
 
-> Cập nhật: 2026-09-30. Nguồn: proposal MealTrace, bảng actor/FR và entity list mới do chủ dự án cung cấp; source khởi tạo ở commit `1eab3a2` trên nhánh `main`. Thay đổi FE/BE sau commit này hiện ở local. Đây là tài liệu theo dõi công việc; cập nhật sau mỗi thay đổi đáng kể.
+> Cập nhật 30/09/2026. Proposal đang áp dụng: [PROPOSAL.md](PROPOSAL.md). Mã nguồn đã push gần nhất: `77cb2ee`; phần workflow dưới đây còn ở working tree. Không dùng Docker. `README.md` để trống theo yêu cầu.
 
-## 1. Mục tiêu và mức hiện tại
+`mobile/` hiện chỉ có `.gitkeep` để giữ chỗ trong Git; chưa có ứng dụng mobile hoặc thay đổi phạm vi MVP. Chạy web local bằng `dotnet run --project be/src/MealTrace.Api/MealTrace.Api.csproj --launch-profile http` ở root và `npm run dev` trong `fe/` (cổng 5184 và 5173).
 
-MealTrace dành cho quản lý bữa ăn bán trú trường mầm non công lập. Điểm khác biệt của đề tài là **mỗi số liệu dinh dưỡng, chi phí, số suất phải truy ngược được tới bản ghi vận hành và đúng phiên bản dữ liệu nguồn**. Sau correction, báo cáo đã ký vẫn phải tái lập được; kết quả tính lại cần chỉ ra nguyên nhân chênh lệch.
+## Trạng thái hiện tại
 
-**Mức hiện tại: bộ khung kỹ thuật trước MVP (pre-MVP scaffold).** Chưa có quy trình nghiệp vụ khép kín hoặc dữ liệu thật được xác minh. Không nên gọi đây là MVP hoàn thành chỉ vì build thành công.
+**Đã có lát cắt đầu tiên của workflow chính, chưa phải MVP hoàn chỉnh.** Hệ thống đang có đăng nhập/6 vai trò, quản lý tài khoản, lớp và trẻ tạo thủ công, phụ huynh báo vắng ngày/khoảng ngày, xem danh sách dự kiến ăn theo lớp và chốt số suất gửi bếp. Backend dùng ASP.NET Core 8, EF Core code-first, PostgreSQL; frontend React/TypeScript. Swagger hoạt động trong Development.
 
-Luồng đích:
+Mặc định trẻ đang hoạt động trong lớp của niên khóa được **dự kiến ăn** vào `MealDay` đã tạo. Báo vắng được tính nếu ghi trước `CutoffAt`. Giáo viên có thể ghi ngoại lệ trước giờ chốt cho lớp được giao. Bản chốt lưu danh sách ID và tên trẻ theo lớp; sau chốt, báo vắng bị hủy hoặc thêm trẻ mới không thay đổi số suất đã gửi. Đây là số suất dự kiến, **không phải điểm danh có mặt thực tế**.
 
-`Học sinh/lớp → nguyên liệu & công thức có phiên bản → thực đơn công bố → đăng ký/điểm danh → chốt suất → thực hiện & minh chứng → tính dinh dưỡng/chi phí → báo cáo ký → drill-down/correction/recompute`.
+## Những gì đã chạy và kiểm chứng
 
-## 2. Cấu trúc và công nghệ
+- Auth: Identity, mật khẩu hash/salt qua PasswordHasher của ASP.NET Identity, JWT, kiểm tra role/scope tại API; 6 tài khoản demo chỉ trong Development.
+- Admin: tạo lớp, thêm trẻ và liên kết giáo viên/phụ huynh qua quản trị tài khoản. Nhập lớp/trẻ từ tệp **chưa có**.
+- Admin có thể liên kết một trẻ với phụ huynh ngay tại màn **Lớp và trẻ** bằng SĐT. SĐT đã tồn tại được ghép vào tài khoản đang hoạt động; SĐT mới tạo tài khoản Parent với mật khẩu tạm chỉ hiển thị một lần. Một phụ huynh có thể liên kết nhiều trẻ và một trẻ có thể có nhiều người giám hộ. Danh sách tài khoản lọc theo lớp giáo viên phụ trách ở API trước khi phân trang.
+- Parent: xem trẻ được liên kết; gửi/hủy báo vắng một ngày hoặc tối đa 90 ngày. Không được báo vắng cho trẻ ngoài liên kết.
+- Teacher: xem danh sách dự kiến ăn chỉ cho lớp được phân công; ghi ngoại lệ trước giờ chốt.
+- Admin: tạo phiên ăn với niên khóa, giờ chốt mặc định 07:30 UTC+7; chốt số suất theo lớp. Kitchen/Nutritionist xem bản chốt.
+- EF migrations `CoreMealWorkflow` và `WorkflowSettlementState` đã áp dụng lên PostgreSQL local `mealtrace`.
+- `dotnet test be/MealTrace.sln --no-restore`: 5/5 pass, gồm kịch bản parent báo vắng, quyền xem lớp, bản chốt không đổi sau hủy báo vắng/thêm trẻ, tạo/ghép phụ huynh và lọc giáo viên theo lớp. `npm run build` và `npm test` trong `fe/`: pass.
+- Smoke trên PostgreSQL local: API chạy, Parent lấy được danh sách một trẻ demo; Admin lấy danh sách phiên workflow, danh sách trẻ trong lớp và tài khoản được lọc theo lớp. Chưa thử thao tác tạo/chốt/liên kết mới trên PostgreSQL thật; test nghiệp vụ tự động hiện dùng SQLite.
 
-| Phần | Vị trí | Hiện trạng |
+## Định hướng giao diện FE
+
+- Trang đầu khi chưa đăng nhập là landing page giới thiệu **MealTrace** tại `fe/src/features/landing/LandingPage.tsx`. Các ý tưởng catalog/progress/testimonial/CTA của nền tảng học tập chỉ dùng làm cảm hứng bố cục: thẻ giới thiệu tính năng, demo bốn bước bữa ăn, góc nhìn theo vai trò và CTA đăng nhập. Không có khóa học hoặc đăng ký học trong phạm vi sản phẩm.
+- Bộ style claymorphism dùng màu kem, san hô, vàng, tím, xanh mint; thẻ bo tròn, viền sáng và bóng nổi mềm. Token và quy tắc responsive ở `fe/src/clay.css`, nạp sau `style.css` để áp dụng cho landing, đăng nhập và các màn hình nghiệp vụ.
+- Landing page dùng dữ liệu **minh họa**, có nhãn rõ. Không trình bày số liệu giả hay lời chứng thực giả như dữ liệu thật. CTA đi đến màn đăng nhập, không tạo tài khoản công khai. Tài khoản seed chỉ hiển thị trên màn đăng nhập ở Development.
+- Khi thêm màn hình mới, tái dùng màu, nút, field và panel của bộ style; giữ nội dung tiếng Việt, phân cấp chữ rõ, tương phản dễ đọc, bố cục mobile và hỗ trợ giảm chuyển động.
+- `npm run build` và `npm test` của FE đã qua sau thay đổi style. Chưa kiểm tra hình ảnh bằng trình duyệt: Computer Use dừng vì không xác định được URL hiện tại của Chrome đủ chắc chắn. Cần kiểm tra trực quan desktop/mobile trong lần tiếp theo.
+- Thông báo thao tác dùng Sonner toast: thành công màu xanh lá, lỗi màu đỏ; các biểu mẫu vẫn giữ lỗi ngay tại trường khi cần sửa dữ liệu nhập.
+
+## Chưa làm / giới hạn cần nhớ
+
+| Ưu tiên | Việc còn lại | Lý do |
 | --- | --- | --- |
-| Frontend | `fe/` | React 19, TypeScript, Vite, TanStack Query, Axios, Lucide, Vitest; đăng nhập, quản trị tài khoản và màn ngày ăn. Ma trận quyền đã bỏ khỏi web theo yêu cầu. |
-| Backend | `be/src/MealTrace.Api/` | ASP.NET Core 8 Minimal API, EF Core 8, Identity, JWT Bearer, Npgsql, Swagger Bearer |
-| Database | PostgreSQL | Migration `InitialCreate` và `IdentityAndScopes` đã áp dụng vào DB `mealtrace` local; seed 6 role và 6 tài khoản demo đã chạy |
-| Công cụ EF | `.config/dotnet-tools.json` | `dotnet-ef` 8.0.11 local tool |
-| Ghi chú vận hành | `continuity.md` | PostgreSQL cài trực tiếp trên Windows, không dùng Docker; connection string local được Git bỏ qua. `README.md` đang để trống theo yêu cầu chủ dự án. |
+| P0 | Enrollment theo khoảng thời gian và lịch sử chuyển lớp | `Student.ClassId` hiện là lớp hiện tại. Bản chốt đã lưu ID/tên, nhưng chưa ghi enrollment nguồn nên chưa giải thích đầy đủ việc chuyển lớp về sau. |
+| P0 | Kiểm thử workflow trên PostgreSQL với dữ liệu thử biệt lập | Migration đã chạy, nhưng chưa có test tự động PostgreSQL cho cut-off, transaction đồng thời và đầy đủ API. |
+| P1 | Quy trình sửa số suất sau chốt bằng bản điều chỉnh có lý do | Hiện bản chốt bất biến và chỉ cho chốt một lần; báo vắng muộn không làm đổi bản đã chốt. Chưa có amendment. |
+| P1 | Cấu hình giờ chốt theo trường/niên khóa và ngày nghỉ | Hiện cố định 07:30 UTC+7. Cần trường xác nhận quy tắc chính thức. |
+| P1 | Import danh sách lớp/trẻ từ tệp, kiểm tra trùng và lỗi theo dòng | Hiện chỉ tạo từng lớp/trẻ trên UI. |
+| P1 | Liên kết phụ huynh hàng loạt sau import | Tạm hoãn theo yêu cầu vì chưa có mẫu tệp. Khi triển khai cần mã học sinh duy nhất và SĐT phụ huynh trong tệp. Bước xem trước phải đối chiếu từng dòng, trùng SĐT, trẻ trùng mã và lỗi lớp trước khi ghi DB; sau xác nhận mới tạo/ghép tài khoản theo SĐT và quan hệ ParentStudent trong một giao dịch. Gửi thông tin tài khoản qua SMS tới SĐT và qua email nếu có sẽ triển khai ở giai đoạn sau, sau khi import thành công. `scope-options` hiện chỉ tải tối đa 200 trẻ nên không dùng checkbox hiện tại cho nhập hàng loạt. |
+| P1 | Phân biệt điểm danh có mặt thực tế sau giờ chốt | Ngoại lệ trước giờ chốt chỉ phục vụ số suất; chưa có luồng ghi nhận thực tế 08:30 và đối chiếu. |
+| P1 | Thực đơn, công thức dinh dưỡng, công bố, món thực tế/đổi món, ảnh, màn phụ huynh theo dõi | Model thực đơn/recipe cũ mới ở mức sơ bộ, chưa có workflow thao tác. |
+| P1 | Báo cáo có phiên bản, dữ liệu nguồn và bản tính lại | `ReportSnapshot` hiện chỉ là scaffold, chưa có phép tính/duyệt/điều chỉnh đáng tin cậy. |
+| P2 | Phí, sổ cái, offline ảnh, thực đơn riêng trẻ, dashboard nâng cao | Phần mở rộng theo proposal sau khi MVP ổn định. |
 
-API hiện có: health; `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/change-password`; `GET/POST/PUT /api/admin/users`, `GET /api/admin/scope-options`; các endpoint đọc ngày ăn và report lineage. Backend đã chặn theo role. Đăng nhập, `/me`, danh sách Admin và quyền đọc ngày ăn đã được thử với DB thật.
+## Quyết định cần xác nhận
 
-Schema đã có các entity `SchoolClass`, `Student`, `Ingredient/IngredientVersion`, `Recipe/RecipeVersion/RecipeIngredient`, `MealDay/MenuDish`, `MealRegistration`, `PortionSettlement`, `MealEvidence`, `ReportSnapshot`. Các trường `SupersedesId`/`AmendsId` mới là chỗ để nối lịch sử; chưa có logic bảo đảm append-only hoặc correction hợp lệ.
+1. Giờ chốt số suất và hạn công bố thực đơn; xử lý báo vắng muộn, hoàn phí và ngày nghỉ.
+2. Ai được chốt, ai được duyệt điều chỉnh sau chốt, bếp cần thấy danh sách trẻ hay chỉ tổng số theo lớp.
+3. Mẫu báo cáo gửi cơ quan chuyên trách, nguồn dữ liệu thành phần thực phẩm, người duyệt.
+4. Quy trình xác nhận dị ứng/lưu ý ăn uống, lưu ảnh và phân quyền xem.
 
-## 3. Đã kiểm chứng và chưa kiểm chứng
+## Thứ tự triển khai tiếp theo
 
-**Đã kiểm chứng trong môi trường local:**
+1. Bổ sung mã học sinh duy nhất, enrollment hiệu lực, kiểm thử PostgreSQL; import lớp/trẻ/phụ huynh bằng tệp có xem trước triển khai sau khi có mẫu tệp cho workflow hiện có.
+2. Thêm ghi nhận có mặt thực tế và amendment sau giờ chốt; đối chiếu số suất dự kiến với thực tế.
+3. Bếp tạo/công bố thực đơn có phiên bản, tính dinh dưỡng từ công thức; phụ huynh xem bản đã công bố.
+4. Ghi món thực tế, đổi món và ảnh; báo cáo có nguồn và bản duyệt/tính lại.
 
-- `dotnet build be/MealTrace.sln --no-restore`: thành công, 0 warning/error.
-- `npm run build` trong `fe/`: thành công.
-- `npm test` trong `fe/`: 3 test FE cho phạm vi, guard Admin cuối cùng và grant thanh tra đều qua.
-- `dotnet test be/MealTrace.sln`: 3 integration test BE qua với SQLite tạm (anonymous bị chặn, Teacher không vào API Admin, token Teacher cũ bị thu hồi sau khi Admin khóa tài khoản, Admin tạo tài khoản đa vai trò đăng nhập được, đổi mật khẩu và đăng xuất thu hồi token cũ).
-- Swagger JSON đã kiểm tra có login, API Admin và Bearer; GET ngày ăn không có token trả 401 khi chạy smoke test không kết nối DB.
-- ASP.NET API khởi động và `GET /api/health` trả `{"status":"ok","service":"MealTrace API"}` khi cung cấp connection string tạm.
-- EF tạo migration và sinh script SQL thành công khi có connection string tạm. Việc sinh script **không chứng minh** migration đã chạy trên PostgreSQL.
-- PostgreSQL local đã chạy hai migration và Development seeder; Swagger trả 200, cả 6 tài khoản đăng nhập được. Cả 6 tài khoản seed hiện dùng mật khẩu Development `123456@@`; đã thử lại qua FE proxy và nhận 200. Admin vào `/api/admin/users` được; năm role còn lại nhận 403. Teacher và Parent nhận 403 ở `/api/meal-days`; bốn role nhân sự được phép nhận 200.
-- FE `http://localhost:5173` trả 200; Vite proxy `/api/health` và `/api/auth/login` tới backend trả 200. Connection string nằm trong `appsettings.Development.local.json` được Git bỏ qua; JWT key và 6 mật khẩu seed nằm trong User Secrets.
-- Commit khởi tạo đã được push lên `origin/main` (`1eab3a2`).
+Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng chứng test. Không đánh dấu hoàn thành chỉ vì build pass.
 
-**Chưa kiểm chứng:** thao tác Admin tạo/sửa tài khoản qua FE trên PostgreSQL (đã có integration test BE bằng SQLite), kiểm tra UI bằng trình duyệt, các endpoint đọc với dữ liệu ngày ăn thực, và CI. Dữ liệu seed hiện chỉ có lớp/học sinh demo; chưa có ngày ăn.
+## Cập nhật 30/09/2026: tài khoản phụ huynh bằng SĐT
 
-## 4. Tình trạng chức năng theo proposal
+- SĐT thuộc **phụ huynh/người giám hộ**, không phải thông tin đăng nhập của trẻ. Không bắt buộc phụ huynh có email; không sinh email giả.
+- Đăng nhập nhận `identifier` là SĐT hoặc email; payload `email` cũ vẫn được hỗ trợ. Tài khoản seed email hiện tại và mật khẩu không thay đổi.
+- Chuẩn hóa số di động 10 chữ số bắt đầu bằng 0; nhận thêm định dạng +84/84 và dấu cách, dấu chấm, ngoặc, dấu gạch. Lưu dạng 0...; SĐT duy nhất và normalized email duy nhất được bảo vệ bằng index DB. Chỉ kiểm tra định dạng; không triển khai OTP/xác minh SĐT theo quyết định của chủ dự án. Nguồn SĐT là hồ sơ nhập học do phụ huynh cung cấp và nhà trường lưu.
+- Admin tạo/sửa tài khoản có SĐT, email hoặc cả hai. Đổi thông tin tài khoản thu hồi JWT cũ. Mật khẩu vẫn hash/salt bằng ASP.NET Core Identity.
+- Màn Lớp và trẻ: chọn trẻ → Liên kết phụ huynh → nhập SĐT; nếu chưa có tài khoản, nhập họ tên để tạo mới. Trả SĐT và mật khẩu tạm một lần; nhà trường tự chuyển cho phụ huynh. Không tự gửi SMS.
+- SĐT đã tồn tại dùng tài khoản hiện có, không tạo lại hay đặt lại mật khẩu. Một phụ huynh có nhiều con; một trẻ có thể liên kết nhiều phụ huynh. Tài khoản khóa phải được mở khóa trước khi liên kết.
+- API liên kết vẫn hỗ trợ email cho client cũ; FE dùng SĐT. Danh sách tài khoản, tìm kiếm và hồ sơ hiển thị SĐT/email.
+- Migration `20260930084157_PhoneAccountLogin` đã áp dụng vào PostgreSQL mealtrace. Không cần Docker.
+- Nhập file **chưa triển khai** theo yêu cầu mới. Sau khi có mẫu, thiết kế StudentCode + ParentPhone, xem trước lỗi từng dòng rồi tạo/ghép tài khoản và quan hệ trong transaction. 100 trẻ không nhất thiết tương ứng 100 phụ huynh: các trẻ cùng SĐT dùng chung tài khoản.
+- BE/FE đã tắt theo yêu cầu và chưa khởi động lại sau sửa code.
+- FE build và 5/5 tests qua; BE 7/7 tests qua; kiểm thử tích hợp gồm đăng nhập email/SĐT, số quốc tế, liên kết anh chị em, trùng liên kết, số sai, tạo/sửa tài khoản SĐT và thu hồi JWT. Kiểm thử API dùng SQLite biệt lập; migration chạy trên PostgreSQL thật. Chưa kiểm tra trực quan UI sau thay đổi SĐT.
+- Log Vite trước khi tắt có lỗi hook của Toaster sau khi optimize dependency; `npm ls` xác nhận React/ReactDOM deduped. Cần kiểm tra tải mới trình duyệt khi khởi động lại, chưa xác nhận lỗi tái hiện.
 
-| Nhóm chức năng | Tình trạng thực tế |
-| --- | --- |
-| Tài khoản, vai trò, quyền theo học sinh | Identity + JWT, 6 role Development seed, bảng scope và API Admin đã viết; FE gọi API thật. Chưa kiểm thử trên DB, chưa có ABAC bảo vệ endpoint nghiệp vụ theo lớp/học sinh |
-| Lớp, học sinh, enrollment, liên kết phụ huynh | Chỉ có model lớp/học sinh cơ bản; chưa có enrollment theo thời gian hoặc liên kết phụ huynh |
-| Nguyên liệu, giá, conversion, công thức | Có model phiên bản sơ bộ; chưa có API quản lý, quy tắc hiệu lực hoặc kiểm tra dữ liệu |
-| Thực đơn ngày/tuần và công bố | Có model ngày ăn/món và API đọc; chưa có API tạo/sửa/công bố |
-| Đăng ký, báo nghỉ, attendance, chốt suất | Có model đăng ký và chốt; chưa có attendance, API hoặc logic cut-off/tổng hợp |
-| Chuẩn bị, món thực tế, substitution | Chưa có model/quy trình đầy đủ |
-| Food check, retained sample, ảnh, offline sync | Có model minh chứng dạng tổng quát; chưa có upload/storage, kiểm tra, đồng bộ offline |
-| Dinh dưỡng, chi phí, phí suất ăn | Có vài trường đầu vào và `ReportSnapshot`; chưa có bộ tính toán, phí/đối soát |
-| Ký, tái lập, recompute, so sánh, drill-down | Chỉ có trường snapshot và API trả `SourceJson`; chưa có nghiệp vụ thực thi |
-| Thông báo, dashboard | FE hiển thị ba số đếm từ API; chưa có thông báo hay dashboard nghiệp vụ |
-| AI | Chưa xác định phạm vi trong proposal; chưa triển khai |
+## Quyết định 30/09/2026: nguồn dữ liệu nhập học và cấp tài khoản hàng loạt
 
-## 5. Vấn đề đã thấy trong source
+**Đã chốt nghiệp vụ:** phụ huynh cung cấp SĐT khi đăng ký nhập học; nhà trường ghi thông tin vào file Excel. MealTrace sử dụng dữ liệu này để tạo tài khoản phụ huynh và liên kết với trẻ. Không yêu cầu OTP hay bước xác minh SĐT trong hệ thống.
 
-Phân biệt **lỗi/điểm hở đã xác nhận bằng code** với **chưa kiểm chứng**. Mức P0 cần xử lý trước khi dùng dữ liệu thật; P1 trước khi gọi là MVP; P2 là cải thiện tiếp theo.
+### Luồng import dự kiến — chưa triển khai
 
-| ID | Mức | Vấn đề và tác động | Hướng xử lý |
-| --- | --- | --- | --- |
-| MT-01 | P0 | API ngày ăn/report đã có role gate; Teacher/Parent bị chặn tạm thời vì chưa có lọc theo lớp/học sinh. Các role nhân sự còn lại xem dữ liệu toàn trường, kể cả thực đơn chưa công bố. | Thêm ABAC theo assignment và chỉ trả dữ liệu đã công bố cho Parent khi xây endpoint riêng. |
-| MT-02 | P0 | `IngredientVersion` gộp dinh dưỡng, giá và edible fraction; thiếu phiên bản conversion/price độc lập. Snapshot chỉ giữ `SourceJson` tự do, chưa có quy tắc đóng băng nguồn. Chưa đạt mục tiêu tái lập báo cáo. | Chốt mô hình version/effective time cho từng factor; lưu ID phiên bản, input và thuật toán tính trong snapshot bất biến. |
-| MT-03 | P0 | `ReportSnapshot.SignedAt` và các bản ghi lịch sử chỉ là cột dữ liệu; chưa có cơ chế cấm sửa/xóa sau ký, correction và recompute. | Thiết kế workflow append-only, transaction và audit; test tái lập báo cáo trước/sau correction. |
-| MT-04 | P1 | `GET /api/meal-days` sắp ngày tăng dần rồi `Take(100)`: khi quá 100 ngày sẽ chỉ hiện ngày cũ. Ba số đếm FE cũng chỉ đếm trang này nhưng đang trình bày như tổng quan. | Phân trang theo ngày giảm dần; tạo endpoint tổng hợp riêng hoặc ghi rõ phạm vi số liệu. |
-| MT-05 | P1 | `MealRegistration` và `PortionSettlement` có thời điểm/lý do/supersedes nhưng không có quy tắc chọn bản hiệu lực, chống ghi đè/ghi trùng, kiểm tra cut-off hay xử lý race. | Xây command service trong transaction, ràng buộc DB phù hợp, test cạnh tranh và correction sau cut-off. |
-| MT-06 | P1 | `Student` chỉ có `ClassId` hiện tại; chưa lưu enrollment theo năm/thời gian. Đổi lớp có thể khiến truy vết số liệu cũ sai. | Tách enrollment có khoảng hiệu lực và trạng thái bán trú; report tham chiếu enrollment đã dùng. |
-| MT-07 | P1 | Không có attendance, actual dishes/substitution, food-safety record có cấu trúc và trạng thái chuẩn bị. Execution record trong proposal chưa hình thành. | Bổ sung model và API theo từng bước workflow, không dồn vào trường `Description` tự do. |
-| MT-08 | P1 | Migration và auth đã chạy trên PostgreSQL local; 3 integration test BE vẫn dùng SQLite, chưa có test PostgreSQL tự động hoặc CI. | Thêm test PostgreSQL tự động và CI. |
-| MT-09 | P2 | FE đã gọi API thật và chỉ hiển thị màn theo role, nhưng session hiện chỉ ở bộ nhớ và chưa có URL routing. Tải lại trang cần đăng nhập lại. | Chốt yêu cầu session trước khi bổ sung route guard; BE vẫn là nơi thực thi quyền. |
-| MT-10 | P2 | `/api/health` chỉ xác nhận tiến trình web còn chạy, không kiểm tra kết nối DB. | Thêm readiness endpoint riêng kiểm tra DB khi cần triển khai/monitoring. |
-| MT-11 | P0 | Backend đã có Identity/role gate và FE gọi API, nhưng quyền thanh tra chỉ có grant lưu DB, chưa có endpoint/policy đọc tương ứng; scope Teacher/Parent chưa được áp trên API nghiệp vụ. | Viết policy/resource handler cho ABAC, test truy cập chéo, thực thi grant hết hạn trên BE. Không dùng FE làm ranh giới bảo mật. |
+1. Admin nhập file Excel danh sách trẻ do nhà trường quản lý. Chờ file mẫu thực tế để chốt tên cột, cách tách dữ liệu và biểu diễn nhiều người giám hộ; chưa lập trình import ở giai đoạn hiện tại.
+2. Dữ liệu cần ánh xạ gồm mã trẻ, họ tên trẻ, lớp/niên khóa, họ tên phụ huynh, SĐT phụ huynh và email nếu có. Giữ SĐT dưới dạng chuỗi để không mất số 0 đầu; chuẩn hóa trước khi đối chiếu.
+3. Xem trước kết quả theo dòng: trẻ mới/đã tồn tại, phụ huynh mới/đã có tài khoản, liên kết sẽ tạo và lỗi cần sửa. SĐT thiếu/sai định dạng hoặc dữ liệu xung đột phải báo rõ, không tự đoán người giám hộ.
+4. Gom phụ huynh theo SĐT đã chuẩn hóa. Ví dụ 100 trẻ với 100 SĐT khác nhau chưa có tài khoản sẽ tạo 100 tài khoản Parent; nếu có anh chị em cùng SĐT thì tạo một tài khoản cho phụ huynh đó và liên kết các con.
+5. SĐT đã có tài khoản được dùng lại; không tạo trùng hoặc đặt lại mật khẩu. Import lại cùng dữ liệu không tạo trùng trẻ hay quan hệ ParentStudent. Email là thông tin liên hệ tùy chọn, không dùng làm khóa ghép chính; xung đột email với tài khoản khác phải được xử lý trước khi ghi.
+6. Sau khi Admin xác nhận, tạo/ghép trẻ, tài khoản phụ huynh và liên kết trong một giao dịch. Mỗi tài khoản mới có mật khẩu tạm riêng, lưu hash/salt bằng Identity.
 
-## 6. Quyết định cần chốt với chủ dự án/giảng viên
+### Gửi thông tin tài khoản — làm sau
 
-Không tự coi các điểm sau là requirement cuối cùng vì proposal còn mâu thuẫn hoặc để mở:
+- Sau khi import thành công, gửi thông tin đăng nhập cho tài khoản phụ huynh mới qua tin nhắn tới SĐT; gửi thêm qua email nếu hồ sơ có email.
+- Chưa tích hợp dịch vụ SMS/email và chưa gửi thông báo ở giai đoạn hiện tại. Kênh gửi, mẫu tin và cơ chế thử lại sẽ thiết kế khi triển khai tính năng này.
+- Luồng gửi chỉ chạy sau khi giao dịch import đã commit; cần theo dõi trạng thái gửi để thử lại không tạo lại tài khoản hoặc liên kết.
+- Không lưu mật khẩu rõ lâu dài trong DB/log để chờ gửi. Khi triển khai gửi bất đồng bộ, thiết kế cơ chế cấp thông tin truy cập có thời hạn phù hợp; cách gửi cụ thể sẽ chốt ở giai đoạn đó.
 
-1. **Actor/permission:** tài liệu mới xác định 6 vai trò chính: `ADMIN`, `TEACHER`, `KITCHEN_STAFF`, `NUTRITIONIST`, `ACCOUNTANT`, `PARENT`. Tài khoản đa vai trò; Teacher theo lớp được giao, Parent theo con liên kết; thanh tra nhận grant chỉ đọc có hạn riêng. Vẫn cần chốt ma trận chi tiết, quyền theo trường và hành vi khi một người kiêm nhiều vai trò.
-2. **Nguồn chốt suất:** công thức giữa đăng ký, báo nghỉ, attendance, học sinh mặc định ăn và xử lý sau cut-off; ai có quyền chốt/điều chỉnh, theo lớp hay toàn trường.
-3. **Thời gian:** timezone trường, giờ cut-off, thời điểm hiệu lực của enrollment/price/recipe/conversion và cách xử lý correction lùi ngày.
-4. **Dinh dưỡng/giá:** nguồn food composition; đơn vị và cách quy đổi phần ăn, hao hụt, làm tròn; giá theo thời điểm nào; tính theo món dự kiến hay món thực tế.
-5. **Báo cáo:** ai ký, điều kiện ký, định dạng bản phát hành, những thay đổi nào yêu cầu recompute và cách hiển thị chênh lệch.
-6. **Minh chứng/offline:** loại check 3 bước, retained sample, dung lượng/định dạng ảnh, nơi lưu file, xung đột đồng bộ và quyền xem của phụ huynh.
-7. **Phí:** quy tắc phí do trường đặt, kỳ thu, điều chỉnh và đối soát; không có thanh toán trực tuyến trong MVP.
-8. **AI:** chỉ nghiên cứu sau khi phạm vi được giảng viên xác nhận; không đưa vào đường tính/duyệt báo cáo cốt lõi.
+**Phạm vi hiện tại:** giữ luồng tạo/liên kết từng phụ huynh bằng SĐT đã có. Import Excel và gửi SMS/email là kế hoạch, chưa đánh dấu hoàn thành. BE/FE tiếp tục tắt theo yêu cầu trước đó.
 
-**Lưu ý tài liệu đầu vào mới:** tiêu đề entity list ghi “24 thực thể” nhưng đánh mã `ET-01` đến `ET-32` (32 mục). Bảng FR dùng `FR-227` cho dự trù nguyên liệu trong khi ghi chú gọi `FR-27`; ghi chú FR-31/32 của Parent lệch với bảng FR-31/32. Giữ mã theo bảng khi triển khai tạm thời và xin bản chuẩn hóa trước khi dùng mã làm contract/API. Chưa xác minh độc lập các viện dẫn quy định pháp lý trong tài liệu.
+## Cập nhật 30/09/2026: SĐT demo và xử lý liên kết thủ công
 
-## 7. Kế hoạch triển khai theo thứ tự phụ thuộc
+- Đã kiểm tra trực tiếp PostgreSQL: trước cập nhật, cả 6 tài khoản demo chưa có SĐT. Đã chạy seeder và kiểm tra lại DB, các số mẫu đã được lưu:
 
-### Chặng 0 — Nền chạy thật và baseline
+| Vai trò | Email demo | SĐT demo |
+| --- | --- | --- |
+| ADMIN | admin@demo.mealtrace.local | 0900000001 |
+| TEACHER | teacher@demo.mealtrace.local | 0900000002 |
+| KITCHEN_STAFF | kitchen@demo.mealtrace.local | 0900000003 |
+| NUTRITIONIST | nutrition@demo.mealtrace.local | 0900000004 |
+| ACCOUNTANT | accountant@demo.mealtrace.local | 0900000005 |
+| PARENT | parent@demo.mealtrace.local | 0900000006 |
 
-- Tạo DB PostgreSQL local, lưu connection string trong file Development local được Git bỏ qua, chạy migration. **Đã xong trên máy hiện tại.**
-- Có dataset dev nhỏ: 2 lớp, vài học sinh, nguyên liệu/công thức, ngày ăn; không dùng PII thật. Thêm entity `School` khi chốt phạm vi đa trường.
-- Thêm integration test PostgreSQL cho migration và endpoint; CI chạy build FE/BE và test.
-- Sửa MT-04 để tổng quan không hiển thị số sai khi quá 100 ngày.
-- **Xong khi:** có hướng dẫn chạy được chủ dự án duyệt; máy mới chạy được FE + API + DB; dữ liệu mẫu hiện đúng ở màn hình.
+- Số trên chỉ là dữ liệu thử; không gửi SMS đến các số demo. Mật khẩu demo giữ nguyên `123456@@`; có thể đăng nhập bằng email hoặc SĐT.
+- DevelopmentSeeder bổ sung số mẫu khi tài khoản chưa có SĐT, không ghi đè SĐT Admin đã sửa. Nếu số mẫu thuộc tài khoản khác, báo lỗi thay vì ghép nhầm.
+- Có thể chạy seeder mà không mở HTTP server: `dotnet run --project be/src/MealTrace.Api/MealTrace.Api.csproj --launch-profile http -- --seed-only`. Chỉ sử dụng ở Development.
+- **Admin luôn có luồng thủ công để xử lý thiếu/sai dữ liệu**, kể cả sau import: vào Lớp và trẻ → chọn trẻ → Liên kết phụ huynh; tạo Parent mới bằng SĐT + họ tên hoặc liên kết tài khoản hiện có. Trẻ đã có phụ huynh vẫn được thêm người giám hộ khác, không thay thế liên kết cũ tự động.
+- Khi cần sửa liên kết sai: vào Tài khoản → sửa phụ huynh → điều chỉnh danh sách trẻ liên kết và lưu. API hiện yêu cầu tài khoản có vai trò Parent phải liên kết ít nhất một trẻ; xử lý tài khoản sai không còn trẻ cần điều chỉnh vai trò cùng lúc theo quy tắc này.
+- Đã mở rộng kiểm thử tích hợp: Admin thêm người giám hộ thứ hai cho trẻ đã có phụ huynh, danh sách lớp trả đủ hai người giám hộ. BE 7/7 tests qua.
+- BE/FE vẫn tắt; seed-only kết thúc sau cập nhật DB. Chưa có import hoặc dịch vụ gửi SMS/email.
 
-### Chặng 1 — Ranh giới quyền và dữ liệu nền
+## Review chất lượng code 30/09/2026
 
-- Chốt ma trận actor; thêm tài khoản, đăng nhập, role/policy, liên kết Parent–Student và phạm vi trường/lớp.
-- Thiết kế enrollment có lịch sử; tách/phiên bản hóa ingredient composition, price, conversion, recipe.
-- CRUD có validation, audit, thời điểm hiệu lực; test quyền truy cập chéo học sinh/lớp.
-- **Xong khi:** Parent chỉ xem con được liên kết; thay đổi factor không làm mất phiên bản cũ; người không có quyền không xem/sửa được dữ liệu.
-
-### Chặng 2 — Luồng bữa ăn và số suất
-
-- Tạo/công bố thực đơn; đăng ký/báo nghỉ; attendance; rule cut-off; tổng hợp theo lớp/trường; chốt suất.
-- Correction sau cut-off là bản ghi mới có lý do, người thao tác, thời điểm và liên kết bản bị thay thế.
-- **Xong khi:** với một ngày ăn mẫu, có thể đi từ menu đến settled count và giải thích từng suất đến từ đâu; test biên cut-off và cập nhật đồng thời.
-
-### Chặng 3 — Thực hiện và minh chứng
-
-- Trạng thái chuẩn bị; món thực tế và substitution; food check 3 bước; retained sample; upload ảnh an toàn.
-- Lưu capture time và sync time; hàng đợi offline/idempotency khi phạm vi offline được chốt.
-- **Xong khi:** evidence dossier của ngày ăn đối chiếu được menu, món thực tế, số suất chốt và toàn bộ amendment.
-
-### Chặng 4 — Tính toán, báo cáo và truy vết (trọng tâm đề tài)
-
-- Tính năng lượng, chất dinh dưỡng, chi phí từ execution record + đúng factor version; ghi cả input, phiên bản và quy tắc làm tròn.
-- Tạo report snapshot bất biến, ký, drill-down tới source record; correction tạo recompute mới và so sánh chênh lệch với bản ký.
-- **Xong khi:** cùng snapshot luôn cho cùng kết quả; sửa giá/recipe/portion về sau không làm thay đổi bản ký; người dùng xem được nguồn và lý do khác biệt.
-
-### Chặng 5 — Các phần MVP còn lại
-
-- Mức phí do trường đặt, khoản phải thu và đối soát; thông báo cơ bản; dashboard theo vai trò/ngày/lớp.
-- Kiểm tra bảo mật, hiệu năng danh sách, backup/restore, tài liệu API và UAT theo kịch bản trường.
-- **Xong khi:** các mục MVP trong proposal có luồng thao tác và bằng chứng test; không có endpoint nghiệp vụ nhạy cảm công khai.
-
-## 8. Việc tiếp theo đề xuất
-
-**Ưu tiên ngay:** kiểm tra thao tác Admin tạo/sửa tài khoản qua FE trên PostgreSQL và kiểm tra UI bằng trình duyệt; sau đó thiết kế ABAC theo lớp/học sinh cùng integration test PostgreSQL tự động. Không lưu mật khẩu hoặc dữ liệu học sinh thật vào repository.
-
-Lệnh kiểm tra nhanh (từ root repository):
-
-```powershell
-dotnet build be/MealTrace.sln
-cd fe
-npm ci
-npm run build
-```
-
-Các lệnh chạy hiện dùng trong môi trường local: `dotnet run --project be/src/MealTrace.Api/MealTrace.Api.csproj --launch-profile http` và `npm run dev` trong `fe/`. Tài liệu hướng dẫn chính thức sẽ viết sau.
-
-## 9. Cách duy trì tài liệu này
-
-Sau mỗi PR/chặng: cập nhật ngày và commit, chuyển mục đã xong sang phần đã kiểm chứng, ghi issue mới với mức ưu tiên và vị trí code, sửa bảng chức năng, ghi quyết định nghiệp vụ đã được xác nhận cùng người/ngày xác nhận, cập nhật bước tiếp theo. Chỉ đánh dấu **xong** khi có hành vi chạy được và test/bằng chứng tương ứng; phân biệt build thành công với workflow hoạt động trên DB.
+- Báo cáo review đã xóa theo yêu cầu. Checklist test giữ ở máy, được ignore và không đưa lên GitHub. README vẫn để trống theo yêu cầu.
+- Đã sửa quyền xem/hủy báo vắng khi ParentStudent bị gỡ; chặn ngoại lệ khác niên khóa; giữ đối tượng đang sửa khi đổi trang tài khoản; bỏ suy luận Admin cuối cùng từ một trang FE (BE kiểm tra toàn DB).
+- Đã cập nhật dependency test xunit/SQLitePCLRaw và converter DateTimeOffset chỉ dành cho model test SQLite. Không thay đổi schema PostgreSQL trong lượt review.
+- Kết quả cuối: BE 9/9 tests, FE 5/5 tests, build thành công; npm audit và dotnet vulnerable scan không còn cảnh báo. Chưa visual QA và chưa kiểm thử đồng thời PostgreSQL.
+- Review còn Important: grant thanh tra chưa có policy/màn đọc nghiệp vụ hoàn chỉnh; scope-options cắt 200 lớp/trẻ; mutation đồng thời cần bảo vệ báo vắng chồng và xử lý conflict DB thống nhất. Chưa coi toàn bộ workflow/quyền là hoàn chỉnh.
+- UI ngoại lệ giáo viên hiện chỉ ghi vắng; hoàn tác ngoại lệ trên UI chưa có. Search/role filter tài khoản hiện chỉ áp dụng trang đang xem; filter lớp giáo viên ở BE trước phân trang.
+- Giữ BE/FE tắt. Các bản sửa sau review được đưa vào đợt push tiếp theo theo yêu cầu; báo cáo review và checklist không nằm trong commit.

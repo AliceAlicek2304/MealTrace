@@ -6,14 +6,14 @@ namespace MealTrace.Api.Data;
 
 public static class DevelopmentSeeder
 {
-    private static readonly (string Role, string Email, string FullName)[] Accounts =
+    private static readonly (string Role, string Email, string FullName, string PhoneNumber)[] Accounts =
     [
-        (RoleNames.Admin, "admin@demo.mealtrace.local", "Admin demo"),
-        (RoleNames.Teacher, "teacher@demo.mealtrace.local", "Giáo viên demo"),
-        (RoleNames.KitchenStaff, "kitchen@demo.mealtrace.local", "Bếp demo"),
-        (RoleNames.Nutritionist, "nutrition@demo.mealtrace.local", "Dinh dưỡng demo"),
-        (RoleNames.Accountant, "accountant@demo.mealtrace.local", "Kế toán demo"),
-        (RoleNames.Parent, "parent@demo.mealtrace.local", "Phụ huynh demo"),
+        (RoleNames.Admin, "admin@demo.mealtrace.local", "Admin demo", "0900000001"),
+        (RoleNames.Teacher, "teacher@demo.mealtrace.local", "Giáo viên demo", "0900000002"),
+        (RoleNames.KitchenStaff, "kitchen@demo.mealtrace.local", "Bếp demo", "0900000003"),
+        (RoleNames.Nutritionist, "nutrition@demo.mealtrace.local", "Dinh dưỡng demo", "0900000004"),
+        (RoleNames.Accountant, "accountant@demo.mealtrace.local", "Kế toán demo", "0900000005"),
+        (RoleNames.Parent, "parent@demo.mealtrace.local", "Phụ huynh demo", "0900000006"),
     ];
 
     public static async Task SeedAsync(IServiceProvider services)
@@ -48,6 +48,15 @@ public static class DevelopmentSeeder
                     EmailConfirmed = true, FullName = account.FullName, IsActive = true,
                 };
                 EnsureSucceeded(await users.CreateAsync(user, password), $"tạo tài khoản {account.Role}");
+            }
+            // Fill missing demo phone numbers without overwriting admin corrections.
+            if (string.IsNullOrWhiteSpace(user.PhoneNumber))
+            {
+                if (await db.Users.AnyAsync(x => x.Id != user.Id && x.PhoneNumber == account.PhoneNumber))
+                    throw new InvalidOperationException($"Demo phone for {account.Role} is already assigned to another account.");
+                user.PhoneNumber = account.PhoneNumber;
+                user.PhoneNumberConfirmed = false;
+                EnsureSucceeded(await users.UpdateAsync(user), $"add demo phone for {account.Role}");
             }
             if (!await users.IsInRoleAsync(user, account.Role))
                 EnsureSucceeded(await users.AddToRoleAsync(user, account.Role), $"gán role {account.Role}");

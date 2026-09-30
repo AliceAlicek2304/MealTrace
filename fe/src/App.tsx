@@ -1,27 +1,35 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users } from 'lucide-react'
+import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users, School, ClipboardList, CalendarOff } from 'lucide-react'
 import { api, setAccessToken } from './lib/api'
 import { AccountsPage } from './features/access/AccountsPage'
 import type { CurrentUser, LoginResponse } from './features/access/authApi'
 import { LoginPage } from './features/access/LoginPage'
 import { ProfilePage } from './features/access/ProfilePage'
 import { MealDaysPage } from './features/meals/MealDaysPage'
+import { ClassesPage } from './features/workflow/ClassesPage'
+import { AbsencesPage } from './features/workflow/AbsencesPage'
+import { PortionsPage } from './features/workflow/PortionsPage'
+import { LandingPage } from './features/landing/LandingPage'
 
-type Page = 'accounts' | 'meals' | 'profile'
+type Page = 'accounts' | 'classes' | 'portions' | 'absences' | 'meals' | 'profile'
 const mealRoles = ['ADMIN', 'KITCHEN_STAFF', 'NUTRITIONIST', 'ACCOUNTANT']
 
 export default function App() {
   const queryClient = useQueryClient()
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [page, setPage] = useState<Page>('profile')
+  const [showLogin, setShowLogin] = useState(false)
   const isAdmin = user?.roles.includes('ADMIN') ?? false
   const isMealStaff = user?.roles.some(role => mealRoles.includes(role)) ?? false
+  const canSeePortions = user?.roles.some(role => ['ADMIN', 'TEACHER', 'KITCHEN_STAFF', 'NUTRITIONIST'].includes(role)) ?? false
+  const isParent = user?.roles.includes('PARENT') ?? false
 
   function clearSession() {
     setAccessToken(null)
     setUser(null)
     setPage('profile')
+    setShowLogin(false)
     queryClient.clear()
   }
 
@@ -42,12 +50,14 @@ export default function App() {
   function onLogin(result: LoginResponse) {
     setAccessToken(result.accessToken)
     setUser(result.user)
-    setPage(result.user.roles.includes('ADMIN') ? 'accounts'
+    setPage(result.user.roles.includes('ADMIN') ? 'portions'
+      : result.user.roles.includes('PARENT') ? 'absences'
+      : result.user.roles.some(role => ['TEACHER', 'KITCHEN_STAFF', 'NUTRITIONIST'].includes(role)) ? 'portions'
       : result.user.roles.some(role => mealRoles.includes(role)) ? 'meals' : 'profile')
   }
 
-  if (!user) return <LoginPage onLogin={onLogin} />
-  const pageName = page === 'accounts' ? 'Tài khoản' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
+  if (!user) return showLogin ? <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} /> : <LandingPage onLogin={() => setShowLogin(true)} />
+  const pageName = page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
 
   return <div className="shell">
     <aside className="sidebar">
@@ -55,6 +65,9 @@ export default function App() {
       <p className="side-label">KHÔNG GIAN LÀM VIỆC</p>
       <nav aria-label="Điều hướng chính">
         {isAdmin && <button className={`nav ${page === 'accounts' ? 'active' : ''}`} onClick={() => setPage('accounts')}><Users size={18} /> Tài khoản</button>}
+        {isAdmin && <button className={`nav ${page === 'classes' ? 'active' : ''}`} onClick={() => setPage('classes')}><School size={18} /> Lớp và trẻ</button>}
+        {canSeePortions && <button className={`nav ${page === 'portions' ? 'active' : ''}`} onClick={() => setPage('portions')}><ClipboardList size={18} /> Số suất</button>}
+        {isParent && <button className={`nav ${page === 'absences' ? 'active' : ''}`} onClick={() => setPage('absences')}><CalendarOff size={18} /> Báo vắng</button>}
         {isMealStaff && <button className={`nav ${page === 'meals' ? 'active' : ''}`} onClick={() => setPage('meals')}><CalendarDays size={18} /> Ngày ăn</button>}
         <button className={`nav ${page === 'profile' ? 'active' : ''}`} onClick={() => setPage('profile')}><UserRound size={18} /> Hồ sơ của tôi</button>
       </nav>
@@ -63,6 +76,9 @@ export default function App() {
     <div className="content">
       <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
       <main>{page === 'accounts' && isAdmin ? <AccountsPage />
+        : page === 'classes' && isAdmin ? <ClassesPage />
+        : page === 'portions' && canSeePortions ? <PortionsPage roles={user.roles} />
+        : page === 'absences' && isParent ? <AbsencesPage />
         : page === 'meals' && isMealStaff ? <MealDaysPage />
         : <ProfilePage user={user} onPasswordChanged={clearSession} />}</main>
     </div>

@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -95,6 +97,247 @@ public sealed class AuthenticationTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/me")).StatusCode);
     }
 
+    [Fact]
+    public async Task ParentAbsenceReducesSettledPortionsAndTeacherSeesOnlyAssignedClass()
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).DateTime);
+        Guid absentId;
+        Guid otherId;
+        Guid dayId;
+        const string parentEmail = "parent@test.local";
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var present = new Student { FullName = "Trẻ có ăn", ClassId = seeded.ClassId };
+            var absent = new Student { FullName = "Trẻ báo vắng", ClassId = seeded.ClassId };
+            var otherClass = new SchoolClass { Name = "Lớp khác", SchoolYear = "2026-2027" };
+            var other = new Student { FullName = "Trẻ lớp khác", Class = otherClass };
+            db.Students.AddRange(present, absent, other);
+            db.TeacherAssignments.Add(new TeacherAssignment { UserId = seeded.TeacherId, ClassId = seeded.ClassId });
+            var day = new MealDay { Date = today, MealType = "Bữa trưa", SchoolYear = "2026-2027", CutoffAt = DateTimeOffset.UtcNow.AddMinutes(10) };
+            db.MealDays.Add(day);
+            await db.SaveChangesAsync();
+            var parent = new ApplicationUser { Id = Guid.NewGuid(), FullName = "Phụ huynh thử nghiệm", UserName = parentEmail, Email = parentEmail, EmailConfirmed = true };
+            Assert.True((await users.CreateAsync(parent, seeded.Password)).Succeeded);
+            Assert.True((await users.AddToRoleAsync(parent, RoleNames.Parent)).Succeeded);
+            db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = absent.Id });
+            await db.SaveChangesAsync();
+            absentId = absent.Id;
+            otherId = other.Id;
+            dayId = day.Id;
+        }
+
+        var parentToken = await LoginAsync(client, parentEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", parentToken);
+        var forbidden = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = otherId, fromDate = today, toDate = today, reason = "Nghỉ" });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        var absence = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = absentId, fromDate = today, toDate = today, reason = "Nghỉ" });
+        Assert.Equal(HttpStatusCode.Created, absence.StatusCode);
+
+        var teacherToken = await LoginAsync(client, seeded.TeacherEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", teacherToken);
+        var teacherPreview = await client.GetFromJsonAsync<JsonElement>($"/api/meal-days/{dayId}/portions");
+        var teacherClasses = teacherPreview.GetProperty("classes").EnumerateArray().ToArray();
+        Assert.Single(teacherClasses);
+        Assert.Equal(seeded.ClassId, teacherClasses[0].GetProperty("classId").GetGuid());
+        Assert.Single(teacherClasses[0].GetProperty("studentIds").EnumerateArray());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var day = await db.MealDays.FindAsync(dayId);
+            day!.CutoffAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        var adminToken = await LoginAsync(client, seeded.AdminEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var settle = await client.PostAsync($"/api/meal-days/{dayId}/settle", null);
+        Assert.Equal(HttpStatusCode.OK, settle.StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var snapshots = await db.PortionSettlements.Include(x => x.Students).Where(x => x.MealDayId == dayId).ToListAsync();
+            Assert.Equal(2, snapshots.Count);
+            var classroom = Assert.Single(snapshots, x => x.ClassId == seeded.ClassId);
+            Assert.Equal(1, classroom.Count);
+            Assert.DoesNotContain(classroom.Students, x => x.StudentId == absentId);
+            db.Students.Add(new Student { FullName = "Trẻ mới sau chốt", ClassId = seeded.ClassId });
+            await db.SaveChangesAsync();
+        }
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", parentToken);
+        using (var absenceJson = JsonDocument.Parse(await absence.Content.ReadAsStringAsync()))
+        {
+            var absenceId = absenceJson.RootElement.GetProperty("id").GetGuid();
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/parent/absences/{absenceId}/cancel", null)).StatusCode);
+        }
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var settledPreview = await client.GetFromJsonAsync<JsonElement>($"/api/meal-days/{dayId}/portions");
+        var settledClass = settledPreview.GetProperty("classes").EnumerateArray().Single(x => x.GetProperty("classId").GetGuid() == seeded.ClassId);
+        Assert.True(settledClass.GetProperty("isSettled").GetBoolean());
+        Assert.Single(settledClass.GetProperty("studentIds").EnumerateArray());
+        var mealDays = await client.GetFromJsonAsync<JsonElement>("/api/meal-days");
+        var mealDay = mealDays.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == dayId);
+        Assert.Equal(2, mealDay.GetProperty("settledPortions").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync($"/api/meal-days/{dayId}/settle", null)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AdminLinksNewAndExistingParentToStudentsAndFiltersTeachersByClass(bool usePhone)
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        Guid firstId;
+        Guid secondId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var first = new Student { FullName = "Trẻ A", ClassId = seeded.ClassId };
+            var second = new Student { FullName = "Trẻ B", ClassId = seeded.ClassId };
+            db.Students.AddRange(first, second);
+            db.TeacherAssignments.Add(new TeacherAssignment { UserId = seeded.TeacherId, ClassId = seeded.ClassId });
+            await db.SaveChangesAsync();
+            firstId = first.Id;
+            secondId = second.Id;
+        }
+
+        var adminToken = await LoginAsync(client, seeded.AdminEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var identity = new { email = usePhone ? null : "parent-new@test.local", phoneNumber = usePhone ? "+84 901 234 567" : null, fullName = "Phụ huynh A" };
+        var invalid = await client.PostAsJsonAsync($"/api/admin/students/{firstId}/parents", new { phoneNumber = "123", fullName = "Invalid" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var create = await client.PostAsJsonAsync($"/api/admin/students/{firstId}/parents", identity);
+        Assert.Equal(HttpStatusCode.OK, create.StatusCode);
+        var created = await create.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(created.GetProperty("created").GetBoolean());
+        var password = created.GetProperty("temporaryPassword").GetString()!;
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/admin/students/{firstId}/parents", identity)).StatusCode);
+
+        var linkSecond = await client.PostAsJsonAsync($"/api/admin/students/{secondId}/parents", new { identity.email, phoneNumber = usePhone ? "0901234567" : null, fullName = "" });
+        Assert.Equal(HttpStatusCode.OK, linkSecond.StatusCode);
+        var linked = await linkSecond.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(linked.GetProperty("created").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, linked.GetProperty("temporaryPassword").ValueKind);
+
+        // Admin can add another guardian for a child who already has a linked parent.
+        var extraParent = await client.PostAsJsonAsync($"/api/admin/students/{firstId}/parents", new { phoneNumber = "0901111222", fullName = "Second guardian" });
+        Assert.Equal(HttpStatusCode.OK, extraParent.StatusCode);
+        var classChildren = await client.GetFromJsonAsync<JsonElement>($"/api/classes/{seeded.ClassId}/students");
+        Assert.Equal(2, classChildren.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == firstId).GetProperty("parents").GetArrayLength());
+
+        var filtered = await client.GetFromJsonAsync<JsonElement>($"/api/admin/users?classId={seeded.ClassId}");
+        var accounts = filtered.GetProperty("items").EnumerateArray().ToArray();
+        Assert.Single(accounts);
+        Assert.Equal(seeded.TeacherId, accounts[0].GetProperty("id").GetGuid());
+
+        if (usePhone)
+        {
+            Assert.Equal("0901234567", created.GetProperty("phoneNumber").GetString());
+            Assert.Equal(JsonValueKind.Null, created.GetProperty("email").ValueKind);
+            var byInternational = await client.PostAsJsonAsync("/api/auth/login", new { identifier = "+84901234567", password });
+            Assert.Equal(HttpStatusCode.OK, byInternational.StatusCode);
+        }
+        var parentToken = await LoginAsync(client, usePhone ? "0901234567" : "parent-new@test.local", password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", parentToken);
+        var children = await client.GetFromJsonAsync<JsonElement>("/api/parent/students");
+        Assert.Equal(2, children.EnumerateArray().Count());
+    }
+
+    [Fact]
+    public async Task AdminCreatesPhoneOnlyAccountAndPhoneChangeRevokesOldLogin()
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        var adminToken = await LoginAsync(client, seeded.AdminEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var input = new { fullName = "Phone account", email = "", phoneNumber = "0907654321", roles = new[] { RoleNames.Teacher }, status = "ACTIVE", classIds = new[] { seeded.ClassId }, studentIds = Array.Empty<Guid>(), inspectorAccessUntil = (string?)null };
+        var response = await client.PostAsJsonAsync("/api/admin/users", input);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var id = json.GetProperty("user").GetProperty("id").GetGuid();
+        var password = json.GetProperty("temporaryPassword").GetString()!;
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/admin/users", input)).StatusCode);
+        var token = await LoginAsync(client, "+84907654321", password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var updated = await client.PutAsJsonAsync($"/api/admin/users/{id}", new { input.fullName, input.email, phoneNumber = "+84 908 765 432", input.roles, input.status, input.classIds, input.studentIds, input.inspectorAccessUntil });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/me")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = "0907654321", password })).StatusCode);
+        var newLogin = await client.PostAsJsonAsync("/api/auth/login", new { identifier = "0908765432", password });
+        Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
+        var current = await newLogin.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("0908765432", current.GetProperty("user").GetProperty("phoneNumber").GetString());
+    }
+
+    [Fact]
+    public async Task TeacherCannotRecordExceptionForStudentFromDifferentSchoolYear()
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        Guid studentId, dayId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var oldClass = new SchoolClass { Name = "Old class", SchoolYear = "2025-2026" };
+            var student = new Student { FullName = "Old student", Class = oldClass };
+            var day = new MealDay { Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), MealType = "Lunch", SchoolYear = "2026-2027", CutoffAt = DateTimeOffset.UtcNow.AddDays(1) };
+            db.Students.Add(student);
+            db.MealDays.Add(day);
+            db.TeacherAssignments.Add(new TeacherAssignment { UserId = seeded.TeacherId, Class = oldClass });
+            await db.SaveChangesAsync();
+            studentId = student.Id; dayId = day.Id;
+        }
+        var token = await LoginAsync(client, seeded.TeacherEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await client.PostAsJsonAsync($"/api/meal-days/{dayId}/exceptions", new { studentId, willEat = false, reason = "Wrong year" });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RemovedGuardianCannotReadOrCancelChildAbsences()
+    {
+        using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var seeded = await factory.SeedUsersAsync();
+        Guid childId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var child = new Student { FullName = "Child", ClassId = seeded.ClassId };
+            db.Students.Add(child); await db.SaveChangesAsync(); childId = child.Id;
+        }
+        var adminToken = await LoginAsync(client, seeded.AdminEmail, seeded.Password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var created = await client.PostAsJsonAsync($"/api/admin/students/{childId}/parents", new { phoneNumber = "0903333444", fullName = "Guardian" });
+        created.EnsureSuccessStatusCode();
+        var parent = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var parentId = parent.GetProperty("parentId").GetGuid();
+        var token = await LoginAsync(client, "0903333444", parent.GetProperty("temporaryPassword").GetString()!);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).DateTime);
+        var absence = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = childId, fromDate = today, toDate = today, reason = "Absent" });
+        absence.EnsureSuccessStatusCode();
+        var absenceId = (await absence.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            await db.ParentStudents.Where(x => x.UserId == parentId && x.StudentId == childId).ExecuteDeleteAsync();
+        }
+        var history = await client.GetFromJsonAsync<JsonElement>("/api/parent/absences");
+        Assert.Empty(history.EnumerateArray());
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync($"/api/parent/absences/{absenceId}/cancel", null)).StatusCode);
+    }
+
     private static async Task<string> LoginAsync(HttpClient client, string email, string password)
     {
         client.DefaultRequestHeaders.Authorization = null;
@@ -102,6 +345,20 @@ public sealed class AuthenticationTests
         response.EnsureSuccessStatusCode();
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return json.RootElement.GetProperty("accessToken").GetString()!;
+    }
+
+    public sealed class SqliteTestModelCustomizer(ModelCustomizerDependencies dependencies) : ModelCustomizer(dependencies)
+    {
+        public override void Customize(ModelBuilder modelBuilder, DbContext context)
+        {
+            base.Customize(modelBuilder, context);
+            // SQLite has no native DateTimeOffset ordering. This test-only converter
+            // lets integration tests exercise history queries; production uses PostgreSQL.
+            foreach (var entity in modelBuilder.Model.GetEntityTypes())
+                foreach (var property in entity.GetProperties())
+                    if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
+                        property.SetValueConverter(new DateTimeOffsetToBinaryConverter());
+        }
     }
 
     private sealed class AuthTestFactory : WebApplicationFactory<Program>
@@ -139,7 +396,7 @@ public sealed class AuthenticationTests
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<MealTraceDbContext>>();
-                services.AddDbContext<MealTraceDbContext>(options => options.UseSqlite(_connection));
+                services.AddDbContext<MealTraceDbContext>(options => options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteTestModelCustomizer>());
             });
         }
 

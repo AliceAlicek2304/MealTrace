@@ -14,6 +14,7 @@ export type SchoolUser = {
   id: string
   fullName: string
   email: string
+  phoneNumber?: string | null
   roles: Role[]
   status: UserStatus
   classIds: string[]
@@ -24,5 +25,5 @@ export type SchoolUser = {
 export type UserDraft = Omit<SchoolUser, 'id'>
 
 export const emptyDraft = (): UserDraft => ({
-  fullName: '', email: '', roles: [], status: 'ACTIVE', classIds: [], studentIds: [], inspectorAccessUntil: null,
+  fullName: '', email: '', phoneNumber: '', roles: [], status: 'ACTIVE', classIds: [], studentIds: [], inspectorAccessUntil: null,
 })

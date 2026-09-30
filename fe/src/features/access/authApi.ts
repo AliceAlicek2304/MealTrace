@@ -1,7 +1,7 @@
 import { api } from '../../lib/api'
 import type { SchoolUser, UserDraft } from './model'
 
-export type CurrentUser = { id: string; fullName: string; email: string; roles: string[]; inspectorAccessUntil: string | null }
+export type CurrentUser = { id: string; fullName: string; email: string; phoneNumber?: string | null; roles: string[]; inspectorAccessUntil: string | null }
 export type LoginResponse = { accessToken: string; expiresAt: string; user: CurrentUser }
 export type ScopeOptions = {
   classes: { id: string; name: string }[]
@@ -9,11 +9,11 @@ export type ScopeOptions = {
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  return (await api.post<LoginResponse>('/auth/login', { email, password })).data
+  return (await api.post<LoginResponse>('/auth/login', { identifier: email, password })).data
 }
 export type UserPage = { items: SchoolUser[]; total: number; page: number; pageSize: number }
-export async function listUsers(page: number): Promise<UserPage> {
-  return (await api.get<UserPage>('/admin/users', { params: { page, pageSize: 25 } })).data
+export async function listUsers(page: number, classId: string): Promise<UserPage> {
+  return (await api.get<UserPage>('/admin/users', { params: { page, pageSize: 25, classId: classId || undefined } })).data
 }
 export async function getScopeOptions(): Promise<ScopeOptions> {
   return (await api.get<ScopeOptions>('/admin/scope-options')).data

@@ -71,8 +71,10 @@ public sealed class MealDay
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public DateOnly Date { get; set; }
+    public string? SchoolYear { get; set; }
     public required string MealType { get; set; }
     public DateTimeOffset CutoffAt { get; set; }
+    public DateTimeOffset? SettledAt { get; set; }
     public DateTimeOffset? PublishedAt { get; set; }
     public List<MenuDish> Dishes { get; set; } = [];
     public List<MealRegistration> Registrations { get; set; } = [];
@@ -102,16 +104,44 @@ public sealed class MealRegistration
     public Guid? SupersedesId { get; set; }
 }
 
+public sealed class MealAbsence
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid StudentId { get; set; }
+    public Student Student { get; set; } = null!;
+    public Guid ReportedByUserId { get; set; }
+    public ApplicationUser ReportedBy { get; set; } = null!;
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+    public required string Reason { get; set; }
+    public DateTimeOffset ReportedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? CancelledAt { get; set; }
+}
+
 public sealed class PortionSettlement
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid MealDayId { get; set; }
     public MealDay MealDay { get; set; } = null!;
+    public Guid? ClassId { get; set; }
+    public SchoolClass? Class { get; set; }
+    public string? ClassName { get; set; }
     public int Count { get; set; }
+    public DateTimeOffset CutoffAt { get; set; }
     public DateTimeOffset SettledAt { get; set; } = DateTimeOffset.UtcNow;
     public required string SettledBy { get; set; }
     public string? Reason { get; set; }
     public Guid? SupersedesId { get; set; }
+    public List<SettlementStudent> Students { get; set; } = [];
+}
+
+public sealed class SettlementStudent
+{
+    public Guid PortionSettlementId { get; set; }
+    public PortionSettlement PortionSettlement { get; set; } = null!;
+    public Guid StudentId { get; set; }
+    public Student Student { get; set; } = null!;
+    public required string StudentName { get; set; }
 }
 
 public sealed class MealEvidence

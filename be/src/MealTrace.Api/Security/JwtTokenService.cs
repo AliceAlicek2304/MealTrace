@@ -15,10 +15,10 @@ public sealed class JwtTokenService(IConfiguration configuration, UserManager<Ap
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email!),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new("stamp", await userManager.GetSecurityStampAsync(user)),
         };
+        if (!string.IsNullOrWhiteSpace(user.Email)) claims.Add(new(JwtRegisteredClaimNames.Email, user.Email));
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
         var key = Convert.FromBase64String(configuration["Jwt:Key"]!);
         var jwt = new JwtSecurityToken(
