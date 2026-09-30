@@ -162,3 +162,9 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 - Component dùng chung fe/src/components/Modal.tsx, native dialog + portal: khóa cuộn nền, giữ focus bàn phím trong dialog, đóng bằng X/Escape/click ngoài; chặn đóng khi đang gửi. Modal có cuộn riêng và responsive.
 - Toast lỗi form được hiển thị trong modal qua Sonner toaster có ID riêng để không bị native dialog che phía sau.
 - Chức năng chỉnh sửa bổ sung về sau phải dùng Modal và giữ dữ liệu nhập khi lưu thất bại; chỉ đóng khi thành công hoặc người dùng hủy. Form tạo lớp/trẻ và báo vắng hiện giữ bố cục trang.
+
+## Sửa cảnh báo Sonar ở FE
+
+- Tất cả button trong mã TSX có type rõ ràng: submit cho nút gửi form, button cho điều hướng/thao tác.
+- Modal có onKeyDown xử lý Escape, ngăn đóng khi busy và vẫn hỗ trợ native onCancel. Không thêm handler rỗng để né cảnh báo accessibility.
+- Chưa chạy lại Sonar server; cần scan mới để xác nhận trạng thái issue.

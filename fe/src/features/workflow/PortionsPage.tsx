@@ -41,7 +41,7 @@ export function PortionsPage({ roles }: { roles: string[] }) {
       <label className="field">Ngày ăn<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
       <label className="field">Phiên ăn<input required maxLength={60} value={mealType} onChange={e => setMealType(e.target.value)} /></label>
       <label className="field">Niên khóa<input required pattern="[0-9]{4}-[0-9]{4}" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} /></label>
-      <button className="button primary" disabled={createDay.isPending}>Tạo phiên</button>
+      <button type="submit" className="button primary" disabled={createDay.isPending}>Tạo phiên</button>
     </form></section>}
     <section className="panel workflow-lists"><h2>Chọn phiên ăn</h2><div className="workflow-form">
       {days.isError ? <p className="error">Không tải được phiên ăn.</p> : <select value={selected} onChange={e => setSelected(e.target.value)}><option value="">Chọn ngày và phiên ăn</option>
@@ -49,7 +49,7 @@ export function PortionsPage({ roles }: { roles: string[] }) {
     </div></section>
     {selected && <section className="panel workflow-lists"><div className="panel-head"><div><h2>{picked?.mealType ?? 'Phiên ăn'} · {picked?.date}</h2>
       <p>Giờ chốt: {picked ? new Date(picked.cutoffAt).toLocaleString('vi-VN') : '—'} · {total} suất</p></div>
-      {isAdmin && picked && !picked.isSettled && <button className="button primary" disabled={settle.isPending || new Date() < new Date(picked.cutoffAt)} onClick={() => settle.mutate()}>Chốt và gửi bếp</button>}</div>
+      {isAdmin && picked && !picked.isSettled && <button type="button" className="button primary" disabled={settle.isPending || new Date() < new Date(picked.cutoffAt)} onClick={() => settle.mutate()}>Chốt và gửi bếp</button>}</div>
       {portions.isPending ? <p className="empty compact">Đang tính số suất…</p> : portions.isError ? <p className="empty compact error">Không tải được danh sách.</p> : portions.data?.classes.map(room =>
         <div className="entry" key={room.classId}><strong>{room.className} · {room.studentIds.length} suất</strong><small>{room.isSettled ? 'Bản đã chốt' : `${room.absentStudentIds.length} trẻ vắng/ngoại lệ`}</small>
           <div className="workflow-names">{room.studentNames.join(', ') || 'Không có trẻ dự kiến ăn'}</div>
@@ -57,6 +57,6 @@ export function PortionsPage({ roles }: { roles: string[] }) {
             <div className="workflow-exception"><select aria-label="Trẻ cần ghi ngoại lệ" value={exceptionClassId === room.classId ? exceptionStudentId : ''} onChange={e => { setExceptionClassId(room.classId); setExceptionStudentId(e.target.value); setReason('') }}><option value="">Chọn trẻ vắng thực tế</option>
               {room.studentIds.map((id, index) => <option key={id} value={id}>{room.studentNames[index]}</option>)}</select>
               <input placeholder="Lý do ngoại lệ" value={exceptionClassId === room.classId ? reason : ''} onChange={e => { setExceptionClassId(room.classId); setReason(e.target.value) }} maxLength={500} />
-              <button className="button secondary" disabled={exception.isPending || exceptionClassId !== room.classId || !exceptionStudentId || !reason.trim()} onClick={() => exception.mutate(exceptionStudentId)}>Ghi vắng</button></div>}</div>)}</section>}
+              <button type="button" className="button secondary" disabled={exception.isPending || exceptionClassId !== room.classId || !exceptionStudentId || !reason.trim()} onClick={() => exception.mutate(exceptionStudentId)}>Ghi vắng</button></div>}</div>)}</section>}
   </>
 }

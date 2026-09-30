@@ -25,7 +25,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
     <header className="landing-header">
       <a className="landing-brand" href="#top" aria-label="MealTrace, về đầu trang"><span className="landing-brand-icon"><Leaf size={22} strokeWidth={2.8} /></span><span>meal<span>trace</span></span></a>
       <nav aria-label="Điều hướng trang giới thiệu"><a href="#giai-phap">Giải pháp</a><a href="#quy-trinh">Quy trình</a><a href="#vai-tro">Dành cho ai?</a></nav>
-      <button className="clay-button clay-button-small" onClick={onLogin}>Đăng nhập <ArrowRight size={17} /></button>
+      <button type="button" className="clay-button clay-button-small" onClick={onLogin}>Đăng nhập <ArrowRight size={17} /></button>
     </header>
 
     <main id="top">
@@ -34,7 +34,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
           <span className="landing-kicker"><Sparkles size={17} /> MỖI BỮA ĂN, MỘT CHÚT YÊN TÂM</span>
           <h1 id="hero-title">Bữa ăn mỗi ngày,<br /><em>yên tâm từng bước.</em></h1>
           <p>MealTrace kết nối phụ huynh, giáo viên, nhà trường và bếp trong một quy trình bữa ăn bán trú dễ theo dõi, rõ số liệu và thân thiện hơn mỗi ngày.</p>
-          <div className="hero-actions"><button className="clay-button" onClick={onLogin}>Vào MealTrace <ArrowRight size={20} /></button><a className="clay-button clay-button-outline" href="#quy-trinh">Khám phá quy trình</a></div>
+          <div className="hero-actions"><button type="button" className="clay-button" onClick={onLogin}>Vào MealTrace <ArrowRight size={20} /></button><a className="clay-button clay-button-outline" href="#quy-trinh">Khám phá quy trình</a></div>
           <div className="hero-mini"><span className="hero-mini-icon"><Heart size={18} fill="currentColor" /></span><span>Cho một ngày học vui và bữa ăn được chăm chút.</span></div>
         </div>
         <div className="hero-art" aria-label="Bản xem trước minh họa quy trình bữa ăn">
@@ -63,7 +63,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
 
       <section className="landing-section roles-section" id="vai-tro" aria-labelledby="roles-title"><div className="section-heading"><span className="landing-kicker">AI CŨNG CÓ PHẦN VIỆC CỦA MÌNH</span><h2 id="roles-title">Cùng nhau chăm một <em>bữa ăn tốt.</em></h2></div><div className="role-grid"><article><span className="role-avatar role-parent"><Heart size={25} /></span><span className="role-label">PHỤ HUYNH</span><h3>Biết hôm nay con ăn gì.</h3><p>Báo vắng và theo dõi thông tin đã được nhà trường công bố.</p></article><article><span className="role-avatar role-teacher"><BookOpenCheck size={25} /></span><span className="role-label">GIÁO VIÊN</span><h3>Ít thao tác lặp lại hơn.</h3><p>Xem danh sách lớp và ghi những trường hợp khác với dự kiến.</p></article><article><span className="role-avatar role-kitchen"><ChefHat size={25} /></span><span className="role-label">NHÀ BẾP</span><h3>Chuẩn bị với số liệu rõ ràng.</h3><p>Nhận bản chốt suất và theo dõi thông tin phục vụ bữa ăn.</p></article></div></section>
 
-      <section className="landing-cta"><div className="cta-decoration" aria-hidden="true">✳</div><div><span className="landing-kicker">SẴN SÀNG BẮT ĐẦU?</span><h2>Một bữa ăn được chăm chút<br />bắt đầu từ sự kết nối.</h2><p>Đăng nhập bằng tài khoản MealTrace do nhà trường cấp.</p></div><button className="clay-button clay-button-light" onClick={onLogin}>Đăng nhập ngay <ArrowRight size={20} /></button></section>
+      <section className="landing-cta"><div className="cta-decoration" aria-hidden="true">✳</div><div><span className="landing-kicker">SẴN SÀNG BẮT ĐẦU?</span><h2>Một bữa ăn được chăm chút<br />bắt đầu từ sự kết nối.</h2><p>Đăng nhập bằng tài khoản MealTrace do nhà trường cấp.</p></div><button type="button" className="clay-button clay-button-light" onClick={onLogin}>Đăng nhập ngay <ArrowRight size={20} /></button></section>
     </main>
     <footer className="landing-footer"><span className="landing-brand"><span className="landing-brand-icon"><Leaf size={19} /></span><span>meal<span>trace</span></span></span><span>Chăm bữa ăn, giữ sự yên tâm.</span><a href="#top">Về đầu trang ↑</a></footer>
   </div>

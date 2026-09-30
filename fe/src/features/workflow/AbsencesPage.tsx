@@ -31,11 +31,11 @@ export function AbsencesPage() {
         <label className="field">Từ ngày<input type="date" required min={localToday()} value={fromDate} onChange={e => { setFromDate(e.target.value); if (toDate < e.target.value) setToDate(e.target.value) }} /></label>
         <label className="field">Đến ngày<input type="date" required min={fromDate} value={toDate} onChange={e => setToDate(e.target.value)} /></label></div>
       <label className="field">Lý do<textarea required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></label>
-      <button className="button primary" disabled={report.isPending || !children.data?.length}>Gửi báo vắng</button>
+      <button type="submit" className="button primary" disabled={report.isPending || !children.data?.length}>Gửi báo vắng</button>
       {!children.isPending && !children.data?.length && <p className="form-error">Tài khoản chưa được liên kết với trẻ. Liên hệ nhà trường.</p>}
     </form></section>
     <section className="panel workflow-lists"><h2>Báo vắng đã gửi</h2>{absences.isPending ? <p className="empty compact">Đang tải…</p> : absences.isError ? <p className="empty compact error">Không tải được báo vắng.</p> : !absences.data?.length ? <p className="empty compact">Chưa có báo vắng.</p> : absences.data.map(item =>
       <div className="entry workflow-entry" key={item.id}><div><strong>{item.studentName}</strong> · {item.fromDate} đến {item.toDate}<small>{item.reason} · {item.cancelledAt ? 'Đã hủy' : 'Đang hiệu lực'}</small></div>
-        {!item.cancelledAt && <button className="button secondary" onClick={() => cancel.mutate(item.id)} disabled={cancel.isPending}>Hủy</button>}</div>)}</section>
+        {!item.cancelledAt && <button type="button" className="button secondary" onClick={() => cancel.mutate(item.id)} disabled={cancel.isPending}>Hủy</button>}</div>)}</section>
   </>
 }

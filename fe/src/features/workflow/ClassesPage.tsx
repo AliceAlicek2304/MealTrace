@@ -53,13 +53,13 @@ export function ClassesPage() {
       <section className="panel"><h2>Tạo lớp</h2><form className="workflow-form" onSubmit={submitClass}>
         <label className="field">Tên lớp<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
         <label className="field">Niên khóa<input required pattern="[0-9]{4}-[0-9]{4}" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} /></label>
-        <button className="button primary" disabled={addClass.isPending}>Lưu lớp</button>
+        <button type="submit" className="button primary" disabled={addClass.isPending}>Lưu lớp</button>
       </form></section>
       <section className="panel"><h2>Thêm trẻ</h2><form className="workflow-form" onSubmit={submitStudent}>
         <label className="field">Lớp<select required value={classId} onChange={e => { setClassId(e.target.value); setSelectedStudentId(''); setTemporaryPassword('') }}><option value="">Chọn lớp</option>
           {classes.data?.map(room => <option key={room.id} value={room.id}>{room.name} · {room.schoolYear}</option>)}</select></label>
         <label className="field">Họ tên trẻ<input required maxLength={150} value={studentName} onChange={e => setStudentName(e.target.value)} /></label>
-        <button className="button primary" disabled={addStudent.isPending}>Lưu trẻ</button>
+        <button type="submit" className="button primary" disabled={addStudent.isPending}>Lưu trẻ</button>
       </form></section>
     </div>
     <div className="grid workflow-lists">
@@ -72,7 +72,7 @@ export function ClassesPage() {
       <form className="workflow-form" onSubmit={submitLink}><p className="form-help">Nhập SĐT đã có tài khoản để liên kết ngay. Nếu SĐT chưa tồn tại, nhập thêm họ tên để tạo tài khoản phụ huynh mới; mật khẩu tạm chỉ hiển thị một lần.</p>
         <div className="workflow-fields"><label className="field">SĐT phụ huynh<input required type="tel" maxLength={30} value={parentPhone} onChange={e => setParentPhone(e.target.value)} /></label>
           <label className="field">Họ tên nếu tạo mới<input maxLength={120} value={parentName} onChange={e => setParentName(e.target.value)} /></label>
-          <button className="button primary" disabled={linkParent.isPending}>Liên kết</button></div></form>
+          <button type="submit" className="button primary" disabled={linkParent.isPending}>Liên kết</button></div></form>
       {temporaryPassword && <div className="credential-once"><strong>Đăng nhập: {credentialPhone} · Mật khẩu tạm:</strong> <code>{temporaryPassword}</code><button type="button" onClick={() => setTemporaryPassword('')}>Đã lưu, ẩn mật khẩu</button><small>Chỉ hiển thị một lần. Chuyển riêng cho phụ huynh qua kênh an toàn.</small></div>}
     </Modal>}
   </>

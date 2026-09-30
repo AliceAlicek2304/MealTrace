@@ -19,6 +19,13 @@ export function Modal({ title, description, children, onClose, busy = false, wid
   }, [])
   return createPortal(<dialog ref={dialogRef} className={`app-modal ${wide ? 'app-modal-wide' : ''}`}
     aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} aria-busy={busy}
+    onKeyDown={event => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        if (!busy) onClose()
+      }
+    }}
     onCancel={event => { event.preventDefault(); if (!busy) onClose() }}
     onPointerDown={event => { backdropPress.current = event.target === event.currentTarget }}
     onClick={event => {
