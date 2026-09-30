@@ -466,9 +466,11 @@ public sealed class AuthenticationTests
         private readonly string? _postgresConnection;
         private readonly string? _schema;
         private bool _disposed;
+        private readonly TimeProvider? _clock;
 
-        public AuthTestFactory(bool postgres = false)
+        public AuthTestFactory(bool postgres = false, TimeProvider? clock = null)
         {
+            _clock = clock;
             if (postgres)
             {
                 var connection = Environment.GetEnvironmentVariable("MEALTRACE_TEST_CONNECTION")
@@ -507,6 +509,7 @@ public sealed class AuthenticationTests
             }));
             builder.ConfigureServices(services =>
             {
+                if (_clock is not null) { services.RemoveAll<TimeProvider>(); services.AddSingleton(_clock); }
                 services.RemoveAll<DbContextOptions<MealTraceDbContext>>();
                 services.AddDbContext<MealTraceDbContext>(options =>
                 {

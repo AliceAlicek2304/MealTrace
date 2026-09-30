@@ -22,6 +22,26 @@ public sealed class PostgresFactAttribute : FactAttribute
 public sealed class PostgresConcurrencyTests
 {
     [PostgresFact]
+    public async Task SimultaneousExceptionsWithSameSourceAppendOnlyOneEventAndRestoreInSequence()
+    {
+        var clock = new MealExceptionTests.TestClock(); using var factory = new AuthTestFactory(postgres: true, clock: clock);
+        using var client = factory.CreateClient(); var seed = await MealExceptionTests.SeedScenario(factory, clock);
+        await MealExceptionTests.Authorize(client, seed.AdminEmail, seed.Password);
+        var responses = await Task.WhenAll(MealExceptionTests.Record(client, seed.DayId, seed.AbsentId, "EAT"), MealExceptionTests.Record(client, seed.DayId, seed.AbsentId, "ABSENT"));
+        var winner = Assert.Single(responses, x => x.StatusCode == HttpStatusCode.OK);
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Conflict);
+        var firstId = await MealExceptionTests.EventId(winner);
+        await MealExceptionTests.EventId(await MealExceptionTests.Record(client, seed.DayId, seed.AbsentId, "DEFAULT", firstId));
+        var decisions = await client.GetFromJsonAsync<JsonElement>($"/api/meal-days/{seed.DayId}/decisions");
+        var child = decisions.GetProperty("items").EnumerateArray().Single(x => x.GetProperty("studentId").GetGuid() == seed.AbsentId);
+        Assert.False(child.GetProperty("willEat").GetBoolean()); Assert.Equal("PARENT_ABSENCE", child.GetProperty("source").GetString());
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        var records = await db.MealRegistrations.OrderBy(x => x.Sequence).ToListAsync(); Assert.Equal(2, records.Count);
+        Assert.Equal(1, records[0].Sequence); Assert.Equal(2, records[1].Sequence); Assert.Equal(firstId, records[1].SupersedesId);
+        Assert.All(records, x => Assert.NotNull(x.RecordedByUserId));
+    }
+
+    [PostgresFact]
     public async Task SimultaneousTransfersWithSameRevisionCommitOnlyOneEnrollment()
     {
         using var factory = new AuthTestFactory(postgres: true); using var client = factory.CreateClient(); var seed = await factory.SeedUsersAsync();

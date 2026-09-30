@@ -56,9 +56,14 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
         model.Entity<InspectorGrant>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.GrantedById).OnDelete(DeleteBehavior.Restrict);
         model.Entity<SchoolClass>().HasIndex(x => new { x.SchoolYear, x.Name }).IsUnique();
         model.Entity<MealDay>().HasIndex(x => new { x.Date, x.MealType }).IsUnique();
+        model.Entity<MealDay>().Property(x => x.DecisionRevision).IsConcurrencyToken();
         model.Entity<IngredientVersion>().HasIndex(x => new { x.IngredientId, x.Version }).IsUnique();
         model.Entity<RecipeVersion>().HasIndex(x => new { x.RecipeId, x.Version }).IsUnique();
         model.Entity<MealRegistration>().HasIndex(x => new { x.MealDayId, x.StudentId, x.RecordedAt });
+        model.Entity<MealRegistration>().HasIndex(x => new { x.MealDayId, x.StudentId, x.Sequence }).IsUnique();
+        model.Entity<MealRegistration>().Property(x => x.Reason).HasMaxLength(500);
+        model.Entity<MealRegistration>().Property(x => x.RecordedByName).HasMaxLength(120);
+        model.Entity<MealRegistration>().HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.RecordedByUserId).OnDelete(DeleteBehavior.Restrict);
         model.Entity<MealAbsence>().HasIndex(x => new { x.StudentId, x.FromDate, x.ToDate });
         model.Entity<MealAbsence>().HasOne(x => x.ReportedBy).WithMany().HasForeignKey(x => x.ReportedByUserId).OnDelete(DeleteBehavior.Restrict);
         model.Entity<PortionSettlement>().HasIndex(x => new { x.MealDayId, x.SettledAt });
@@ -89,6 +94,8 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
 
     private void PrepareEnrollments()
     {
+        if (ChangeTracker.Entries<MealRegistration>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Meal exceptions are append-only; record a new event instead.");
         // Also covers seed/test creation through the DbContext, not just the HTTP endpoint.
         var added = ChangeTracker.Entries<Student>().Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToList();
         foreach (var student in added.Where(x => x.IsActive && x.Enrollments.Count == 0))

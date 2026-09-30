@@ -47,7 +47,7 @@ Hệ thống triển khai **ASP.NET Core, EF Core và PostgreSQL theo hướng c
 
 ### 5.1. Thiết lập niên khóa và danh sách trẻ
 
-Nhà trường tạo lớp theo niên khóa, thêm trẻ và phân công giáo viên. Trẻ có mã định danh cố định, nhập thủ công hoặc tự sinh, không đổi khi sửa tên/chuyển lớp. Mỗi lần ghi danh lưu lớp, khoảng ngày hiệu lực, lý do và người xử lý. Hệ thống hỗ trợ sửa tên lớp/hồ sơ trẻ bằng modal, chuyển lớp, ngừng học, ghi danh lại và xem lịch sử. Import Excel chờ mẫu tệp thực tế để chốt cách ánh xạ dữ liệu.
+Nhà trường tạo lớp theo niên khóa, thêm trẻ và phân công giáo viên. Trẻ có mã định danh cố định, nhập thủ công hoặc tự sinh, không đổi khi sửa tên/chuyển lớp. Mỗi lần ghi danh lưu lớp, khoảng ngày hiệu lực, lý do và người xử lý. Ngày bắt đầu được tính vào khoảng học; ngày kết thúc là ngày đầu không còn học lớp đó. Sau 07:30 UTC+7, chuyển lớp/ngừng học áp dụng sớm nhất từ ngày mai. Không sửa lùi ngày hoặc tạo khoảng ghi danh chồng nhau. Hệ thống hỗ trợ sửa tên lớp/hồ sơ trẻ bằng modal, chuyển lớp, ngừng học, ghi danh lại và xem lịch sử. Import Excel chờ mẫu tệp thực tế để chốt cách ánh xạ dữ liệu.
 
 Khi đăng ký nhập học, phụ huynh cung cấp họ tên, SĐT và email nếu có. Nhà trường lưu hồ sơ vào file Excel. SĐT thuộc phụ huynh/người giám hộ; phụ huynh không bắt buộc có email. Hệ thống cho phép đăng nhập bằng SĐT hoặc email và không yêu cầu OTP/xác minh SĐT trong phạm vi đã thống nhất.
 
@@ -59,9 +59,9 @@ Mỗi tài khoản mới có mật khẩu tạm riêng, lưu hash/salt bằng Id
 
 ### 5.2. Khai báo báo vắng theo ngoại lệ
 
-Vào ngày học có tổ chức bữa ăn, trẻ đủ điều kiện được hệ thống đánh dấu **dự kiến ăn**; phụ huynh không phải đăng ký lại mỗi ngày. Phụ huynh chọn một ngày hoặc khoảng ngày vắng. Vắng dài hạn chỉ áp dụng cho ngày học nằm trong khoảng hiệu lực; có thể kết thúc sớm và phải giữ lịch sử thay đổi. Trước giờ chốt, báo vắng hợp lệ loại trẻ khỏi số suất dự kiến; sau giờ chốt, thay đổi được ghi thành yêu cầu điều chỉnh, không âm thầm sửa bản chốt đã gửi bếp.
+Vào ngày học có tổ chức bữa ăn, trẻ đủ điều kiện được hệ thống đánh dấu **dự kiến ăn**; phụ huynh không phải đăng ký lại mỗi ngày. Phụ huynh chọn một ngày hoặc khoảng không ăn tối đa một năm tính từ ngày bắt đầu, gồm cả hai đầu ngày; có nút chọn nhanh 1 tuần/1 tháng/1 năm. Đăng ký áp dụng cả khi trẻ nghỉ học lẫn khi trẻ vẫn đi học nhưng không ăn tại trường; không làm kết thúc Enrollment và không dùng làm bằng chứng trẻ vắng học. Phụ huynh có thể sửa khoảng ngày hoặc hủy để ăn lại. Cập nhật giữ nguyên bản cũ với thời điểm hủy và tạo bản thay thế trong cùng giao dịch; không sửa lại ngày của dữ liệu nguồn lịch sử. Hết khoảng đăng ký, trẻ trở về mặc định có suất. Thay đổi chỉ ảnh hưởng quyết định trước giờ chốt; phiên đã qua cut-off và bản chốt đã gửi bếp giữ nguyên. Hiện chưa tự tạo yêu cầu điều chỉnh; quy trình yêu cầu và duyệt điều chỉnh sẽ triển khai ở chặng tiếp theo.
 
-Giáo viên xem danh sách theo lớp và ghi **ngoại lệ** khi trẻ có mặt/vắng khác với dự kiến. Hệ thống không bắt giáo viên điểm danh từng trẻ “có” mỗi ngày. Tuy vậy, trạng thái “dự kiến ăn” **không được gọi là “đã có mặt thực tế”**; báo cáo phải thể hiện hai chỉ số riêng khi cần.
+Giáo viên xem danh sách theo lớp và ghi **ngoại lệ** khi dự kiến khác với thông tin đã báo. Admin/Teacher đã có màn chọn dự kiến có suất, không có suất hoặc khôi phục mặc định bằng modal, xem nguồn quyết định và lịch sử người xử lý/lý do/thời điểm. Khôi phục mặc định vẫn áp dụng báo vắng của Parent; không xóa báo vắng. Mỗi thay đổi ghi thêm sự kiện, yêu cầu dùng phiên bản cũ bị từ chối. Quyền kiểm tra theo lớp ghi danh tại ngày ăn; chỉ sửa trước giờ chốt và khi phiên chưa chốt. Hệ thống không bắt giáo viên điểm danh từng trẻ “có” mỗi ngày. Trạng thái “dự kiến ăn” **không được gọi là “đã có mặt thực tế”**.
 
 ### 5.3. Chốt suất và gửi bếp
 
@@ -131,7 +131,7 @@ Repository gồm fe, be và mobile song song; mobile chỉ giữ chỗ. Frontend
 | Báo cáo và truy vết | 11–12 | Báo cáo mẫu, drill-down, bản đã duyệt, điều chỉnh và so sánh tính lại. |
 | Hoàn thiện | 13–14 | Kiểm thử tình huống, quyền riêng tư, nhập tệp, hiệu năng mẫu, trình diễn luồng từ đầu đến cuối. |
 
-Kế hoạch 14 tuần là phân bổ tham khảo, không phải xác nhận các giai đoạn đã hoàn thành. Import triển khai sau khi có mẫu Excel; SMS/email làm sau luồng tạo tài khoản. Nhóm chỉ nhận thêm phần mở rộng sau khi luồng bắt buộc chạy ổn định và có kiểm thử.
+Kế hoạch 14 tuần là phân bổ tham khảo, không phải xác nhận các giai đoạn đã hoàn thành hoặc bắt đầu lại từ tuần 1. Thứ tự triển khai từ trạng thái hiện tại và tiêu chí hoàn thành được cập nhật ở mục 13; kế hoạch công việc chi tiết nằm trong docs/implementation-plan.md. Import triển khai sau khi có mẫu Excel; SMS/email làm sau luồng tạo tài khoản. Nhóm chỉ nhận thêm phần mở rộng sau khi luồng bắt buộc chạy ổn định và có kiểm thử.
 
 ## 9. Kịch bản trình diễn cuối kỳ
 
@@ -171,11 +171,12 @@ Nhà trường nhập hai lớp và danh sách trẻ; phụ huynh A báo vắng 
 
 | Hạng mục | Trạng thái |
 | --- | --- |
-| Đăng nhập email/SĐT, 4 vai trò, quản lý tài khoản/phạm vi | Đã triển khai. |
-| Tạo lớp/trẻ thủ công, phân công giáo viên | Đã triển khai. |
+| Đăng nhập email/SĐT, 4 vai trò, quản lý tài khoản/phạm vi | Đã triển khai; Parent dùng SĐT, email không bắt buộc. |
+| Admin đặt lại mật khẩu | Đã triển khai; thu hồi phiên cũ, giữ liên kết và lưu audit. |
+| Tạo/sửa lớp và trẻ thủ công, phân công giáo viên | Đã triển khai; chỉnh sửa dùng modal. |
 | Tạo/liên kết Parent bằng SĐT, nhiều con/nhiều người giám hộ | Đã triển khai; Admin có thể bổ sung và sửa liên kết. |
-| Báo/hủy vắng theo ngày/khoảng ngày | Đã triển khai, tối đa 90 ngày. |
-| Ngoại lệ giáo viên trước chốt | API có; UI hiện chỉ ghi vắng, chưa có hoàn tác ngoại lệ. |
+| Báo vắng/không ăn theo khoảng ngày | Tối đa một năm; chọn nhanh tuần/tháng/năm, sửa bằng modal hoặc hủy để ăn lại; giữ lịch sử. |
+| Ngoại lệ Admin/Teacher trước chốt | Có/vắng/khôi phục mặc định bằng modal; nguồn quyết định, lịch sử và bảo vệ cập nhật đồng thời. |
 | Tạo phiên ăn, xem và chốt số suất theo lớp | Đã triển khai; chốt thủ công bởi Admin từ 07:30 UTC+7, một lần mỗi phiên. |
 | Xem danh sách/chi tiết ngày ăn | Đã có phần đọc; món/ảnh có thể chưa có dữ liệu. |
 | Import Excel và cấp tài khoản hàng loạt | Chưa triển khai; chờ mẫu tệp. |
@@ -189,9 +190,9 @@ Nhà trường nhập hai lớp và danh sách trẻ; phụ huynh A báo vắng 
 
 Bản chốt lưu danh sách ID/tên trẻ nguồn theo lớp và không thay đổi khi hủy báo vắng hoặc thêm trẻ sau chốt. Đây là số suất dự kiến, không phải xác nhận có mặt thực tế. Bếp xem bản chốt trong hệ thống; chưa có thông báo gửi tự động.
 
-Kết quả kiểm tra gần nhất: BE 17 kiểm thử tích hợp SQLite và 2 kiểm thử đồng thời PostgreSQL đạt; FE 5 kiểm thử logic đạt; build thành công. Test PostgreSQL dùng schema riêng và xóa schema sau test. Đã kiểm tra chuyển lớp cùng phiên bản, báo vắng trùng khoảng ngày và chốt suất đồng thời. Danh mục phạm vi đã thay giới hạn 200 mục bằng tìm kiếm/phân trang. Chưa kiểm tra trực quan toàn bộ UI hoặc chạy lại Sonar.
+Kết quả kiểm tra gần nhất: BE 29 kiểm thử tích hợp SQLite và 4 kiểm thử đồng thời PostgreSQL đạt; FE 5 kiểm thử logic đạt; build thành công. Test PostgreSQL dùng schema riêng và xóa schema sau test. Đã kiểm tra chuyển lớp, báo vắng, chốt suất, ngoại lệ và thay đổi khoảng không ăn đồng thời; cả năm/vượt giới hạn, giữ ghi danh, thay đổi sau cut-off, ngoại lệ đúng/sau cut-off, khôi phục khi Parent báo vắng và quyền theo ngày chuyển lớp. Danh mục phạm vi dùng tìm kiếm/phân trang. Đã kiểm tra giao diện Admin xem nguồn suất và mở/đóng modal ngoại lệ; ở viewport 390px modal nằm trong màn hình, không tràn ngang. Chưa kiểm tra trực quan toàn bộ UI hoặc chạy lại Sonar.
 
-**Thứ tự tiếp theo:** kiểm thử nghiệp vụ lớp/trẻ với người dùng → quy trình ngoại lệ/điều chỉnh sau chốt và lịch ngày nghỉ → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết → gửi SMS/email và hoàn thiện kiểm thử. Import triển khai khi có mẫu Excel. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
+**Thứ tự tiếp theo:** nghiệm thu luồng đã có → lịch ngày nghỉ → điều chỉnh sau chốt → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết. Import triển khai khi có mẫu Excel; SMS/email sau luồng cấp tài khoản. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
 
 Ngày bắt đầu ghi danh bao gồm ngày đó; ngày kết thúc không bao gồm ngày đó. Sau 07:30 UTC+7, chuyển lớp/ngừng học áp dụng sớm nhất từ ngày mai, không sửa lùi ngày vào quá khứ. Số suất lấy lớp theo ngày ăn và chỉ tính dữ liệu ghi danh đã có trước giờ chốt; bản chốt đã lưu giữ nguyên. Dữ liệu trẻ cũ chưa có ngày ghi danh thật được chuyển đổi với ngày bắt đầu là ngày migration, có chú thích để đối chiếu hồ sơ; không suy diễn lịch sử lớp trước thời điểm này. Chưa có thao tác hủy lịch chuyển lớp đã lên kế hoạch.
 
@@ -199,4 +200,22 @@ Ngày bắt đầu ghi danh bao gồm ngày đó; ngày kết thúc không bao g
 
 ### Bổ sung: Khôi phục mật khẩu qua nhà trường
 
-Admin đối chiếu hồ sơ người dùng, cập nhật SĐT/email nếu cần trên tài khoản hiện có và cấp mật khẩu tạm mới. Hệ thống thu hồi phiên đăng nhập cũ, giữ nguyên quyền/liên kết với trẻ và lưu người xử lý, thời điểm, lý do. Mật khẩu lưu hash/salt; mật khẩu tạm chỉ hiển thị một lần để nhà trường chuyển cho người dùng. Chức năng này đã triển khai; khôi phục tự động qua SMS/email làm sau. Kiểm thử gần nhất sau bổ sung: BE 14/14, FE 5/5 đạt.
+Admin đối chiếu hồ sơ người dùng, cập nhật SĐT/email nếu cần trên tài khoản hiện có và cấp mật khẩu tạm mới. Hệ thống thu hồi phiên đăng nhập cũ, giữ nguyên quyền/liên kết với trẻ và lưu người xử lý, thời điểm, lý do. Mật khẩu lưu hash/salt; mật khẩu tạm chỉ hiển thị một lần để nhà trường chuyển cho người dùng. Chức năng này đã triển khai; khôi phục tự động qua SMS/email làm sau. Kết quả kiểm thử hiện tại được tổng hợp tại mục 12.
+
+## 13. Kế hoạch triển khai tiếp theo
+
+Ngoại lệ trước chốt (chặng 2) đã triển khai và có kiểm thử; các chặng 3–7 chưa hoàn thành. Nghiệm thu thủ công tiếp tục song song. Model, API và migration phát triển theo use case; không cố định trước số lượng bảng.
+
+| Chặng | Công việc | Tiêu chí hoàn thành |
+| --- | --- | --- |
+| 1. Nghiệm thu dữ liệu nền | Test tài khoản, mật khẩu, mã trẻ, ghi danh/chuyển lớp, liên kết phụ huynh và modal. | Sửa lỗi tái hiện được; không mất lịch sử hoặc cấp quyền sai. |
+| 2. Ngoại lệ trước chốt | Admin/Teacher chọn dự kiến có/vắng hoặc khôi phục mặc định; xem nguồn quyết định và lịch sử. | Chỉ thay đổi lớp được phép trước 07:30; khôi phục mặc định tiếp tục áp dụng báo vắng; sau chốt bị từ chối. |
+| 3. Lịch vận hành bữa ăn | Admin thiết lập ngày có bữa ăn/ngày nghỉ; kiểm tra trước khi tạo phiên ăn. | Không tạo/tính suất cho ngày nghỉ; chỉnh lịch không sửa bản chốt cũ. |
+| 4. Điều chỉnh sau chốt | Teacher/Admin đề nghị, Admin duyệt/từ chối; bếp xem bản gốc, bản đang áp dụng và chênh lệch. | Lưu lý do, người/thời điểm xử lý, phiên bản nguồn; không ghi đè bản gốc hoặc duyệt trùng. |
+| 5. Thực đơn và dinh dưỡng | Nhóm tuổi, nguyên liệu và nguồn dinh dưỡng, đơn vị, công thức có phiên bản; bếp lập, Admin duyệt/công bố. | Tính năng lượng/P-L-G từ dữ liệu nguồn; sửa công thức không làm đổi thực đơn đã công bố. |
+| 6. Bữa ăn thực tế và phụ huynh | Bếp ghi món thực tế/đổi món, tải ảnh; Admin duyệt; Parent xem thông tin đã công bố. | Ảnh/món đúng phiên ăn, có thời điểm và lý do thay đổi; Parent chỉ xem phạm vi con mình. |
+| 7. Báo cáo và truy vết | Báo cáo suất ăn/dinh dưỡng, xuất tệp, duyệt và so sánh bản tính lại. | Truy về bản chốt/điều chỉnh, món và phiên bản công thức; tái lập bản đã duyệt. |
+
+**Đợt code kế tiếp:** chặng 3 — lịch vận hành/ngày nghỉ theo niên khóa và kiểm tra khi tạo phiên ăn. Giữ giờ chốt 07:30 UTC+7; không bổ sung luồng bắt giáo viên đánh dấu có mặt toàn bộ trẻ mỗi ngày.
+
+**Phụ thuộc cần chốt:** lịch học/ngày nghỉ thực tế, quyền duyệt điều chỉnh, hạn công bố thực đơn, nguồn thành phần dinh dưỡng/nhóm tuổi và mẫu báo cáo. Hạn công bố 16:00 vẫn là đề xuất. Import không bắt đầu khi chưa có mẫu Excel; mobile, tài chính chi tiết và SMS/email giữ ở giai đoạn sau.

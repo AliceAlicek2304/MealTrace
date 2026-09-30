@@ -2,10 +2,24 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../../lib/api'
 import { toast } from 'sonner'
+import { Modal } from '../../components/Modal'
 
 type Child = { studentId: string; fullName: string; className: string }
 type Absence = { id: string; studentId: string; studentName: string; fromDate: string; toDate: string; reason: string; reportedAt: string; cancelledAt: string | null }
 const localToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+function periodEnd(start: string, period: 'week' | 'month' | 'year') {
+  const date = new Date(`${start}T00:00:00Z`)
+  if (!Number.isFinite(date.getTime())) return ''
+  if (period === 'week') date.setUTCDate(date.getUTCDate() + 6)
+  else {
+    const day = date.getUTCDate()
+    date.setUTCDate(1)
+    date.setUTCMonth(date.getUTCMonth() + (period === 'year' ? 12 : 1))
+    const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate()
+    date.setUTCDate(Math.min(day, last) - 1)
+  }
+  return date.toISOString().slice(0, 10)
+}
 
 export function AbsencesPage() {
   const queryClient = useQueryClient()
@@ -13,29 +27,48 @@ export function AbsencesPage() {
   const [fromDate, setFromDate] = useState(localToday)
   const [toDate, setToDate] = useState(localToday)
   const [reason, setReason] = useState('')
+  const [editing, setEditing] = useState<Absence | null>(null)
+  const [editFrom, setEditFrom] = useState('')
+  const [editTo, setEditTo] = useState('')
+  const [editReason, setEditReason] = useState('')
   const children = useQuery({ queryKey: ['parent-students'], queryFn: async () => (await api.get<Child[]>('/parent/students')).data })
   const absences = useQuery({ queryKey: ['parent-absences'], queryFn: async () => (await api.get<Absence[]>('/parent/absences')).data })
   const report = useMutation({ mutationFn: () => api.post('/parent/absences', { studentId, fromDate, toDate, reason }),
-    onSuccess: async () => { setReason(''); toast.success('Đã ghi báo vắng. Báo vắng sau giờ chốt không thay đổi bản suất đã gửi bếp.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
+    onSuccess: async () => { setReason(''); toast.success('Đã đăng ký không ăn. Thay đổi sau giờ chốt không đổi số suất đã gửi bếp.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
     onError: error => toast.error(apiErrorMessage(error)) })
   const cancel = useMutation({ mutationFn: (id: string) => api.post(`/parent/absences/${id}/cancel`),
     onSuccess: async () => { toast.success('Đã hủy báo vắng. Bản suất đã chốt trước đó vẫn được giữ.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
     onError: error => toast.error(apiErrorMessage(error)) })
-  function submit(event: FormEvent) { event.preventDefault(); report.mutate() }
+  const update = useMutation({ mutationFn: () => api.post(`/parent/absences/${editing!.id}/replace`, { studentId: editing!.studentId, fromDate: editFrom, toDate: editTo, reason: editReason }),
+    onSuccess: async () => { setEditing(null); toast.success('Đã cập nhật khoảng không ăn; giữ lịch sử và số suất đã chốt.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
+    onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
+  function submit(event: FormEvent) { event.preventDefault(); if (!report.isPending) report.mutate() }
+  function openEdit(item: Absence) { setEditing(item); setEditFrom(item.fromDate); setEditTo(item.toDate); setEditReason(item.reason) }
 
-  return <><div className="eyebrow">PHỤ HUYNH</div><h1>Báo vắng</h1>
-    <p className="lead">Trẻ được mặc định dự kiến ăn trong ngày học có bữa ăn. Chỉ cần báo khi trẻ vắng một ngày hoặc nhiều ngày.</p>
-    <section className="panel"><h2>Tạo báo vắng</h2><form className="workflow-form" onSubmit={submit}>
+  return <><div className="eyebrow">PHỤ HUYNH</div><h1>Báo vắng / Không ăn tại trường</h1>
+    <p className="lead">Trẻ vẫn đi học có thể đăng ký không ăn tại trường. Chọn một khoảng tối đa một năm; hết khoảng này trẻ trở về mặc định có suất. Việc đăng ký không thay đổi ghi danh học.</p>
+    <section className="panel"><h2>Đăng ký không ăn</h2><form className="workflow-form" onSubmit={submit}>
       <div className="workflow-fields"><label className="field">Trẻ<select required value={studentId} onChange={e => setStudentId(e.target.value)}><option value="">Chọn trẻ</option>
         {children.data?.map(child => <option key={child.studentId} value={child.studentId}>{child.fullName} · {child.className}</option>)}</select></label>
         <label className="field">Từ ngày<input type="date" required min={localToday()} value={fromDate} onChange={e => { setFromDate(e.target.value); if (toDate < e.target.value) setToDate(e.target.value) }} /></label>
-        <label className="field">Đến ngày<input type="date" required min={fromDate} value={toDate} onChange={e => setToDate(e.target.value)} /></label></div>
+        <label className="field">Đến ngày<input type="date" required min={fromDate} max={periodEnd(fromDate, 'year')} value={toDate} onChange={e => setToDate(e.target.value)} /></label></div>
+      <div className="form-actions">{(['week', 'month', 'year'] as const).map((period, index) => <button type="button" className="button secondary" key={period} onClick={() => setToDate(periodEnd(fromDate, period))}>{['1 tuần', '1 tháng', '1 năm'][index]}</button>)}</div>
+      <p className="form-help">Tính cả ngày bắt đầu và kết thúc. Có thể sửa khoảng ngày hoặc hủy khi muốn ăn lại; phiên đã qua giờ chốt giữ nguyên.</p>
       <label className="field">Lý do<textarea required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></label>
-      <button type="submit" className="button primary" disabled={report.isPending || !children.data?.length}>Gửi báo vắng</button>
+      <button type="submit" className="button primary" disabled={report.isPending || !children.data?.length}>Gửi đăng ký</button>
       {!children.isPending && !children.data?.length && <p className="form-error">Tài khoản chưa được liên kết với trẻ. Liên hệ nhà trường.</p>}
     </form></section>
-    <section className="panel workflow-lists"><h2>Báo vắng đã gửi</h2>{absences.isPending ? <p className="empty compact">Đang tải…</p> : absences.isError ? <p className="empty compact error">Không tải được báo vắng.</p> : !absences.data?.length ? <p className="empty compact">Chưa có báo vắng.</p> : absences.data.map(item =>
-      <div className="entry workflow-entry" key={item.id}><div><strong>{item.studentName}</strong> · {item.fromDate} đến {item.toDate}<small>{item.reason} · {item.cancelledAt ? 'Đã hủy' : 'Đang hiệu lực'}</small></div>
-        {!item.cancelledAt && <button type="button" className="button secondary" onClick={() => cancel.mutate(item.id)} disabled={cancel.isPending}>Hủy</button>}</div>)}</section>
+    <section className="panel workflow-lists"><h2>Đăng ký đã gửi</h2>{absences.isPending ? <p className="empty compact">Đang tải…</p> : absences.isError ? <p className="empty compact error">Không tải được đăng ký.</p> : !absences.data?.length ? <p className="empty compact">Chưa có đăng ký.</p> : absences.data.map(item =>
+      <div className="entry workflow-entry" key={item.id}><div><strong>{item.studentName}</strong> · {item.fromDate} đến {item.toDate}<small>{item.reason} · {item.cancelledAt ? 'Đã hủy / thay thế' : item.toDate < localToday() ? 'Đã hết hạn' : item.fromDate > localToday() ? 'Sắp áp dụng' : 'Đang hiệu lực'}</small></div>
+        {!item.cancelledAt && item.toDate >= localToday() && <div className="entry-actions"><button type="button" className="button secondary" onClick={() => openEdit(item)} disabled={cancel.isPending}>Sửa khoảng ngày</button><button type="button" className="button secondary" onClick={() => cancel.mutate(item.id)} disabled={cancel.isPending}>Hủy / Ăn lại</button></div>}</div>)}</section>
+    {editing && <Modal title={`Cập nhật: ${editing.studentName}`} description="Bản cũ được giữ trong lịch sử. Số suất đã qua giờ chốt không thay đổi." busy={update.isPending} onClose={() => setEditing(null)}>
+      <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!update.isPending) update.mutate() }}>
+        <label className="field">Từ ngày<input type="date" required disabled={update.isPending} min={editing.fromDate < localToday() ? editing.fromDate : localToday()} value={editFrom} onChange={e => setEditFrom(e.target.value)} /></label>
+        <p className="form-help">Nếu ngày bắt đầu đã qua, giữ nguyên ngày đó hoặc chọn một ngày từ hôm nay.</p>
+        <label className="field">Đến ngày<input type="date" required disabled={update.isPending} min={editFrom > localToday() ? editFrom : localToday()} max={periodEnd(editFrom, 'year')} value={editTo} onChange={e => setEditTo(e.target.value)} /></label>
+        <label className="field">Lý do<textarea required maxLength={500} disabled={update.isPending} value={editReason} onChange={e => setEditReason(e.target.value)} /></label>
+        <div className="form-actions"><button type="button" className="button secondary" disabled={update.isPending} onClick={() => setEditing(null)}>Hủy</button><button type="submit" className="button primary" disabled={update.isPending || !editReason.trim()}>Lưu cập nhật</button></div>
+      </form>
+    </Modal>}
   </>
 }

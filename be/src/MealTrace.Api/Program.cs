@@ -25,6 +25,7 @@ try { jwtKey = Convert.FromBase64String(jwtKeyText); }
 catch (FormatException) { throw new InvalidOperationException("Jwt:Key must be a Base64-encoded random key."); }
 if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt:Key must contain at least 32 random bytes.");
 builder.Services.AddDbContext<MealTraceDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.User.RequireUniqueEmail = false;
@@ -126,6 +127,7 @@ app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapMealEndpoints();
 app.MapWorkflowEndpoints();
+app.MapMealExceptionEndpoints();
 app.MapStudentAdministrationEndpoints();
 app.Run();
 
