@@ -20,7 +20,7 @@ public static class MealEndpoints
                 .Include(x => x.Settlements).AsSplitQuery().ToListAsync();
             return days.Select(x => new
             {
-                x.Id, x.Date, x.MealType, x.CutoffAt, x.PublishedAt,
+                x.Id, x.Date, x.MealType, x.CutoffAt, x.PublishedAt, x.IsCancelled, x.CancellationReason,
                 Dishes = x.Dishes.Select(d => new { d.Id, d.RecipeVersionId, Name = d.RecipeVersion.Recipe.Name }).ToList(),
                 SettledPortions = x.Settlements.Any(s => s.ClassId != null)
                     ? x.Settlements.Where(s => s.ClassId != null).Sum(s => (int?)s.Count)
@@ -36,7 +36,7 @@ public static class MealEndpoints
             if (day is null) return Results.NotFound();
             return Results.Ok(new
             {
-                day.Id, day.Date, day.MealType, day.CutoffAt, day.PublishedAt,
+                day.Id, day.Date, day.MealType, day.CutoffAt, day.PublishedAt, day.IsCancelled, day.CancellationReason,
                 Dishes = day.Dishes.Select(d => new { d.Id, d.RecipeVersionId, Name = d.RecipeVersion.Recipe.Name }),
                 Settlements = day.Settlements.OrderBy(s => s.SettledAt).Select(s => new
                 { s.Id, s.ClassId, s.ClassName, s.Count, s.SettledAt, s.SettledBy, s.Reason, s.SupersedesId }),

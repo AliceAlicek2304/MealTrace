@@ -277,13 +277,19 @@ public static class WorkflowEndpoints
             return Results.NoContent();
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 
-        api.MapPost("/meal-days", async (CreateMealDay input, MealTraceDbContext db) =>
+        api.MapPost("/meal-days", async (CreateMealDay input, MealTraceDbContext db, TimeProvider clock) =>
         {
             var mealType = input.MealType?.Trim();
             var schoolYear = input.SchoolYear?.Trim();
             if (string.IsNullOrWhiteSpace(mealType) || mealType.Length > 60 || string.IsNullOrWhiteSpace(schoolYear) ||
                 !await db.Classes.AnyAsync(x => x.SchoolYear == schoolYear))
                 return Results.BadRequest(new { message = "Tên phiên ăn hoặc niên khóa không hợp lệ." });
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            await MealCalendarEndpoints.LockYear(db, schoolYear);
+            if (!await MealCalendarEndpoints.Allows(db, schoolYear, input.Date, mealType))
+                return Results.BadRequest(new { message = "Ngày/phiên không có trong lịch bữa ăn. Thiết lập lịch tuần hoặc ngày đặc biệt trước." });
+            if (MealCalendarEndpoints.Cutoff(input.Date) <= clock.GetUtcNow())
+                return Results.Conflict(new { message = "Đã qua giờ chốt; không tạo phiên mới cho ngày này." });
             if (await db.MealDays.AnyAsync(x => x.Date == input.Date && x.MealType == mealType))
                 return Results.Conflict(new { message = "Phiên ăn này đã tồn tại." });
             var day = new MealDay
@@ -292,15 +298,21 @@ public static class WorkflowEndpoints
                 CutoffAt = new DateTimeOffset(input.Date.ToDateTime(DefaultCutoff), SchoolOffset).ToUniversalTime(),
             };
             db.MealDays.Add(day);
-            await db.SaveChangesAsync();
+            if (day.CutoffAt <= clock.GetUtcNow()) return Results.Conflict(new { message = "Đã qua giờ chốt; không tạo phiên mới." });
+            await db.SaveChangesAsync(); await transaction.CommitAsync();
             return Results.Created($"/api/meal-days/{day.Id}", new { day.Id, day.Date, day.MealType, day.SchoolYear, day.CutoffAt });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
 
-        api.MapGet("/meal-days/workflow", async (MealTraceDbContext db) =>
-            await db.MealDays.AsNoTracking().OrderByDescending(x => x.Date).ThenBy(x => x.MealType).Take(60)
+        api.MapGet("/meal-days/workflow", async (DateOnly? date, int? page, MealTraceDbContext db) =>
+        {
+            var number = Math.Clamp(page ?? 1, 1, 100000);
+            var query = db.MealDays.AsNoTracking().Where(x => date == null || x.Date == date);
+            var total = await query.CountAsync();
+            var items = await query.OrderByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Skip((number - 1) * 25).Take(25)
                 .Select(x => new { x.Id, x.Date, x.MealType, x.SchoolYear, x.CutoffAt,
-                    IsSettled = x.SettledAt != null })
-                .ToListAsync()).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
+                    x.IsCancelled, x.CancellationReason, IsSettled = x.SettledAt != null }).ToListAsync();
+            return Results.Ok(new { items, total, page = number, pageSize = 25 });
+        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
         api.MapGet("/meal-days/{id:guid}/portions", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
         {
@@ -313,7 +325,7 @@ public static class WorkflowEndpoints
                 var assigned = await db.TeacherAssignments.Where(x => x.UserId == CurrentUserId(principal)).Select(x => x.ClassId).ToListAsync();
                 preview = preview.Where(x => assigned.Contains(x.ClassId)).ToList();
             }
-            return Results.Ok(new { day.Id, day.Date, day.MealType, day.CutoffAt, Classes = preview });
+            return Results.Ok(new { day.Id, day.Date, day.MealType, day.CutoffAt, day.IsCancelled, day.CancellationReason, isSettled = day.SettledAt != null, Classes = preview });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
         api.MapPost("/meal-days/{id:guid}/settle", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
@@ -323,6 +335,7 @@ public static class WorkflowEndpoints
                 ? (await db.MealDays.FromSqlInterpolated($"SELECT * FROM \"MealDays\" WHERE \"Id\" = {id} FOR UPDATE").ToListAsync()).SingleOrDefault()
                 : await db.MealDays.FindAsync(id);
             if (day is null) return Results.NotFound();
+            if (day.IsCancelled) return Results.Conflict(new { message = "Phiên đã hủy theo lịch bữa ăn; không thể chốt." });
             if (clock.GetUtcNow() < day.CutoffAt) return Results.Conflict(new { message = "Chưa đến giờ chốt suất." });
             if (day.SettledAt is not null || await db.PortionSettlements.AnyAsync(x => x.MealDayId == id))
                 return Results.Conflict(new { message = "Phiên ăn đã có bản chốt." });

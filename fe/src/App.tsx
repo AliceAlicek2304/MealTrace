@@ -10,9 +10,10 @@ import { MealDaysPage } from './features/meals/MealDaysPage'
 import { ClassesPage } from './features/workflow/ClassesPage'
 import { AbsencesPage } from './features/workflow/AbsencesPage'
 import { PortionsPage } from './features/workflow/PortionsPage'
+import { MealCalendarPage } from './features/workflow/MealCalendarPage'
 import { LandingPage } from './features/landing/LandingPage'
 
-type Page = 'accounts' | 'classes' | 'portions' | 'absences' | 'meals' | 'profile'
+type Page = 'accounts' | 'classes' | 'calendar' | 'portions' | 'absences' | 'meals' | 'profile'
 const mealRoles = ['ADMIN', 'KITCHEN_STAFF']
 
 export default function App() {
@@ -57,7 +58,7 @@ export default function App() {
   }
 
   if (!user) return showLogin ? <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} /> : <LandingPage onLogin={() => setShowLogin(true)} />
-  const pageName = page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
+  const pageName = page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'calendar' ? 'Lịch bữa ăn' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
 
   return <div className="shell">
     <aside className="sidebar">
@@ -66,6 +67,7 @@ export default function App() {
       <nav aria-label="Điều hướng chính">
         {isAdmin && <button type="button" className={`nav ${page === 'accounts' ? 'active' : ''}`} onClick={() => setPage('accounts')}><Users size={18} /> Tài khoản</button>}
         {isAdmin && <button type="button" className={`nav ${page === 'classes' ? 'active' : ''}`} onClick={() => setPage('classes')}><School size={18} /> Lớp và trẻ</button>}
+        {isAdmin && <button type="button" className={`nav ${page === 'calendar' ? 'active' : ''}`} onClick={() => setPage('calendar')}><CalendarDays size={18} /> Lịch bữa ăn</button>}
         {canSeePortions && <button type="button" className={`nav ${page === 'portions' ? 'active' : ''}`} onClick={() => setPage('portions')}><ClipboardList size={18} /> Số suất</button>}
         {isParent && <button type="button" className={`nav ${page === 'absences' ? 'active' : ''}`} onClick={() => setPage('absences')}><CalendarOff size={18} /> Báo vắng</button>}
         {isMealStaff && <button type="button" className={`nav ${page === 'meals' ? 'active' : ''}`} onClick={() => setPage('meals')}><CalendarDays size={18} /> Ngày ăn</button>}
@@ -77,6 +79,7 @@ export default function App() {
       <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
       <main>{page === 'accounts' && isAdmin ? <AccountsPage />
         : page === 'classes' && isAdmin ? <ClassesPage />
+        : page === 'calendar' && isAdmin ? <MealCalendarPage />
         : page === 'portions' && canSeePortions ? <PortionsPage roles={user.roles} />
         : page === 'absences' && isParent ? <AbsencesPage />
         : page === 'meals' && isMealStaff ? <MealDaysPage />

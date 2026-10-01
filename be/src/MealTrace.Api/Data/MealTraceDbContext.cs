@@ -13,6 +13,9 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
     public DbSet<InspectorGrant> InspectorGrants => Set<InspectorGrant>();
     public DbSet<SchoolClass> Classes => Set<SchoolClass>();
     public DbSet<AcademicYear> AcademicYears => Set<AcademicYear>();
+    public DbSet<MealSchedule> MealSchedules => Set<MealSchedule>();
+    public DbSet<MealCalendarException> MealCalendarExceptions => Set<MealCalendarException>();
+    public DbSet<MealCalendarAudit> MealCalendarAudits => Set<MealCalendarAudit>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
@@ -32,6 +35,15 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.Entity<MealSchedule>().HasKey(x => x.SchoolYear);
+        model.Entity<MealSchedule>().Property(x => x.Revision).IsConcurrencyToken();
+        model.Entity<MealSchedule>().HasOne<AcademicYear>().WithMany().HasForeignKey(x => x.SchoolYear).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<MealCalendarException>().HasKey(x => new { x.SchoolYear, x.Date });
+        model.Entity<MealCalendarException>().HasOne<AcademicYear>().WithMany().HasForeignKey(x => x.SchoolYear).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<MealCalendarException>().Property(x => x.Reason).HasMaxLength(500);
+        model.Entity<MealCalendarAudit>().Property(x => x.Reason).HasMaxLength(500);
+        model.Entity<MealCalendarAudit>().HasIndex(x => new { x.SchoolYear, x.RecordedAt });
+        model.Entity<MealDay>().Property(x => x.CancellationReason).HasMaxLength(500);
         model.Entity<AcademicYear>().HasKey(x => x.Code);
         model.Entity<AcademicYear>().Property(x => x.Code).HasMaxLength(30);
         model.Entity<AcademicYear>().ToTable(t => t.HasCheckConstraint("CK_AcademicYear_Dates", "\"EndDate\" >= \"StartDate\""));
@@ -99,6 +111,8 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
 
     private void PrepareEnrollments()
     {
+        if (ChangeTracker.Entries<MealCalendarAudit>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Calendar audit records are append-only.");
         if (ChangeTracker.Entries<MealRegistration>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Meal exceptions are append-only; record a new event instead.");
         // Also covers seed/test creation through the DbContext, not just the HTTP endpoint.

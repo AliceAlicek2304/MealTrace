@@ -7,7 +7,7 @@ import { Pagination } from '../../components/Pagination'
 
 type Decision = { studentId: string; studentCode: string; fullName: string; classId: string; className: string;
   willEat: boolean; source: string; parentReportedAbsent: boolean; latestEventId: string | null; latestAction: string | null; latestReason: string | null }
-type Decisions = { items: Decision[]; total: number; canEdit: boolean; isSettled: boolean; cutoffAt: string;
+type Decisions = { items: Decision[]; total: number; canEdit: boolean; isSettled: boolean; isCancelled: boolean; cancellationReason: string | null; cutoffAt: string;
   classes: { id: string; name: string }[] }
 type Action = 'EAT' | 'ABSENT' | 'DEFAULT'
 type Event = { id: string; action: Action; reason: string | null; recordedAt: string; actorName: string | null; isLegacy: boolean; sequence: number }
@@ -57,7 +57,7 @@ export function MealExceptions({ mealId }: { mealId: string }) {
       <label className="field">Lớp<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1) }}><option value="">Tất cả lớp được xem</option>
         {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div>
     {decisions.isPending ? <p className="empty compact">Đang tải…</p> : decisions.isError ? <p className="empty compact error">{apiErrorMessage(decisions.error)}</p> : <>
-      {!canEdit && <p className="empty compact">Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.</p>}
+      {!canEdit && <p className="empty compact">{decisions.data?.isCancelled ? `Phiên đã hủy: ${decisions.data.cancellationReason ?? 'Theo lịch trường'}` : 'Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.'}</p>}
       {!decisions.data?.items.length && <p className="empty compact">Không có trẻ phù hợp.</p>}
       {decisions.data?.items.map(student => <div className="entry student-entry" key={student.studentId}><div><strong>{student.fullName}</strong>
         <small>{student.studentCode} · {student.className} · {student.willEat ? 'Có suất' : 'Không có suất'}</small><small>{sourceLabel[student.source] ?? student.source}</small>

@@ -13,6 +13,7 @@ internal static class MealDecisionService
 
     public static async Task<List<MealDecision>> ReadAsync(MealTraceDbContext db, MealDay day, DateTimeOffset now, Guid[]? allowedClasses = null)
     {
+        if (day.IsCancelled) return [];
         var asOf = now < day.CutoffAt ? now : day.CutoffAt;
         var query = StudentAdministrationEndpoints.OnDate(db, day.Date).Where(x => x.RecordedAt <= asOf &&
             (day.SchoolYear == null || x.Class.SchoolYear == day.SchoolYear));

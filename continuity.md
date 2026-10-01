@@ -1,12 +1,12 @@
 # MealTrace — Continuity
 
-> Cập nhật 30/09/2026. Proposal đang áp dụng: [PROPOSAL.md](PROPOSAL.md). Mã nguồn đã push gần nhất: `8865d55` (main); mã trẻ, Enrollment, phân trang, tests, proposal và continuity đã được push. Kế hoạch đang áp dụng: [docs/implementation-plan.md](docs/implementation-plan.md). Không dùng Docker. `README.md` để trống theo yêu cầu.
+> Cập nhật 01/10/2026. Proposal đang áp dụng: [PROPOSAL.md](PROPOSAL.md). Mốc trước phần lịch vận hành: `700c50a` (main). Lịch vận hành và tạo phiên hàng loạt được bàn giao trong commit cập nhật tài liệu này. Kế hoạch đang áp dụng: [docs/implementation-plan.md](docs/implementation-plan.md). Không dùng Docker. `README.md` để trống theo yêu cầu.
 
 `mobile/` hiện chỉ có `.gitkeep` để giữ chỗ trong Git; chưa có ứng dụng mobile hoặc thay đổi phạm vi MVP. Chạy web local bằng `dotnet run --project be/src/MealTrace.Api/MealTrace.Api.csproj --launch-profile http` ở root và `npm run dev` trong `fe/` (cổng 5184 và 5173).
 
 ## Trạng thái hiện tại
 
-**Đã có lát cắt đầu tiên của workflow chính, chưa phải MVP hoàn chỉnh.** Hệ thống đang có đăng nhập/4 vai trò, quản lý tài khoản/reset mật khẩu, mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại theo ngày, liên kết Parent, tìm kiếm/phân trang, báo vắng và chốt số suất gửi bếp. Chưa hoàn thành lịch ngày nghỉ, điều chỉnh sau chốt, thực đơn/dinh dưỡng, ảnh và báo cáo. Backend dùng ASP.NET Core 8, EF Core code-first, PostgreSQL; frontend React/TypeScript. Swagger hoạt động trong Development.
+**Đã có lát cắt đầu tiên của workflow chính, chưa phải MVP hoàn chỉnh.** Hệ thống đang có đăng nhập/4 vai trò, quản lý tài khoản/reset mật khẩu, mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại theo ngày, liên kết Parent, tìm kiếm/phân trang, báo vắng và chốt số suất gửi bếp. Đã triển khai lịch vận hành, ngày đặc biệt và tạo phiên hàng loạt. Chưa hoàn thành điều chỉnh sau chốt, thực đơn/dinh dưỡng, ảnh và báo cáo. Backend dùng ASP.NET Core 8, EF Core code-first, PostgreSQL; frontend React/TypeScript. Swagger hoạt động trong Development.
 
 Mặc định trẻ có Enrollment hiệu lực tại ngày ăn, thuộc niên khóa của phiên, được **dự kiến ăn** vào `MealDay` đã tạo. Lớp theo ngày lấy từ Enrollment, không dùng pointer Student.ClassId để tính lịch sử. Báo vắng được tính nếu ghi trước `CutoffAt`. Giáo viên có thể ghi ngoại lệ trước giờ chốt cho lớp được giao. Bản chốt lưu danh sách ID và tên trẻ theo lớp; sau chốt, báo vắng bị hủy hoặc thêm trẻ mới không thay đổi số suất đã gửi. Đây là số suất dự kiến, **không phải điểm danh có mặt thực tế**.
 
@@ -15,11 +15,11 @@ Mặc định trẻ có Enrollment hiệu lực tại ngày ăn, thuộc niên k
 - Auth: Identity, mật khẩu hash/salt qua PasswordHasher của ASP.NET Identity, JWT, kiểm tra role/scope tại API; 4 tài khoản demo chỉ trong Development.
 - Admin: tạo/sửa lớp và trẻ, mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại, xem lịch sử và liên kết giáo viên/phụ huynh. Chỉnh sửa dùng modal; nhập lớp/trẻ từ tệp **chưa có**.
 - Admin có thể liên kết một trẻ với phụ huynh ngay tại màn **Lớp và trẻ** bằng SĐT. SĐT đã tồn tại được ghép vào tài khoản đang hoạt động; SĐT mới tạo tài khoản Parent với mật khẩu tạm chỉ hiển thị một lần. Một phụ huynh có thể liên kết nhiều trẻ và một trẻ có thể có nhiều người giám hộ. Danh sách tài khoản lọc theo lớp giáo viên phụ trách ở API trước khi phân trang.
-- Parent: xem trẻ được liên kết; gửi/hủy báo vắng một ngày hoặc tối đa 90 ngày. Không được báo vắng cho trẻ ngoài liên kết.
+- Parent: xem trẻ được liên kết; gửi/sửa/hủy khoảng không ăn trong năm học đã thiết lập, có chọn nhanh tuần/tháng/đến hết năm học. Không được báo vắng cho trẻ ngoài liên kết.
 - Teacher: xem danh sách dự kiến ăn chỉ cho lớp được phân công; ghi ngoại lệ trước giờ chốt.
 - Admin: tạo phiên ăn với niên khóa, giờ chốt mặc định 07:30 UTC+7; chốt số suất theo lớp. Kitchen xem bản chốt.
-- EF migrations đến `StudentEnrollmentHistory` đã áp dụng lên PostgreSQL local `mealtrace`. Trẻ legacy chưa biết ngày nhập học được tạo Enrollment từ ngày migration, có ghi lý do chuyển đổi.
-- Kiểm chứng gần nhất: 17 test SQLite + 2 test PostgreSQL, FE 5 test, build thành công. PostgreSQL test dùng schema riêng; cần MEALTRACE_TEST_CONNECTION để chạy, mặc định skip khi thiếu biến.
+- EF migrations đến `20261001114347_MealOperatingCalendar` đã áp dụng lên PostgreSQL local `mealtrace`. Trẻ legacy chưa biết ngày nhập học được tạo Enrollment từ ngày migration, có ghi lý do chuyển đổi.
+- Kiểm chứng gần nhất: 37 test SQLite + 6 test PostgreSQL, FE 5 test, build thành công. PostgreSQL test dùng schema riêng; cần MEALTRACE_TEST_CONNECTION để chạy, mặc định skip khi thiếu biến.
 - Smoke local qua proxy FE: đăng nhập Admin SĐT, lấy lớp/trẻ/phạm vi, health và Swagger thành công; 4 trẻ local có mã. PostgreSQL tests đã kiểm tra chuyển lớp, báo vắng và chốt suất đồng thời trong schema biệt lập. Chưa visual QA toàn bộ UI hoặc có kết quả Sonar mới cho commit 8865d55.
 
 ## Định hướng giao diện FE
@@ -36,9 +36,9 @@ Mặc định trẻ có Enrollment hiệu lực tại ngày ăn, thuộc niên k
 | Ưu tiên | Việc còn lại | Lý do |
 | --- | --- | --- |
 | P0 | Nghiệm thu lớp/trẻ và sửa lỗi từ test người dùng | Mã trẻ/Enrollment đã triển khai; cần test modal desktop/mobile và xử lý lỗi tái hiện trước khi mở rộng. |
-| P1 | Ngoại lệ có/vắng/khôi phục và nguồn quyết định trước chốt | UI hiện chỉ ghi vắng; thiếu lịch sử actor và khôi phục. Cần test boundary cut-off và concurrent override. |
+| Đã có | Ngoại lệ có/vắng/khôi phục trước chốt | Có nguồn, lịch sử và kiểm thử cut-off/cập nhật đồng thời; tiếp tục nghiệm thu UI. |
 | P1 | Quy trình sửa số suất sau chốt bằng bản điều chỉnh có lý do | Hiện bản chốt bất biến và chỉ cho chốt một lần; báo vắng muộn không làm đổi bản đã chốt. Chưa có amendment. |
-| P1 | Lịch bữa ăn/ngày nghỉ | Hiện chưa có lịch vận hành; giữ 07:30 UTC+7, không thêm cấu hình giờ chốt khi chưa cần. |
+| Đã có | Lịch bữa ăn/ngày nghỉ | Thiết lập tuần, xem trước/tạo hàng loạt, sửa ngày đặc biệt và lịch sử; tiếp tục nghiệm thu UI. |
 | P1 | Import danh sách lớp/trẻ từ tệp, kiểm tra trùng và lỗi theo dòng | Hiện chỉ tạo từng lớp/trẻ trên UI. |
 | P1 | Liên kết phụ huynh hàng loạt sau import | Tạm hoãn theo yêu cầu vì chưa có mẫu tệp. Khi triển khai cần mã học sinh duy nhất và SĐT phụ huynh trong tệp. Bước xem trước phải đối chiếu từng dòng, trùng SĐT, trẻ trùng mã và lỗi lớp trước khi ghi DB; sau xác nhận mới tạo/ghép tài khoản theo SĐT và quan hệ ParentStudent trong một giao dịch. Gửi thông tin tài khoản qua SMS tới SĐT và qua email nếu có sẽ triển khai ở giai đoạn sau, sau khi import thành công. Chọn phạm vi đã có phân trang và giữ lựa chọn; import vẫn cần luồng preview/ghi theo lô riêng, không thay bằng chọn checkbox thủ công. |
 | P1 | Nguồn bản chốt và bản điều chỉnh | Snapshot mới cần Enrollment/báo vắng/ngoại lệ nguồn. Giữ dự kiến ăn khác với có mặt thực tế; không bắt giáo viên điểm danh có toàn bộ trẻ mỗi ngày. |
@@ -55,8 +55,8 @@ Mặc định trẻ có Enrollment hiệu lực tại ngày ăn, thuộc niên k
 
 ## Thứ tự triển khai tiếp theo
 
-1. Nghiệm thu lớp/trẻ; sửa lỗi từ người dùng. Đợt code tiếp: ngoại lệ có/vắng/khôi phục mặc định, scope và lịch sử.
-2. Lịch bữa ăn/ngày nghỉ; điều chỉnh sau chốt có duyệt, nguồn và phiên bản, giữ bản gốc.
+1. Nghiệm thu lịch bữa ăn, tạo hàng loạt và dữ liệu nền; sửa lỗi từ người dùng.
+2. Điều chỉnh sau chốt có duyệt, nguồn và phiên bản, giữ bản gốc.
 3. Thực đơn/công thức/nguồn dinh dưỡng và nhóm tuổi; duyệt/công bố, giữ phiên bản.
 4. Món thực tế/đổi món/ảnh và Parent xem bản công bố; báo cáo/truy vết.
 5. Import khi có mẫu Excel; SMS/email và phần mở rộng sau MVP. Chi tiết: docs/implementation-plan.md.
@@ -257,3 +257,17 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 
 - Người dùng yêu cầu push các thay đổi năm học: giới hạn đăng ký không ăn theo niên khóa, AcademicYearMealOptOut, tạo năm học dùng chung/copy lịch năm trước, dropdown và sửa header modal. Checklist local cập nhật các ca YEAR-01–10 và LONG-01–10, thêm trình tự chuẩn bị/test và tách bảng phân quyền cho dễ copy vào Doc.
 - Checklist vẫn bị ignore, không đưa lên Git; config local/secrets giữ ngoài repo. Đợt bàn giao này gồm code, migration, tests, proposal, continuity và kế hoạch. Bước tiếp theo là lịch vận hành/ngày nghỉ sau khi người dùng test.
+
+## Cập nhật 01/10/2026: lịch bữa ăn và tạo hàng loạt
+
+- Admin vào **Lịch bữa ăn**, chọn năm học đã có ngày bắt đầu/kết thúc; lưu các thứ có ăn và 1–6 bữa phục vụ một lần. Gợi ý thứ Hai–thứ Sáu/bữa trưa chưa được lưu tự động; trường xác nhận trước khi áp dụng.
+- Chọn tuần/tháng/cả năm học hoặc khoảng tùy chọn → xem trước → xác nhận tạo. Xem trước chỉ đọc; ngày nghỉ, phiên có sẵn, ngày qua 07:30 và xung đột niên khóa được hiển thị/bỏ qua. Tạo phiên không tự chốt suất.
+- Chỉnh ngày đặc biệt bằng modal: nghỉ, mở ăn/học bù với bữa riêng hoặc về lịch tuần; bắt buộc lý do. Phiên tương lai bị hủy giữ ID/lịch sử, có 0 suất và không được chốt/ghi ngoại lệ. Mở lại khôi phục phiên đủ điều kiện; bữa còn thiếu cần xem trước/tạo bổ sung.
+- Đổi cấu hình tuần đối chiếu các phiên tương lai và ngoại lệ ngày. Không xóa phiên, không sửa bản chốt. Từ chối thay đổi ảnh hưởng phiên đã qua cut-off, đã chốt/công bố hoặc có dữ liệu bảo vệ.
+- Revision dùng chung theo năm học; form cũ nhận 409. Token xem trước ràng buộc kế hoạch; xác nhận sau thay đổi lịch/qua giờ chốt cần xem trước lại. PostgreSQL khóa năm học rồi phiên theo ID; có kiểm thử cạnh tranh thật.
+- MealCalendarAudit ghi thêm lịch sử người xử lý, tên tại thời điểm thao tác, lý do và trước/sau. DbContext chặn cập nhật/xóa audit; chưa phải cơ chế WORM ở quyền DB.
+- Tạo phiên thủ công cũng kiểm tra ngày/bữa theo lịch và năm học. Danh sách chốt suất có lọc ngày/phân trang 25 phiên, thay cho giới hạn 60 phiên trước đây.
+- Migration đã áp dụng PostgreSQL local; không tự tạo ngày năm học/lịch trường giả để demo. Các phiên cũ giữ nguyên; cấu hình mới chỉ đối chiếu phần tương lai được phép thay đổi.
+- Kiểm chứng: 43 BE tests đạt (37 SQLite, 6 PostgreSQL biệt lập), 5 FE tests đạt; BE/FE build thành công. Smoke trình duyệt: đăng nhập Admin bằng SĐT, mở menu Lịch bữa ăn và hướng dẫn năm học chưa thiết lập, không có lỗi JavaScript. Chưa visual QA đầy đủ màn lịch có dữ liệu hoặc scan Sonar mới.
+- BE/FE đã dừng theo yêu cầu; cổng 5184/5173 không còn listener. Checklist local: docs/manual-test-plan.md, không push. Phần lịch được đưa lên GitHub cùng cập nhật tài liệu này.
+- Chặng tiếp theo: điều chỉnh sau chốt có lý do/duyệt/phiên bản và hiển thị chênh lệch cho bếp.

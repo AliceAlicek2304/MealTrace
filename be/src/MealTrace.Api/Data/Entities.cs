@@ -8,6 +8,37 @@ public sealed class AcademicYear
     public DateOnly EndDate { get; set; }
 }
 
+public sealed class MealSchedule
+{
+    public required string SchoolYear { get; set; }
+    public int WeekdayMask { get; set; }
+    public required string MealTypesJson { get; set; }
+    public int Revision { get; set; }
+}
+
+public sealed class MealCalendarException
+{
+    public required string SchoolYear { get; set; }
+    public DateOnly Date { get; set; }
+    public bool IsOpen { get; set; }
+    public required string MealTypesJson { get; set; }
+    public required string Reason { get; set; }
+}
+
+public sealed class MealCalendarAudit
+{
+    public required string ActorName { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public required string SchoolYear { get; set; }
+    public DateOnly? Date { get; set; }
+    public required string Kind { get; set; }
+    public required string BeforeJson { get; set; }
+    public required string AfterJson { get; set; }
+    public required string Reason { get; set; }
+    public Guid ActorId { get; set; }
+    public DateTimeOffset RecordedAt { get; set; }
+}
+
 public sealed class SchoolClass
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -98,6 +129,8 @@ public sealed class RecipeIngredient
 
 public sealed class MealDay
 {
+    public bool IsCancelled { get; set; }
+    public string? CancellationReason { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public DateOnly Date { get; set; }
     public string? SchoolYear { get; set; }

@@ -37,7 +37,7 @@ public static class MealExceptionEndpoints
             var rows = filtered.OrderBy(x => x.ClassName).ThenBy(x => x.FullName).ThenBy(x => x.StudentId).ToList();
             var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
             return Results.Ok(new { day.Id, day.Date, day.CutoffAt, isSettled = day.SettledAt != null,
-                canEdit = day.SettledAt == null && now < day.CutoffAt, asOf = now < day.CutoffAt ? now : day.CutoffAt,
+                day.IsCancelled, day.CancellationReason, canEdit = !day.IsCancelled && day.SettledAt == null && now < day.CutoffAt, asOf = now < day.CutoffAt ? now : day.CutoffAt,
                 classes = rooms, items = rows.Skip((number - 1) * size).Take(size), total = rows.Count, page = number, pageSize = size });
         }).WithName("MealDecisions");
 
@@ -74,7 +74,7 @@ public static class MealExceptionEndpoints
                 ? (await db.MealDays.FromSqlInterpolated($"SELECT * FROM \"MealDays\" WHERE \"Id\" = {id} FOR UPDATE").ToListAsync()).SingleOrDefault()
                 : await db.MealDays.FindAsync(id);
             if (day is null) return Results.NotFound();
-            if (day.SettledAt is not null || clock.GetUtcNow() >= day.CutoffAt) return Closed();
+            if (day.IsCancelled || day.SettledAt is not null || clock.GetUtcNow() >= day.CutoffAt) return Closed();
             if (db.Database.IsNpgsql())
                 await db.Students.FromSqlInterpolated($"SELECT * FROM \"Students\" WHERE \"Id\" = {input.StudentId} FOR UPDATE").ToListAsync();
             var member = await Member(db, day, input.StudentId, clock.GetUtcNow());

@@ -2,17 +2,17 @@
 
 ## 1. Điểm xuất phát
 
-- Code đã push: `8865d55`, nhánh `main`.
+- Mốc trước phần lịch vận hành: `700c50a`, nhánh `main`; phần lịch được bàn giao cùng commit cập nhật kế hoạch này.
 - Đã có đăng nhập email/SĐT, 4 role, quản lý tài khoản/phạm vi, Admin reset mật khẩu có audit.
 - Đã có mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại theo ngày, giữ liên kết phụ huynh; tìm kiếm/phân trang; chỉnh sửa bằng modal.
 - Đã có báo/hủy vắng, tạo phiên ăn, xem số suất theo Enrollment và chốt một lần từ 07:30 UTC+7.
 - Đã triển khai ngoại lệ trước chốt: có/vắng/khôi phục mặc định, nguồn quyết định, lịch sử actor và bảo vệ phiên bản nguồn.
 - Parent đăng ký không ăn trong năm học đã thiết lập (kể cả vẫn đi học), chọn tuần/tháng/đến hết năm học, sửa khoảng bằng modal hoặc hủy; giữ lịch sử và Enrollment. Không dùng trạng thái không ăn để suy ra vắng học.
 - Năm học dùng chung: tạo trước lớp, nhập mốc lần đầu; năm tiếp theo sao chép lịch cũ/tăng năm, Admin kiểm tra và lưu. Form lớp/phiên dùng dropdown. Import sau này chọn năm chung nếu Excel thiếu niên khóa/ngày.
-- Kiểm chứng gần nhất ở workspace: 32 test SQLite + 4 test PostgreSQL, 5 test FE; build thành công. Kiểm tra Admin mở/đóng modal ngoại lệ/tạo năm học, layout ngoại lệ 390px không tràn ngang; chưa visual QA toàn bộ màn hình, chưa chạy Sonar mới.
+- Kiểm chứng gần nhất ở workspace: 37 test SQLite + 6 test PostgreSQL, 5 test FE; build thành công. Kiểm tra Admin mở/đóng modal ngoại lệ/tạo năm học, layout ngoại lệ 390px không tràn ngang; chưa visual QA toàn bộ màn hình, chưa chạy Sonar mới.
 - Thực đơn, món thực tế/ảnh, báo cáo và lineage hiện mới có model/API đọc nền tảng; chưa hoàn thành workflow.
 
-Chặng ngoại lệ trước chốt đã triển khai ở workspace, chưa push. Các chặng còn lại là kế hoạch. Checklist test thủ công vẫn giữ local; không đưa vào Git. README để trống. Các bước không cần Docker.
+Ngoại lệ trước chốt và năm học dùng chung đã push. Lịch vận hành/tạo hàng loạt đã triển khai và đưa vào đợt push này; cần nghiệm thu UI. Điều chỉnh sau chốt và các chặng sau là kế hoạch. Checklist test thủ công vẫn giữ local; không đưa vào Git. README để trống. Các bước không cần Docker.
 
 ## 2. Thứ tự và tiêu chí hoàn thành
 
@@ -61,17 +61,18 @@ Không dùng lịch 14 tuần trong proposal để suy ra tiến độ đã hoà
 | Ghi đúng/sau cut-off hoặc phiên đã chốt | Bị từ chối; bản chốt giữ nguyên. |
 | Hai thao tác cùng phiên bản nguồn | Một thao tác thắng; thao tác cũ nhận conflict, lịch sử nhất quán. |
 
-## 4. Đợt tiếp theo: lịch vận hành và các chặng còn lại
+## 4. Lịch vận hành đã triển khai; đợt tiếp theo là điều chỉnh sau chốt
 
-### Lịch vận hành
+### Lịch vận hành — nghiệm thu
 
-- Thiết lập ngày có bữa ăn/ngày nghỉ bởi Admin; lịch theo niên khóa, có ngày ngoại lệ và lý do.
-- Chưa mặc định mọi thứ Bảy là nghỉ hoặc có học khi chưa có lịch trường. Giờ chốt vẫn 07:30 UTC+7.
-- Tạo phiên phải kiểm tra lịch; thay đổi lịch chỉ áp dụng các ngày/phiên còn được phép thay đổi. Không xóa phiên hay sửa bản chốt lịch sử.
-- Đối chiếu lịch với báo vắng dài hạn, ngày ghi danh/ngừng học; không coi ngày nghỉ là một báo vắng của trẻ.
-
-Thứ tự code: model lịch theo niên khóa và ngoại lệ ngày → migration → API Admin có lý do/kiểm tra phiên đã tồn tại → màn lịch và modal chỉnh sửa → kiểm tra tạo phiên/tính suất → test ngày nghỉ/ngày mở lại/xung đột với bản chốt. Lịch trường chưa xác nhận thì hiển thị rõ chưa cấu hình, không tự suy ra thứ Bảy/Chủ nhật. Khi đã có phiên chốt, từ chối đổi ngày đó sang nghỉ; luồng điều chỉnh xử lý riêng ở chặng sau.
-
+- Admin lưu các thứ có ăn và bữa phục vụ theo năm học, không tự suy ra lịch trường.
+- Chọn tuần/tháng/cả năm học → xem trước → tạo phiên còn thiếu; không tự chốt suất. Giờ chốt cố định 07:30 UTC+7.
+- Modal chỉnh ngày nghỉ/ngày ăn đặc biệt/về lịch tuần, lý do bắt buộc, lịch sử trước/sau.
+- Hủy/khôi phục phiên tương lai giữ ID; phiên hủy có 0 suất, không chốt/ghi ngoại lệ. Bữa mới cần tạo bổ sung qua preview.
+- Khóa thay đổi sau cut-off hoặc ảnh hưởng dữ liệu đã chốt/công bố; revision/token ngăn xác nhận kế hoạch lỗi thời.
+- Đã kiểm thử cả năm học, ngày lễ/học bù, lặp tạo không trùng, hủy/khôi phục, quyền, boundary cut-off và cập nhật đồng thời PostgreSQL. Chưa nghiệm thu trực quan đầy đủ.
+- Tạo thủ công kiểm tra lịch; màn chốt suất lọc ngày/phân trang 25 phiên.
+- Chuẩn bị test: lưu ngày năm học thực tế → lưu lịch tuần → xem trước một tuần → tạo → kiểm tra số suất → chỉnh ngày nghỉ/mở lại → đối chiếu lịch sử.
 ### Điều chỉnh sau chốt
 
 - Đề xuất: Teacher gửi yêu cầu theo lớp; Admin gửi/duyệt/từ chối; Kitchen đọc bản áp dụng. Quyền duyệt cần trường xác nhận trước khi code.

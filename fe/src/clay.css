@@ -296,6 +296,14 @@ h1 { color: #28374e; }
 .modal-body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 .modal-body .credential-once { margin: 22px 25px; }
 .modal-body .form-actions { flex-wrap: wrap; }
+.calendar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; padding: 22px 25px; }
+.calendar-day { display: flex; flex-direction: column; gap: 10px; border: 1px solid #e8ded1; border-radius: 18px; padding: 18px; overflow-wrap: anywhere; }
+.calendar-day small { line-height: 1.5; color: #66758a; }
+.calendar-open { background: #eefbf4; }
+.calendar-closed { background: #fff3e8; }
+.calendar-day .button { margin-top: auto; }
+.calendar-weekdays { border: 1px solid #e8ded1; border-radius: 14px; padding: 14px; display: flex; flex-wrap: wrap; gap: 14px; }
+.calendar-weekdays label { display: flex; align-items: center; gap: 8px; }
 @media (max-width: 600px) {
   .app-modal, .app-modal-wide { width: calc(100vw - 20px); max-height: calc(100dvh - 24px); border-radius: 18px; }
   .app-modal .modal-header, .modal-body .workflow-form, .modal-body .user-form { padding: 18px; }
