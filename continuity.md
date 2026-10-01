@@ -285,3 +285,9 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 - Kiểm chứng: 53 BE tests đạt (45 SQLite, 8 PostgreSQL). Các ca gồm bảo toàn gốc/nguồn, thêm/giảm, từ chối, yêu cầu lỗi thời, scope, trẻ ghi danh sau cutoff, legacy, chống 2 suất/2 lớp; PostgreSQL kiểm tra gửi trùng và duyệt đồng thời. FE 5 test logic/build đạt; chưa visual QA modal điều chỉnh hoặc scan Sonar.
 - Tài liệu proposal/kế hoạch/checklist được cập nhật; checklist vẫn local, không push. Chặng code tiếp theo: thực đơn và dinh dưỡng.
 - Bản legacy có tổng suất không khớp danh sách trẻ bị chặn gửi/duyệt điều chỉnh; tổng hiển thị giữ giá trị đã chốt, không suy ra lại từ danh sách thiếu.
+
+## Cập nhật 01/10/2026: sửa cấu hình khởi động local
+
+- Terminal người dùng thiếu Jwt:Key; DB đã cấu hình nhưng file local chỉ chứa connection string. Đã tạo khóa ngẫu nhiên 64 byte trong appsettings.Development.local.json được Git bỏ qua, giữ nguyên DB; không đưa giá trị khóa vào log hoặc repository.
+- Thêm be/scripts/setup-local-jwt.ps1: tương thích Windows PowerShell 5.1, chạy lại giữ khóa hiện có và cấu hình khác. set-db-local.ps1 không còn ghi đè toàn bộ cấu hình; setup-dev-secrets.ps1 cũng dùng RNG tương thích Windows PowerShell và thông báo đúng 4 role.
+- Đã khởi động BE bằng đúng dotnet run --project be/src/MealTrace.Api --launch-profile http, health trả ok, migration up-to-date; sau kiểm tra đã tắt để người dùng tự chạy lại. Script chạy lại giữ JWT/DB. Các thay đổi script được bàn giao cùng commit cập nhật tài liệu này; cấu hình chứa JWT/DB và checklist vẫn không đưa vào Git.

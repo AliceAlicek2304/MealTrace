@@ -8,7 +8,12 @@ $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
 try {
     $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
     if ([string]::IsNullOrWhiteSpace($value)) { throw 'Connection string cannot be empty.' }
-    $json = @{ ConnectionStrings = @{ MealTrace = $value } } | ConvertTo-Json -Depth 3
+    $config = if (Test-Path -LiteralPath $path) { Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+    if ($null -eq $config.PSObject.Properties['ConnectionStrings']) {
+        $config | Add-Member -NotePropertyName 'ConnectionStrings' -NotePropertyValue ([pscustomobject]@{})
+    }
+    $config.ConnectionStrings | Add-Member -NotePropertyName 'MealTrace' -NotePropertyValue $value -Force
+    $json = $config | ConvertTo-Json -Depth 20
     [System.IO.File]::WriteAllText($path, $json, (New-Object System.Text.UTF8Encoding($false)))
     $saved = (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json).ConnectionStrings.MealTrace
     if ($saved -ne $value) { throw 'Connection string could not be verified after saving.' }

@@ -26,7 +26,10 @@ function Save-Secret([string]$key, [string]$value) {
 
 $secrets = Read-Secrets
 if (-not (Get-Secret $secrets 'Jwt:Key')) {
-    Save-Secret 'Jwt:Key' ([Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(64)))
+    $bytes = New-Object byte[] 64
+    $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $generator.GetBytes($bytes) } finally { $generator.Dispose() }
+    Save-Secret 'Jwt:Key' ([Convert]::ToBase64String($bytes))
 }
 
 $roles = @('ADMIN', 'TEACHER', 'KITCHEN_STAFF', 'PARENT')
@@ -38,7 +41,7 @@ foreach ($role in $roles) {
     }
 }
 
-Write-Output 'JWT key and six Development seed passwords are stored in .NET User Secrets outside the repository.'
+Write-Output 'JWT key and four Development seed passwords are stored in .NET User Secrets outside the repository.'
 if ($ShowPasswords) {
     $secrets = Read-Secrets
     foreach ($role in $roles) {
