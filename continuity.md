@@ -291,3 +291,8 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 - Terminal người dùng thiếu Jwt:Key; DB đã cấu hình nhưng file local chỉ chứa connection string. Đã tạo khóa ngẫu nhiên 64 byte trong appsettings.Development.local.json được Git bỏ qua, giữ nguyên DB; không đưa giá trị khóa vào log hoặc repository.
 - Thêm be/scripts/setup-local-jwt.ps1: tương thích Windows PowerShell 5.1, chạy lại giữ khóa hiện có và cấu hình khác. set-db-local.ps1 không còn ghi đè toàn bộ cấu hình; setup-dev-secrets.ps1 cũng dùng RNG tương thích Windows PowerShell và thông báo đúng 4 role.
 - Đã khởi động BE bằng đúng dotnet run --project be/src/MealTrace.Api --launch-profile http, health trả ok, migration up-to-date; sau kiểm tra đã tắt để người dùng tự chạy lại. Script chạy lại giữ JWT/DB. Các thay đổi script được bàn giao cùng commit cập nhật tài liệu này; cấu hình chứa JWT/DB và checklist vẫn không đưa vào Git.
+## Cập nhật 01/10/2026: bỏ mã tài liệu trên giao diện
+
+- Đã bỏ các nhãn FR-02/FR-07 và ET-05/ET-06/ET-07 khỏi màn tài khoản/biểu mẫu; dùng tên nghiệp vụ dễ hiểu.
+- Màn hình mới không hiển thị mã yêu cầu hoặc mã thực thể của proposal. Quyền và liên kết nghiệp vụ giữ nguyên.
+- Rà mã FR/ET/NFR/UC/BR trong FE, build thành công; thay đổi được bàn giao cùng commit cập nhật tài liệu này.
