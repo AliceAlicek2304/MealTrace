@@ -19,10 +19,41 @@ public static class WorkflowEndpoints
     private sealed record LinkParent(string? Email, string? FullName, string? PhoneNumber = null);
     private sealed record CreateMealDay(DateOnly Date, string MealType, string SchoolYear);
     private sealed record ReportAbsence(Guid StudentId, DateOnly FromDate, DateOnly ToDate, string Reason);
+    private sealed record YearDates(DateOnly StartDate, DateOnly EndDate, string? SourceYearCode = null);
 
     public static IEndpointRouteBuilder MapWorkflowEndpoints(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").RequireAuthorization().WithTags("Meal workflow");
+        api.MapGet("/academic-years", async (MealTraceDbContext db) => await db.AcademicYears.AsNoTracking().OrderBy(x => x.Code).ToListAsync());
+        api.MapGet("/admin/academic-years", async (MealTraceDbContext db) =>
+        {
+            var codes = await db.Classes.Select(x => x.SchoolYear).Union(db.AcademicYears.Select(x => x.Code)).OrderBy(x => x).ToListAsync();
+            var years = await db.AcademicYears.ToDictionaryAsync(x => x.Code);
+            return Results.Ok(codes.Select(code => new { code, startDate = years.TryGetValue(code, out var year) ? (DateOnly?)year.StartDate : null,
+                endDate = years.TryGetValue(code, out year) ? (DateOnly?)year.EndDate : null }));
+        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
+        api.MapGet("/admin/academic-years/{code}/next", async (string code, MealTraceDbContext db) =>
+        {
+            var source = await db.AcademicYears.AsNoTracking().FirstOrDefaultAsync(x => x.Code == code);
+            var nextCode = NextYearCode(code);
+            if (source is null) return Results.NotFound();
+            if (nextCode is null || source.StartDate.Year >= 9999 || source.EndDate.Year >= 9999)
+                return Results.BadRequest(new { message = "Không thể tạo năm học tiếp theo từ niên khóa này." });
+            return Results.Ok(new { code = nextCode, startDate = source.StartDate.AddYears(1), endDate = source.EndDate.AddYears(1),
+                sourceYearCode = code, isConfigured = await db.AcademicYears.AnyAsync(x => x.Code == nextCode) });
+        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin)).WithName("PreviewNextAcademicYear");
+        api.MapPut("/admin/academic-years/{code}", async (string code, YearDates input, MealTraceDbContext db) =>
+        {
+            if (NextYearCode(code) is null || input.EndDate < input.StartDate)
+                return Results.BadRequest(new { message = "Mã năm học phải dạng 2026-2027 và khoảng ngày hợp lệ." });
+            if (input.SourceYearCode is not null && (NextYearCode(input.SourceYearCode) != code ||
+                !await db.AcademicYears.AnyAsync(x => x.Code == input.SourceYearCode)))
+                return Results.BadRequest(new { message = "Năm học nguồn chưa thiết lập hoặc không phải năm liền trước." });
+            var year = await db.AcademicYears.FindAsync(code);
+            if (year is not null) return Results.Conflict(new { message = "Mốc năm học đã thiết lập. Thay đổi lịch năm học cần quy trình đối chiếu dữ liệu riêng." });
+            db.AcademicYears.Add(new AcademicYear { Code = code, StartDate = input.StartDate, EndDate = input.EndDate });
+            await db.SaveChangesAsync(); return Results.NoContent();
+        }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin)).WithName("ConfigureAcademicYearDates");
         api.AddEndpointFilter(async (context, next) =>
         {
             try { return await next(context); }
@@ -155,7 +186,9 @@ public static class WorkflowEndpoints
         api.MapGet("/parent/students", async (ClaimsPrincipal principal, MealTraceDbContext db) =>
             await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).Where(x => db.ParentStudents.Any(p => p.UserId == CurrentUserId(principal) && p.StudentId == x.StudentId))
                 .OrderBy(x => x.Student.FullName)
-                .Select(x => new { x.StudentId, x.Student.StudentCode, x.Student.FullName, x.ClassId, ClassName = x.Class.Name })
+                .Select(x => new { x.StudentId, x.Student.StudentCode, x.Student.FullName, x.ClassId, ClassName = x.Class.Name, x.Class.SchoolYear,
+                    YearStartDate = db.AcademicYears.Where(y => y.Code == x.Class.SchoolYear).Select(y => (DateOnly?)y.StartDate).FirstOrDefault(),
+                    YearEndDate = db.AcademicYears.Where(y => y.Code == x.Class.SchoolYear).Select(y => (DateOnly?)y.EndDate).FirstOrDefault() })
                 .ToListAsync()).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 
         api.MapPost("/parent/absences", async (ReportAbsence input, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
@@ -169,16 +202,18 @@ public static class WorkflowEndpoints
                 !await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).AnyAsync(x => x.StudentId == input.StudentId))
                 return Results.Forbid();
             var today = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(SchoolOffset).DateTime);
-            if (input.FromDate < today || input.FromDate.Year >= 9999 || input.ToDate < input.FromDate || input.ToDate > input.FromDate.AddYears(1).AddDays(-1) ||
+            if (input.FromDate < today || input.ToDate < input.FromDate ||
                 string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
-                return Results.BadRequest(new { message = "Khoảng không ăn phải từ hôm nay, tối đa một năm tính từ ngày bắt đầu và có lý do." });
+                return Results.BadRequest(new { message = "Khoảng không ăn phải từ hôm nay, ngày kết thúc hợp lệ và có lý do." });
+            var year = await AbsenceYear(db, input.StudentId, input.FromDate, input.ToDate);
+            if (year is null) return Results.BadRequest(new { message = "Khoảng không ăn phải nằm trong năm học đã được nhà trường thiết lập và có ghi danh tại ngày bắt đầu." });
             if (await db.MealAbsences.AnyAsync(x => x.StudentId == input.StudentId && x.CancelledAt == null &&
                 x.FromDate <= input.ToDate && x.ToDate >= input.FromDate))
                 return Results.Conflict(new { message = "Khoảng ngày vắng bị trùng với báo vắng đang hiệu lực." });
             var absence = new MealAbsence
             {
                 StudentId = input.StudentId, ReportedByUserId = userId,
-                FromDate = input.FromDate, ToDate = input.ToDate, Reason = input.Reason.Trim(), ReportedAt = clock.GetUtcNow(),
+                FromDate = input.FromDate, ToDate = input.ToDate, Reason = input.Reason.Trim(), ReportedAt = clock.GetUtcNow(), SchoolYear = year.Code,
             };
             db.MealAbsences.Add(absence);
             await db.SaveChangesAsync();
@@ -201,16 +236,19 @@ public static class WorkflowEndpoints
             if (!await db.ParentStudents.AnyAsync(x => x.UserId == userId && x.StudentId == absence.StudentId)) return Results.Forbid();
             if (absence.CancelledAt is not null) return Results.Conflict(new { message = "Đăng ký đã hủy hoặc được cập nhật. Hãy tải lại danh sách." });
             var now = clock.GetUtcNow(); var today = DateOnly.FromDateTime(now.ToOffset(SchoolOffset).DateTime);
-            if (input.StudentId != absence.StudentId || input.FromDate.Year >= 9999 || input.ToDate < today || input.ToDate < input.FromDate ||
-                (input.FromDate < today && input.FromDate != absence.FromDate) || input.ToDate > input.FromDate.AddYears(1).AddDays(-1) ||
+            if (input.StudentId != absence.StudentId || input.ToDate < today || input.ToDate < input.FromDate ||
+                (input.FromDate < today && input.FromDate != absence.FromDate) ||
                 string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
-                return Results.BadRequest(new { message = "Giữ ngày bắt đầu cũ hoặc chọn từ hôm nay; ngày kết thúc từ hôm nay, tối đa một năm và có lý do. Muốn ăn lại ngay hãy hủy đăng ký." });
+                return Results.BadRequest(new { message = "Giữ ngày bắt đầu cũ hoặc chọn từ hôm nay; ngày kết thúc từ hôm nay và có lý do. Muốn ăn lại ngay hãy hủy đăng ký." });
+            var year = await AbsenceYear(db, input.StudentId, input.FromDate, input.ToDate);
+            if (year is null || (absence.SchoolYear is not null && absence.SchoolYear != year.Code))
+                return Results.BadRequest(new { message = "Khoảng không ăn phải nằm trong cùng năm học đã được nhà trường thiết lập." });
             if (await db.MealAbsences.AnyAsync(x => x.Id != id && x.StudentId == absence.StudentId && x.CancelledAt == null &&
                 x.FromDate <= input.ToDate && x.ToDate >= input.FromDate))
                 return Results.Conflict(new { message = "Khoảng ngày trùng với đăng ký đang hiệu lực." });
             absence.CancelledAt = now;
             var replacement = new MealAbsence { StudentId = absence.StudentId, ReportedByUserId = userId,
-                FromDate = input.FromDate, ToDate = input.ToDate, Reason = input.Reason.Trim(), ReportedAt = now };
+                FromDate = input.FromDate, ToDate = input.ToDate, Reason = input.Reason.Trim(), ReportedAt = now, SchoolYear = year.Code };
             db.MealAbsences.Add(replacement); await db.SaveChangesAsync(); await transaction.CommitAsync();
             return Results.Ok(new { replacement.Id, replacedId = id });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Parent)).WithName("UpdateMealAbsencePeriod");
@@ -219,7 +257,8 @@ public static class WorkflowEndpoints
             await db.MealAbsences.AsNoTracking().Where(x => x.ReportedByUserId == CurrentUserId(principal) &&
                 db.ParentStudents.Any(p => p.UserId == CurrentUserId(principal) && p.StudentId == x.StudentId))
                 .OrderByDescending(x => x.ReportedAt).Take(100)
-                .Select(x => new { x.Id, x.StudentId, StudentName = x.Student.FullName, x.FromDate, x.ToDate, x.Reason, x.ReportedAt, x.CancelledAt })
+                .Select(x => new { x.Id, x.StudentId, StudentName = x.Student.FullName, x.FromDate, x.ToDate, x.Reason, x.ReportedAt, x.CancelledAt,
+                    SchoolYear = x.SchoolYear ?? db.Enrollments.Where(e => e.StudentId == x.StudentId && e.StartDate <= x.FromDate && (e.EndDate == null || e.EndDate > x.FromDate)).Select(e => e.Class.SchoolYear).FirstOrDefault() })
                 .ToListAsync()).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 
         api.MapPost("/parent/absences/{id:guid}/cancel", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
@@ -345,6 +384,19 @@ public static class WorkflowEndpoints
                 eating.Select(x => x.StudentId).ToList(), eating.Select(x => x.FullName).ToList(),
                 members.Where(x => !x.WillEat).Select(x => x.StudentId).ToList(), false);
         }).ToList();
+    }
+
+    private static string? NextYearCode(string code)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(code, @"^[0-9]{4}-[0-9]{4}$")) return null;
+        var start = int.Parse(code[..4]); var end = int.Parse(code[5..]);
+        return start >= 1 && end == start + 1 && end < 9999 ? $"{end:D4}-{end + 1:D4}" : null;
+    }
+
+    private static async Task<AcademicYear?> AbsenceYear(MealTraceDbContext db, Guid studentId, DateOnly from, DateOnly to)
+    {
+        var code = await StudentAdministrationEndpoints.OnDate(db, from).Where(x => x.StudentId == studentId).Select(x => x.Class.SchoolYear).FirstOrDefaultAsync();
+        return code is null ? null : await db.AcademicYears.AsNoTracking().FirstOrDefaultAsync(x => x.Code == code && x.StartDate <= from && x.EndDate >= to);
     }
 
     private static DateOnly SchoolToday() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(SchoolOffset).DateTime);

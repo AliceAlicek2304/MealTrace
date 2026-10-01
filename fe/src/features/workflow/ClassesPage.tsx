@@ -4,6 +4,8 @@ import { api, apiErrorMessage } from '../../lib/api'
 import { Modal } from '../../components/Modal'
 import { ClassPicker } from '../../components/ClassPicker'
 import { StudentDirectory } from './StudentDirectory'
+import { AcademicYears } from './AcademicYears'
+import { SchoolYearPicker } from '../../components/SchoolYearPicker'
 import { toast } from 'sonner'
 
 type Student = { id: string; fullName: string; classId: string }
@@ -12,7 +14,7 @@ type LinkResult = { parentId: string; fullName: string; email: string | null; ph
 export function ClassesPage() {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
-  const [schoolYear, setSchoolYear] = useState('2026-2027')
+  const [schoolYear, setSchoolYear] = useState('')
   const [studentName, setStudentName] = useState('')
   const [studentCode, setStudentCode] = useState('')
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
@@ -25,7 +27,7 @@ export function ClassesPage() {
   const [credentialPhone, setCredentialPhone] = useState('')
   const [temporaryPassword, setTemporaryPassword] = useState('')
   const addClass = useMutation({ mutationFn: () => api.post('/classes', { name, schoolYear }),
-    onSuccess: async () => { setName(''); toast.success('Đã tạo lớp.'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['classes'] }), queryClient.invalidateQueries({ queryKey: ['scope-options'] })]) },
+    onSuccess: async () => { setName(''); toast.success('Đã tạo lớp.'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['classes'] }), queryClient.invalidateQueries({ queryKey: ['scope-options'] }), queryClient.invalidateQueries({ queryKey: ['admin-academic-years'] })]) },
     onError: error => toast.error(apiErrorMessage(error)) })
   const addStudent = useMutation({ mutationFn: () => api.post<Student>('/students', { fullName: studentName, classId, studentCode: studentCode || null, startDate }),
     onSuccess: async response => { setStudentName(''); setStudentCode(''); setSelectedStudentName(response.data.fullName); setSelectedStudentId(response.data.id); toast.success('Đã thêm trẻ. Bạn có thể liên kết phụ huynh trong cửa sổ đang mở.'); await Promise.all([
@@ -50,10 +52,11 @@ export function ClassesPage() {
   return <>
     <div className="eyebrow">DỮ LIỆU NỀN</div><h1>Lớp và trẻ</h1>
     <p className="lead">Tạo lớp, thêm trẻ và liên kết phụ huynh bằng SĐT. Một trẻ có thể có nhiều người giám hộ.</p>
+    <AcademicYears />
     <div className="grid">
       <section className="panel"><h2>Tạo lớp</h2><form className="workflow-form" onSubmit={submitClass}>
         <label className="field">Tên lớp<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
-        <label className="field">Niên khóa<input required pattern="[0-9]{4}-[0-9]{4}" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} /></label>
+        <SchoolYearPicker value={schoolYear} onChange={setSchoolYear} />
         <button type="submit" className="button primary" disabled={addClass.isPending}>Lưu lớp</button>
       </form></section>
       <section className="panel"><h2>Thêm trẻ</h2><form className="workflow-form" onSubmit={submitStudent}>

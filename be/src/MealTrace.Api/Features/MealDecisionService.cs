@@ -23,13 +23,19 @@ internal static class MealDecisionService
         var absences = await db.MealAbsences.AsNoTracking().Where(x => ids.Contains(x.StudentId) &&
             x.FromDate <= day.Date && x.ToDate >= day.Date && x.ReportedAt <= asOf && (x.CancelledAt == null || x.CancelledAt > asOf))
             .OrderByDescending(x => x.ReportedAt).ThenByDescending(x => x.Id).ToListAsync();
-        var absenceByStudent = absences.GroupBy(x => x.StudentId).ToDictionary(x => x.Key, x => x.First());
+        var years = await db.AcademicYears.AsNoTracking().ToDictionaryAsync(x => x.Code);
+        var absenceByStudent = absences.GroupBy(x => x.StudentId).ToDictionary(x => x.Key, x => x.ToArray());
         var events = await db.MealRegistrations.AsNoTracking().Where(x => x.MealDayId == day.Id && ids.Contains(x.StudentId) && x.RecordedAt <= asOf)
             .OrderByDescending(x => x.Sequence).ThenByDescending(x => x.RecordedAt).ThenByDescending(x => x.Id).ToListAsync();
         var latest = events.GroupBy(x => x.StudentId).ToDictionary(x => x.Key, x => x.First());
         return members.Select(x =>
         {
-            absenceByStudent.TryGetValue(x.StudentId, out var absence);
+            years.TryGetValue(x.SchoolYear, out var year);
+            absenceByStudent.TryGetValue(x.StudentId, out var candidates);
+            var absence = candidates?.FirstOrDefault(a =>
+                (a.SchoolYear == null || a.SchoolYear == x.SchoolYear) &&
+                (year == null || (day.Date >= year.StartDate && day.Date <= year.EndDate &&
+                    (a.SchoolYear != null || (a.FromDate >= year.StartDate && a.FromDate <= year.EndDate)))));
             latest.TryGetValue(x.StudentId, out var exception);
             var willEat = exception?.WillEat ?? (absence is null);
             var source = exception?.WillEat switch { true => "STAFF_EAT", false => "STAFF_ABSENT", null => absence is null ? "DEFAULT" : "PARENT_ABSENCE" };

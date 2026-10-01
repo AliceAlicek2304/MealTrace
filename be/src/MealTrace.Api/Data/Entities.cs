@@ -1,6 +1,13 @@
 namespace MealTrace.Api.Data;
 
 // Versioned factor rows and operational events are append-only.
+public sealed class AcademicYear
+{
+    public required string Code { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+}
+
 public sealed class SchoolClass
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -133,6 +140,7 @@ public sealed class MealRegistration
 
 public sealed class MealAbsence
 {
+    public string? SchoolYear { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid StudentId { get; set; }
     public Student Student { get; set; } = null!;

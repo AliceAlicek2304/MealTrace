@@ -11,6 +11,32 @@ namespace MealTrace.Api.Tests;
 
 public sealed class LongMealAbsenceTests
 {
+    [Fact]
+    public async Task SchoolYearMustBeConfiguredAndCannotBeSilentlyChangedAfterRegistration()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock);
+        using var client = factory.CreateClient(); var seed = await SeedScenario(factory, clock);
+        var start = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            db.AcademicYears.RemoveRange(await db.AcademicYears.ToListAsync()); await db.SaveChangesAsync();
+        }
+        await Authorize(client, "parent@test.local", seed.Password);
+        var input = new { studentId = seed.PresentId, fromDate = start, toDate = start.AddDays(20), reason = "Không ăn đến hết năm học" };
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/parent/absences", input)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync("/api/admin/academic-years/2026-2027", new { startDate = start, endDate = start.AddDays(20) })).StatusCode);
+        await Authorize(client, seed.AdminEmail, seed.Password);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/academic-years/2026-2027", new { startDate = start, endDate = start.AddDays(20) })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/admin/academic-years/2026-2027", new { startDate = start, endDate = start.AddDays(25) })).StatusCode);
+        await Authorize(client, "parent@test.local", seed.Password);
+        var created = await client.PostAsJsonAsync("/api/parent/absences", input); Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var finalScope = factory.Services.CreateScope(); var finalDb = finalScope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        Assert.Equal("2026-2027", (await finalDb.MealAbsences.SingleAsync(x => x.StudentId == seed.PresentId)).SchoolYear);
+        var children = await client.GetFromJsonAsync<JsonElement>("/api/parent/students");
+        Assert.Equal(start.AddDays(20).ToString("yyyy-MM-dd"), children.EnumerateArray().Single(x => x.GetProperty("studentId").GetGuid() == seed.PresentId).GetProperty("yearEndDate").GetString());
+    }
+
     [PostgresFact]
     public async Task ConcurrentPeriodChangesReplaceOriginalOnlyOnce()
     {
@@ -18,7 +44,7 @@ public sealed class LongMealAbsenceTests
         using var client = factory.CreateClient(); var seed = await SeedScenario(factory, clock);
         await Authorize(client, "parent@test.local", seed.Password);
         var start = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
-        var created = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = seed.PresentId, fromDate = start, toDate = start.AddYears(1).AddDays(-1), reason = "Không ăn cả năm" });
+        var created = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = seed.PresentId, fromDate = start, toDate = start.AddMonths(8), reason = "Không ăn cả năm học" });
         created.EnsureSuccessStatusCode(); var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         var changes = await Task.WhenAll(new[] { 7, 30 }.Select(days => client.PostAsJsonAsync($"/api/parent/absences/{id}/replace",
             new { studentId = seed.PresentId, fromDate = start, toDate = start.AddDays(days - 1), reason = "Đổi khoảng" })));
@@ -30,13 +56,13 @@ public sealed class LongMealAbsenceTests
     }
 
     [Fact]
-    public async Task OneYearWithoutSchoolMealsKeepsEnrollmentAndCanBeShortenedOrCancelled()
+    public async Task UntilSchoolYearEndKeepsEnrollmentAndCanBeShortenedOrCancelled()
     {
         var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock);
         using var client = factory.CreateClient(); var seed = await SeedScenario(factory, clock);
         await Authorize(client, "parent@test.local", seed.Password);
         var start = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
-        var end = start.AddYears(1).AddDays(-1);
+        var end = start.AddMonths(8);
         var invalid = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = seed.PresentId, fromDate = start, toDate = end.AddDays(1), reason = "Không ăn" });
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         var created = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = seed.PresentId, fromDate = start, toDate = end, reason = "Đi học nhưng không ăn tại trường" });
@@ -63,7 +89,7 @@ public sealed class LongMealAbsenceTests
         using var client = factory.CreateClient(); var seed = await SeedScenario(factory, clock);
         await Authorize(client, "parent@test.local", seed.Password);
         var start = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
-        var created = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = seed.PresentId, fromDate = start, toDate = start.AddYears(1).AddDays(-1), reason = "Không ăn" });
+        var created = await client.PostAsJsonAsync("/api/parent/absences", new { studentId = seed.PresentId, fromDate = start, toDate = start.AddMonths(8), reason = "Không ăn" });
         created.EnsureSuccessStatusCode(); var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         clock.Set(seed.Cutoff.AddSeconds(1));
         var changed = await client.PostAsJsonAsync($"/api/parent/absences/{id}/replace", new { studentId = seed.PresentId, fromDate = start.AddDays(1), toDate = start.AddDays(7), reason = "Ăn lại hôm nay" });

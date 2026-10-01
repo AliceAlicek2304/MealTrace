@@ -232,3 +232,28 @@ Sau mỗi chặng, cập nhật tài liệu theo hành vi đã chạy và bằng
 - Bản cũ giữ nguyên ngày/lý do/ReportedAt, thêm CancelledAt; tính nguồn tại cut-off vẫn dùng bản cũ nếu thay đổi sau cut-off. Bản chốt không đổi. Hết khoảng hoặc hủy thì về mặc định có suất nếu không có nguồn ngoại lệ khác. Không ăn không phải bằng chứng vắng học. Chưa thêm loại dữ liệu phân biệt nghỉ học và không ăn; hiện lý do thể hiện nhu cầu, nguồn tính vẫn MealAbsence.
 - Không cần migration mới cho thay đổi này. Kiểm chứng 29 SQLite + 4 PostgreSQL = 33 BE tests đều đạt; FE 5 tests đạt, build qua. Test mới kiểm tra cả năm/vượt giới hạn, rút ngắn/hủy và giữ Enrollment, bảo toàn nguồn trước cut-off, trùng khoảng/sai trẻ/sai role, hai cập nhật đồng thời không tạo hai bản thay thế.
 - Proposal/kế hoạch/checklist local đã cập nhật; chưa push. Bước kế tiếp vẫn là lịch vận hành/ngày nghỉ.
+
+## Sửa định nghĩa cả năm: năm học (01/10/2026)
+
+- Người dùng xác nhận “cả năm” là **năm học**, thay thế quy tắc một năm lịch ở mục trước. Không dùng 365 ngày hoặc FromDate.AddYears(1) để giới hạn đăng ký.
+- Thêm AcademicYear (Code, StartDate, EndDate); Admin → Lớp và trẻ → Mốc năm học → Thiết lập ngày bằng Modal. DB hiện chỉ có mã niên khóa; không tự suy ra ngày thực tế từ mã. Khi chưa thiết lập, Parent thấy thông báo và không thể gửi/sửa khoảng; vẫn hủy đăng ký được. Đã hỏi người dùng mốc 2026–2027, chưa nhận trả lời; có thể tự thiết lập qua UI.
+- Ngày bắt đầu/kết thúc niên khóa tính inclusive. Nút “Đến hết năm học” lấy EndDate của niên khóa trẻ; tuần/tháng cũng giới hạn tại EndDate. API kiểm tra Enrollment ở ngày bắt đầu và khoảng nằm trong mốc năm học đã cấu hình; không tự kéo đăng ký sang năm học kế tiếp.
+- MealAbsence mới/thay thế lưu SchoolYear. Resolver kiểm tra niên khóa của nguồn và ngày ăn. Bản cũ SchoolYear=null giữ nguyên: nếu đã có mốc niên khóa, chỉ tính cho năm chứa FromDate và ngày ăn trong mốc; không UPDATE/cắt ngày bản cũ hoặc sửa bản chốt. Bản chưa có mốc vẫn tương thích nguồn legacy, không coi đó là cấu hình niên khóa hợp lệ để tạo mới.
+- Mốc niên khóa chỉ thiết lập một lần; API từ chối ghi đè để tránh thay đổi ngầm nguồn đã dùng. Sửa lịch năm học đã cấu hình cần thiết kế đối chiếu/audit riêng. Parent vẫn sửa/hủy khoảng không ăn như trước, giữ Enrollment và lịch sử.
+- Migration 20260930165857_AcademicYearMealOptOut đã áp dụng DB local; không seed mốc ngày giả. 30 SQLite + 4 PostgreSQL = 34 BE tests đạt; FE 5 tests đạt và build qua. Test bổ sung thiếu cấu hình/sai role/thiết lập/không ghi đè/ngày cuối năm học + vượt một ngày và metadata Parent.
+- Proposal/kế hoạch/checklist local đã sửa thuật ngữ và giới hạn theo năm học. Chưa push sửa đổi lượt này; commit trước a0f59d3 đã push. BE/FE tiếp tục chạy để test.
+
+## Thiết lập năm học nhanh (01/10/2026)
+
+- Admin → Lớp và trẻ → Năm học dùng chung: “Tạo năm học” nhập mã/ngày một lần cho trường, không cần lớp tồn tại trước. Các niên khóa cũ thiếu ngày có nút Thiết lập ngày. Không seed ngày mặc định vì chưa có lịch trường thật.
+- Với năm đã thiết lập, “Tạo năm học tiếp theo” gọi GET /admin/academic-years/{code}/next: tăng mã niên khóa và tăng năm của hai mốc; 29/02 chuyển về 28/02 nếu năm sau không nhuận. Chỉ xem trước, chưa ghi DB; nếu năm đích đã có mốc thì báo đã thiết lập.
+- Modal cho sửa ngày đề xuất và yêu cầu tick đã kiểm tra lịch trường trước khi lưu. PUT /admin/academic-years/{code} nhận SourceYearCode tùy chọn, kiểm tra nguồn có thật và là năm liền trước; mã phải gồm hai năm liên tiếp. Không ghi đè lịch đã lưu, không sao chép lớp/trẻ/phụ huynh hay đăng ký không ăn.
+- Tạo lớp và phiên ăn dùng SchoolYearPicker dropdown chung, bỏ nhập mã niên khóa lặp lại. Tạo lớp vẫn chọn được mã cũ chưa thiết lập ngày, có nhãn rõ ràng; tạo phiên trên FE chỉ chọn năm đã thiết lập. API tạo phiên legacy vẫn giữ quy tắc cũ, lịch ngày nghỉ/kiểm tra toàn bộ ngày vận hành là chặng kế tiếp.
+- Import chưa code: khi có Excel, mã/ngày năm học không bắt buộc trong file; màn import sẽ chọn niên khóa dùng chung nếu thiếu. Không cần parse mốc ngày từ danh sách lớp.
+- Đã sửa CSS modal-header height:auto: mô tả nhiều dòng không đè lên trường đầu tiên. Smoke UI Admin: hiển thị năm chung/dropdown, mở và hủy modal tạo; không lưu ngày giả vào DB local, console không có lỗi. Chưa visual QA thao tác copy vì local chưa cấu hình lịch thật; API đã kiểm thử bằng dữ liệu biệt lập.
+- Kiểm chứng mới: 32 SQLite đạt + 4 PostgreSQL thực đạt + 5 FE đạt; build thành công. Hai tests năm học mới kiểm tra tạo trước lớp, preview không ghi dữ liệu, leap day, sửa ngày đề xuất, báo đích đã có, mã/ngày/nguồn sai và quyền Admin. Không cần migration thêm sau AcademicYearMealOptOut. BE/FE đang chạy; chưa push.
+
+## Bàn giao code năm học và checklist (01/10/2026)
+
+- Người dùng yêu cầu push các thay đổi năm học: giới hạn đăng ký không ăn theo niên khóa, AcademicYearMealOptOut, tạo năm học dùng chung/copy lịch năm trước, dropdown và sửa header modal. Checklist local cập nhật các ca YEAR-01–10 và LONG-01–10, thêm trình tự chuẩn bị/test và tách bảng phân quyền cho dễ copy vào Doc.
+- Checklist vẫn bị ignore, không đưa lên Git; config local/secrets giữ ngoài repo. Đợt bàn giao này gồm code, migration, tests, proposal, continuity và kế hoạch. Bước tiếp theo là lịch vận hành/ngày nghỉ sau khi người dùng test.

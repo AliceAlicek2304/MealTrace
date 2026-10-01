@@ -7,8 +7,9 @@
 - Đã có mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại theo ngày, giữ liên kết phụ huynh; tìm kiếm/phân trang; chỉnh sửa bằng modal.
 - Đã có báo/hủy vắng, tạo phiên ăn, xem số suất theo Enrollment và chốt một lần từ 07:30 UTC+7.
 - Đã triển khai ngoại lệ trước chốt: có/vắng/khôi phục mặc định, nguồn quyết định, lịch sử actor và bảo vệ phiên bản nguồn.
-- Parent đăng ký không ăn tối đa một năm (kể cả vẫn đi học), chọn tuần/tháng/năm, sửa khoảng bằng modal hoặc hủy; giữ lịch sử và Enrollment. Không dùng trạng thái không ăn để suy ra vắng học.
-- Kiểm chứng gần nhất ở workspace: 29 test SQLite + 4 test PostgreSQL, 5 test FE; build thành công. Kiểm tra Admin mở/đóng modal ngoại lệ, layout 390px không tràn ngang; chưa visual QA toàn bộ màn hình, chưa chạy Sonar mới.
+- Parent đăng ký không ăn trong năm học đã thiết lập (kể cả vẫn đi học), chọn tuần/tháng/đến hết năm học, sửa khoảng bằng modal hoặc hủy; giữ lịch sử và Enrollment. Không dùng trạng thái không ăn để suy ra vắng học.
+- Năm học dùng chung: tạo trước lớp, nhập mốc lần đầu; năm tiếp theo sao chép lịch cũ/tăng năm, Admin kiểm tra và lưu. Form lớp/phiên dùng dropdown. Import sau này chọn năm chung nếu Excel thiếu niên khóa/ngày.
+- Kiểm chứng gần nhất ở workspace: 32 test SQLite + 4 test PostgreSQL, 5 test FE; build thành công. Kiểm tra Admin mở/đóng modal ngoại lệ/tạo năm học, layout ngoại lệ 390px không tràn ngang; chưa visual QA toàn bộ màn hình, chưa chạy Sonar mới.
 - Thực đơn, món thực tế/ảnh, báo cáo và lineage hiện mới có model/API đọc nền tảng; chưa hoàn thành workflow.
 
 Chặng ngoại lệ trước chốt đã triển khai ở workspace, chưa push. Các chặng còn lại là kế hoạch. Checklist test thủ công vẫn giữ local; không đưa vào Git. README để trống. Các bước không cần Docker.

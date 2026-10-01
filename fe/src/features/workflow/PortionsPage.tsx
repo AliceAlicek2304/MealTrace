@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../../lib/api'
 import { toast } from 'sonner'
 import { MealExceptions } from './MealExceptions'
+import { SchoolYearPicker } from '../../components/SchoolYearPicker'
 
 type Day = { id: string; date: string; mealType: string; schoolYear: string | null; cutoffAt: string; isSettled: boolean }
 type Room = { classId: string; className: string; schoolYear: string; studentIds: string[]; studentNames: string[]; absentStudentIds: string[]; isSettled: boolean }
@@ -15,7 +16,7 @@ export function PortionsPage({ roles }: { roles: string[] }) {
   const [selected, setSelected] = useState('')
   const [date, setDate] = useState('')
   const [mealType, setMealType] = useState('Bữa trưa')
-  const [schoolYear, setSchoolYear] = useState('2026-2027')
+  const [schoolYear, setSchoolYear] = useState('')
   const days = useQuery({ queryKey: ['workflow-days'], queryFn: async () => (await api.get<Day[]>('/meal-days/workflow')).data })
   const portions = useQuery({ queryKey: ['portions', selected], enabled: !!selected,
     queryFn: async () => (await api.get<Portions>(`/meal-days/${selected}/portions`)).data })
@@ -35,7 +36,7 @@ export function PortionsPage({ roles }: { roles: string[] }) {
     {isAdmin && <section className="panel"><h2>Tạo phiên ăn</h2><form className="workflow-form workflow-fields" onSubmit={submitDay}>
       <label className="field">Ngày ăn<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
       <label className="field">Phiên ăn<input required maxLength={60} value={mealType} onChange={e => setMealType(e.target.value)} /></label>
-      <label className="field">Niên khóa<input required pattern="[0-9]{4}-[0-9]{4}" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} /></label>
+      <SchoolYearPicker value={schoolYear} onChange={setSchoolYear} configuredOnly />
       <button type="submit" className="button primary" disabled={createDay.isPending}>Tạo phiên</button>
     </form></section>}
     <section className="panel workflow-lists"><h2>Chọn phiên ăn</h2><div className="workflow-form">

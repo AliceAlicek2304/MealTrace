@@ -538,6 +538,8 @@ public sealed class AuthenticationTests
             Assert.True((await users.AddToRoleAsync(teacher, RoleNames.Teacher)).Succeeded);
             var room = new SchoolClass { Name = "Lớp test", SchoolYear = "2026-2027" };
             db.Classes.Add(room);
+            var testToday = DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).DateTime);
+            db.AcademicYears.Add(new AcademicYear { Code = room.SchoolYear, StartDate = testToday.AddYears(-1), EndDate = testToday.AddMonths(8) });
             await db.SaveChangesAsync();
             return (teacher.Id, room.Id, teacher.Email!, admin.Email!, password);
         }

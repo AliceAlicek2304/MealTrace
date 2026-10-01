@@ -12,6 +12,7 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
     public DbSet<InspectorGrant> InspectorGrants => Set<InspectorGrant>();
     public DbSet<SchoolClass> Classes => Set<SchoolClass>();
+    public DbSet<AcademicYear> AcademicYears => Set<AcademicYear>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
@@ -31,6 +32,10 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.Entity<AcademicYear>().HasKey(x => x.Code);
+        model.Entity<AcademicYear>().Property(x => x.Code).HasMaxLength(30);
+        model.Entity<AcademicYear>().ToTable(t => t.HasCheckConstraint("CK_AcademicYear_Dates", "\"EndDate\" >= \"StartDate\""));
+        model.Entity<MealAbsence>().Property(x => x.SchoolYear).HasMaxLength(30);
         model.Entity<Student>().Property(x => x.StudentCode).HasMaxLength(40);
         model.Entity<Student>().HasIndex(x => x.StudentCode).IsUnique();
         model.Entity<Student>().Property(x => x.Revision).IsConcurrencyToken();
