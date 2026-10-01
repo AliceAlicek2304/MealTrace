@@ -29,6 +29,9 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
     public DbSet<MealAbsence> MealAbsences => Set<MealAbsence>();
     public DbSet<PortionSettlement> PortionSettlements => Set<PortionSettlement>();
     public DbSet<SettlementStudent> SettlementStudents => Set<SettlementStudent>();
+    public DbSet<SettlementDecision> SettlementDecisions => Set<SettlementDecision>();
+    public DbSet<PortionAmendment> PortionAmendments => Set<PortionAmendment>();
+    public DbSet<PortionAmendmentResolution> PortionAmendmentResolutions => Set<PortionAmendmentResolution>();
     public DbSet<MealEvidence> MealEvidence => Set<MealEvidence>();
     public DbSet<ReportSnapshot> ReportSnapshots => Set<ReportSnapshot>();
 
@@ -84,7 +87,18 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
         model.Entity<MealAbsence>().HasIndex(x => new { x.StudentId, x.FromDate, x.ToDate });
         model.Entity<MealAbsence>().HasOne(x => x.ReportedBy).WithMany().HasForeignKey(x => x.ReportedByUserId).OnDelete(DeleteBehavior.Restrict);
         model.Entity<PortionSettlement>().HasIndex(x => new { x.MealDayId, x.SettledAt });
-        model.Entity<PortionSettlement>().HasIndex(x => new { x.MealDayId, x.ClassId }).IsUnique().HasFilter("\"ClassId\" IS NOT NULL");
+        model.Entity<PortionSettlement>().Property(x => x.Version).HasDefaultValue(1);
+        model.Entity<PortionSettlement>().HasIndex(x => new { x.MealDayId, x.ClassId, x.Version }).IsUnique().HasFilter("\"ClassId\" IS NOT NULL");
+        model.Entity<PortionSettlement>().HasOne<PortionSettlement>().WithMany().HasForeignKey(x => x.SupersedesId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<SettlementDecision>().HasKey(x => new { x.PortionSettlementId, x.StudentId });
+        model.Entity<SettlementDecision>().HasOne(x => x.PortionSettlement).WithMany(x => x.Decisions).HasForeignKey(x => x.PortionSettlementId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<PortionAmendment>().HasOne(x => x.BaseSettlement).WithMany().HasForeignKey(x => x.BaseSettlementId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<PortionAmendment>().HasIndex(x => new { x.BaseSettlementId, x.RequestedAt });
+        model.Entity<PortionAmendment>().Property(x => x.Reason).HasMaxLength(500);
+        model.Entity<PortionAmendmentResolution>().HasKey(x => x.AmendmentId);
+        model.Entity<PortionAmendmentResolution>().HasOne(x => x.Amendment).WithOne(x => x.Resolution).HasForeignKey<PortionAmendmentResolution>(x => x.AmendmentId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<PortionAmendmentResolution>().HasOne(x => x.AppliedSettlement).WithMany().HasForeignKey(x => x.AppliedSettlementId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<PortionAmendmentResolution>().Property(x => x.Reason).HasMaxLength(500);
         model.Entity<SettlementStudent>().HasKey(x => new { x.PortionSettlementId, x.StudentId });
         model.Entity<SettlementStudent>().HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         model.Entity<IngredientVersion>().Property(x => x.EnergyKcalPer100G).HasPrecision(12, 3);
@@ -111,6 +125,9 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
 
     private void PrepareEnrollments()
     {
+        if (ChangeTracker.Entries().Any(x => (x.State is EntityState.Modified or EntityState.Deleted) &&
+            (x.Entity is PortionSettlement or SettlementStudent or SettlementDecision or PortionAmendment or PortionAmendmentResolution)))
+            throw new InvalidOperationException("Settlement snapshots and amendments are append-only.");
         if (ChangeTracker.Entries<MealCalendarAudit>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Calendar audit records are append-only.");
         if (ChangeTracker.Entries<MealRegistration>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))

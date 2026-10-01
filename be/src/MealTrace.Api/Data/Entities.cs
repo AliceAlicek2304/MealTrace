@@ -188,6 +188,7 @@ public sealed class MealAbsence
 
 public sealed class PortionSettlement
 {
+    public int Version { get; set; } = 1;
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid MealDayId { get; set; }
     public MealDay MealDay { get; set; } = null!;
@@ -201,6 +202,55 @@ public sealed class PortionSettlement
     public string? Reason { get; set; }
     public Guid? SupersedesId { get; set; }
     public List<SettlementStudent> Students { get; set; } = [];
+    public List<SettlementDecision> Decisions { get; set; } = [];
+}
+
+// Freeze both included and excluded children and the sources used at cutoff.
+public sealed class SettlementDecision
+{
+    public Guid PortionSettlementId { get; set; }
+    public PortionSettlement PortionSettlement { get; set; } = null!;
+    public Guid StudentId { get; set; }
+    public required string StudentName { get; set; }
+    public required string StudentCode { get; set; }
+    public bool WillEat { get; set; }
+    public Guid? EnrollmentId { get; set; }
+    public Guid? AbsenceId { get; set; }
+    public Guid? ExceptionId { get; set; }
+    public Guid? AmendmentId { get; set; }
+    public required string Source { get; set; }
+}
+
+public sealed class PortionAmendment
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid BaseSettlementId { get; set; }
+    public PortionSettlement BaseSettlement { get; set; } = null!;
+    public Guid StudentId { get; set; }
+    public required string StudentName { get; set; }
+    public required string StudentCode { get; set; }
+    public Guid? EnrollmentId { get; set; }
+    public bool WasEating { get; set; }
+    public bool WillEat { get; set; }
+    public required string Reason { get; set; }
+    public Guid RequestedBy { get; set; }
+    public required string RequestedByName { get; set; }
+    public DateTimeOffset RequestedAt { get; set; }
+    public PortionAmendmentResolution? Resolution { get; set; }
+}
+
+// A single append-only resolution per request; approval links to a new snapshot.
+public sealed class PortionAmendmentResolution
+{
+    public Guid AmendmentId { get; set; }
+    public PortionAmendment Amendment { get; set; } = null!;
+    public bool Approved { get; set; }
+    public Guid? AppliedSettlementId { get; set; }
+    public PortionSettlement? AppliedSettlement { get; set; }
+    public required string Reason { get; set; }
+    public Guid ReviewedBy { get; set; }
+    public required string ReviewedByName { get; set; }
+    public DateTimeOffset ReviewedAt { get; set; }
 }
 
 public sealed class SettlementStudent

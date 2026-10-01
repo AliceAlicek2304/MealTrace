@@ -23,7 +23,8 @@ public static class MealEndpoints
                 x.Id, x.Date, x.MealType, x.CutoffAt, x.PublishedAt, x.IsCancelled, x.CancellationReason,
                 Dishes = x.Dishes.Select(d => new { d.Id, d.RecipeVersionId, Name = d.RecipeVersion.Recipe.Name }).ToList(),
                 SettledPortions = x.Settlements.Any(s => s.ClassId != null)
-                    ? x.Settlements.Where(s => s.ClassId != null).Sum(s => (int?)s.Count)
+                    ? x.Settlements.Where(s => s.ClassId != null).GroupBy(s => s.ClassId)
+                        .Sum(group => (int?)group.OrderByDescending(s => s.Version).First().Count)
                     : x.Settlements.OrderByDescending(s => s.SettledAt).Select(s => (int?)s.Count).FirstOrDefault()
             }).ToList();
         }).RequireAuthorization(policy => policy.RequireRole(RoleNames.MealStaff)).WithName("ListMealDays");
@@ -37,9 +38,13 @@ public static class MealEndpoints
             return Results.Ok(new
             {
                 day.Id, day.Date, day.MealType, day.CutoffAt, day.PublishedAt, day.IsCancelled, day.CancellationReason,
+                SettledPortions = day.Settlements.Any(s => s.ClassId != null)
+                    ? day.Settlements.Where(s => s.ClassId != null).GroupBy(s => s.ClassId)
+                        .Sum(group => (int?)group.OrderByDescending(s => s.Version).First().Count)
+                    : day.Settlements.OrderByDescending(s => s.SettledAt).Select(s => (int?)s.Count).FirstOrDefault(),
                 Dishes = day.Dishes.Select(d => new { d.Id, d.RecipeVersionId, Name = d.RecipeVersion.Recipe.Name }),
                 Settlements = day.Settlements.OrderBy(s => s.SettledAt).Select(s => new
-                { s.Id, s.ClassId, s.ClassName, s.Count, s.SettledAt, s.SettledBy, s.Reason, s.SupersedesId }),
+                { s.Id, s.ClassId, s.ClassName, s.Version, s.Count, s.SettledAt, s.SettledBy, s.Reason, s.SupersedesId }),
                 Evidence = day.Evidence.OrderBy(e => e.CapturedAt).Select(e => new
                 { e.Id, e.Kind, e.Description, e.PhotoUrl, e.CapturedAt, e.SyncedAt, e.AmendsId })
             });

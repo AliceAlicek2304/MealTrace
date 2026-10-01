@@ -3,12 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../../lib/api'
 import { toast } from 'sonner'
 import { MealExceptions } from './MealExceptions'
+import { PortionAmendments } from './PortionAmendments'
 import { SchoolYearPicker } from '../../components/SchoolYearPicker'
 import { Pagination } from '../../components/Pagination'
 
 type Day = { id: string; date: string; mealType: string; schoolYear: string | null; cutoffAt: string; isSettled: boolean; isCancelled: boolean; cancellationReason: string | null }
 type DayPage = { items: Day[]; total: number }
-type Room = { classId: string; className: string; schoolYear: string; studentIds: string[]; studentNames: string[]; absentStudentIds: string[]; isSettled: boolean }
+type Room = { classId: string; className: string; schoolYear: string; studentIds: string[]; studentNames: string[]; absentStudentIds: string[]; isSettled: boolean; version: number; originalCount: number | null; count: number | null }
 type Portions = { id: string; date: string; mealType: string; cutoffAt: string; classes: Room[]; isCancelled: boolean; cancellationReason: string | null; isSettled: boolean }
 
 export function PortionsPage({ roles }: { roles: string[] }) {
@@ -36,7 +37,7 @@ export function PortionsPage({ roles }: { roles: string[] }) {
   const current = days.data?.items.find(day => day.id === selected) ?? picked
   const cancelled = portions.data?.isCancelled ?? current?.isCancelled
   const settled = portions.data?.isSettled ?? current?.isSettled
-  const total = portions.data?.classes.reduce((sum, room) => sum + room.studentIds.length, 0) ?? 0
+  const total = portions.data?.classes.reduce((sum, room) => sum + (room.count ?? room.studentIds.length), 0) ?? 0
 
   return <><div className="eyebrow">SỐ SUẤT GỬI BẾP</div><h1>Danh sách dự kiến ăn</h1>
     <p className="lead">Số suất lấy từ ghi danh tại ngày ăn, báo vắng đúng hạn và các ngoại lệ đã ghi. Bản chốt giữ nguyên sau giờ chốt.</p>
@@ -57,9 +58,10 @@ export function PortionsPage({ roles }: { roles: string[] }) {
       <p>Giờ chốt: {current ? new Date(current.cutoffAt).toLocaleString('vi-VN') : '—'} · {total} suất</p>{cancelled && <p className="error">Đã hủy: {portions.data?.cancellationReason ?? current?.cancellationReason}</p>}</div>
       {isAdmin && current && !settled && !cancelled && <button type="button" className="button primary" disabled={settle.isPending || new Date() < new Date(current.cutoffAt)} onClick={() => settle.mutate()}>Chốt và gửi bếp</button>}</div>
       {portions.isPending ? <p className="empty compact">Đang tính số suất…</p> : portions.isError ? <p className="empty compact error">Không tải được danh sách.</p> : portions.data?.classes.map(room =>
-        <div className="entry" key={room.classId}><strong>{room.className} · {room.studentIds.length} suất</strong><small>{room.isSettled ? 'Bản đã chốt' : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</small>
+        <div className="entry" key={room.classId}><strong>{room.className} · {room.count ?? room.studentIds.length} suất</strong><small>{room.isSettled ? `Đang áp dụng bản ${room.version} · gốc ${room.originalCount} suất` : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</small>
           <div className="workflow-names">{room.studentNames.join(', ') || 'Không có trẻ dự kiến ăn'}</div>
         </div>)}</section>}
     {selected && (isAdmin || isTeacher) && <MealExceptions key={selected} mealId={selected} />}
+    {selected && settled && !cancelled && portions.data && <PortionAmendments key={selected} mealId={selected} rooms={portions.data.classes} roles={roles} />}
   </>
 }

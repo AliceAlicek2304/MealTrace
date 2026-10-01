@@ -59,7 +59,7 @@ Mỗi tài khoản mới có mật khẩu tạm riêng, lưu hash/salt bằng Id
 
 ### 5.2. Khai báo báo vắng theo ngoại lệ
 
-Vào ngày học có tổ chức bữa ăn, trẻ đủ điều kiện được hệ thống đánh dấu **dự kiến ăn**; phụ huynh không phải đăng ký lại mỗi ngày. Phụ huynh chọn một ngày hoặc khoảng không ăn nằm trong năm học của trẻ, gồm cả hai đầu ngày; có nút chọn nhanh 1 tuần/1 tháng/Đến hết năm học. Mốc ngày bắt đầu/kết thúc được Admin thiết lập một lần cho toàn trường theo niên khóa; năm tiếp theo có thể sao chép lịch cũ và tăng năm, Admin kiểm tra/sửa ngày trước khi lưu. Các form tạo lớp/phiên ăn chọn niên khóa bằng dropdown; không suy ra từ mã niên khóa và không tính 365 ngày từ ngày đăng ký. Đăng ký áp dụng cả khi trẻ nghỉ học lẫn khi trẻ vẫn đi học nhưng không ăn tại trường; không làm kết thúc Enrollment và không dùng làm bằng chứng trẻ vắng học. Phụ huynh có thể sửa khoảng ngày hoặc hủy để ăn lại. Cập nhật giữ nguyên bản cũ với thời điểm hủy và tạo bản thay thế trong cùng giao dịch; không sửa lại ngày của dữ liệu nguồn lịch sử. Hết khoảng đăng ký, trẻ trở về mặc định có suất. Thay đổi chỉ ảnh hưởng quyết định trước giờ chốt; phiên đã qua cut-off và bản chốt đã gửi bếp giữ nguyên. Hiện chưa tự tạo yêu cầu điều chỉnh; quy trình yêu cầu và duyệt điều chỉnh sẽ triển khai ở chặng tiếp theo.
+Vào ngày học có tổ chức bữa ăn, trẻ đủ điều kiện được hệ thống đánh dấu **dự kiến ăn**; phụ huynh không phải đăng ký lại mỗi ngày. Phụ huynh chọn một ngày hoặc khoảng không ăn nằm trong năm học của trẻ, gồm cả hai đầu ngày; có nút chọn nhanh 1 tuần/1 tháng/Đến hết năm học. Mốc ngày bắt đầu/kết thúc được Admin thiết lập một lần cho toàn trường theo niên khóa; năm tiếp theo có thể sao chép lịch cũ và tăng năm, Admin kiểm tra/sửa ngày trước khi lưu. Các form tạo lớp/phiên ăn chọn niên khóa bằng dropdown; không suy ra từ mã niên khóa và không tính 365 ngày từ ngày đăng ký. Đăng ký áp dụng cả khi trẻ nghỉ học lẫn khi trẻ vẫn đi học nhưng không ăn tại trường; không làm kết thúc Enrollment và không dùng làm bằng chứng trẻ vắng học. Phụ huynh có thể sửa khoảng ngày hoặc hủy để ăn lại. Cập nhật giữ nguyên bản cũ với thời điểm hủy và tạo bản thay thế trong cùng giao dịch; không sửa lại ngày của dữ liệu nguồn lịch sử. Hết khoảng đăng ký, trẻ trở về mặc định có suất. Thay đổi chỉ ảnh hưởng quyết định trước giờ chốt; phiên đã qua cut-off và bản chốt đã gửi bếp giữ nguyên. Hiện chưa tự tạo yêu cầu điều chỉnh từ báo vắng muộn; Teacher/Admin gửi yêu cầu và Admin duyệt theo mục 5.3.
 
 Giáo viên xem danh sách theo lớp và ghi **ngoại lệ** khi dự kiến khác với thông tin đã báo. Admin/Teacher đã có màn chọn dự kiến có suất, không có suất hoặc khôi phục mặc định bằng modal, xem nguồn quyết định và lịch sử người xử lý/lý do/thời điểm. Khôi phục mặc định vẫn áp dụng báo vắng của Parent; không xóa báo vắng. Mỗi thay đổi ghi thêm sự kiện, yêu cầu dùng phiên bản cũ bị từ chối. Quyền kiểm tra theo lớp ghi danh tại ngày ăn; chỉ sửa trước giờ chốt và khi phiên chưa chốt. Hệ thống không bắt giáo viên điểm danh từng trẻ “có” mỗi ngày. Trạng thái “dự kiến ăn” **không được gọi là “đã có mặt thực tế”**.
 
@@ -74,7 +74,9 @@ Mỗi lần lưu cấu hình/chỉnh ngày/tạo phiên ghi lịch sử người
 
 Giờ chốt hiện tại cố định **07:30 UTC+7**. Từ giờ chốt trở đi, Admin thực hiện thao tác chốt; hệ thống lưu bản chốt theo **ngày, phiên ăn và lớp**, gồm danh sách trẻ đủ điều kiện, báo vắng đã nhận đúng hạn, tổng số suất và thời điểm chốt. Giáo viên/nhà trường kiểm tra ngoại lệ; bếp nhận cùng một phiên bản số liệu. Hệ thống ghi nhận người xác nhận và thời điểm nhận nếu quy trình trường yêu cầu.
 
-Chức năng điều chỉnh sau chốt chưa triển khai. Trong quy trình mục tiêu, nếu có thay đổi sau giờ chốt, người có quyền lập điều chỉnh với lý do, thời điểm, người thao tác và liên kết bản chốt cũ. Quy tắc có chuẩn bị thêm/giảm suất và quy tắc hoàn phí là hai quyết định riêng của nhà trường; không mặc định báo vắng muộn sẽ tự hủy suất hoặc tự hoàn tiền.
+Điều chỉnh sau chốt đã triển khai theo từng trẻ: Teacher của lớp hoặc Admin gửi yêu cầu thêm/giảm một suất, ghi lý do và phiên bản nguồn; Admin xem và duyệt/từ chối bằng modal. Admin có thể xử lý yêu cầu tự gửi. Chỉ duyệt khi bản nguồn còn là bản hiện hành. Duyệt tạo bản suất mới, liên kết bản trước; từ chối giữ nguyên số suất. Bếp thấy bản gốc, bản hiện hành, chênh lệch và lịch sử người/thời điểm/lý do. Không ghi đè hoặc xóa bản chốt gốc. Một trẻ không có hai suất ở hai lớp trong cùng phiên; hai thao tác đồng thời không tạo hai bản áp dụng từ một nguồn.
+
+Bản chốt mới lưu danh sách cả trẻ có/không có suất và các tham chiếu ghi danh, báo vắng, ngoại lệ nguồn. Bản cũ thiếu nguồn được đánh dấu, không dựng lại lịch sử. Báo vắng muộn không tự tạo yêu cầu, tự hủy suất hoặc tự hoàn tiền. Điều chỉnh tổng tùy ý không gắn trẻ và gửi thông báo tự động chưa triển khai.
 
 ### 5.4. Lập, kiểm tra và công bố thực đơn
 
@@ -191,16 +193,16 @@ Nhà trường nhập hai lớp và danh sách trẻ; phụ huynh A báo vắng 
 | Mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại | Đã triển khai, lưu lịch sử theo ngày hiệu lực; giữ liên kết phụ huynh. |
 | Tìm kiếm/phân trang lớp, trẻ và danh mục phạm vi | Đã triển khai; giữ lựa chọn khi tìm kiếm/đổi trang. |
 | Lịch vận hành và tạo hàng loạt | Đã triển khai: cấu hình tuần, xem trước/tạo theo tuần/tháng/năm học, modal ngày đặc biệt, audit. |
-| Điều chỉnh sau chốt | Chưa triển khai; chặng tiếp theo. |
+| Điều chỉnh sau chốt | Đã triển khai theo trẻ: gửi, duyệt/từ chối, bản mới và nguồn, bếp xem chênh lệch. Cần nghiệm thu UI. |
 | Công thức/thực đơn, món thực tế/ảnh, báo cáo dinh dưỡng | Có model nền tảng; chưa có workflow hoàn chỉnh. |
 | Quyền thanh tra | Có grant có thời hạn; chưa có quyền đọc nghiệp vụ hoàn chỉnh. |
 | Mobile | Chỉ có thư mục giữ chỗ. |
 
 Bản chốt lưu danh sách ID/tên trẻ nguồn theo lớp và không thay đổi khi hủy báo vắng hoặc thêm trẻ sau chốt. Đây là số suất dự kiến, không phải xác nhận có mặt thực tế. Bếp xem bản chốt trong hệ thống; chưa có thông báo gửi tự động.
 
-Kết quả kiểm tra gần nhất: BE 37 kiểm thử tích hợp SQLite và 6 kiểm thử PostgreSQL đạt; FE 5 kiểm thử logic đạt; build thành công. Test PostgreSQL dùng schema riêng và xóa schema sau test. Đã kiểm tra chuyển lớp, báo vắng, chốt suất, ngoại lệ và thay đổi khoảng không ăn đồng thời; đến hết năm học/vượt ngày kết thúc niên khóa, giữ ghi danh, thay đổi sau cut-off, ngoại lệ đúng/sau cut-off, khôi phục khi Parent báo vắng và quyền theo ngày chuyển lớp. Danh mục phạm vi dùng tìm kiếm/phân trang. Đã kiểm tra giao diện Admin xem nguồn suất và mở/đóng modal ngoại lệ; ở viewport 390px modal nằm trong màn hình, không tràn ngang. Đã smoke menu Lịch bữa ăn và trạng thái chưa thiết lập năm học, không có lỗi JavaScript. Các ca lịch được kiểm tra bằng API test biệt lập; chưa kiểm tra trực quan toàn bộ UI hoặc chạy lại Sonar.
+Kết quả kiểm tra gần nhất: BE 45 kiểm thử tích hợp SQLite và 8 kiểm thử PostgreSQL đạt; FE 5 kiểm thử logic đạt; build thành công. Test PostgreSQL dùng schema riêng và xóa schema sau test. Đã kiểm tra chuyển lớp, báo vắng, chốt suất, ngoại lệ và thay đổi khoảng không ăn đồng thời; đến hết năm học/vượt ngày kết thúc niên khóa, giữ ghi danh, thay đổi sau cut-off, ngoại lệ đúng/sau cut-off, khôi phục khi Parent báo vắng và quyền theo ngày chuyển lớp. Danh mục phạm vi dùng tìm kiếm/phân trang. Đã kiểm tra giao diện Admin xem nguồn suất và mở/đóng modal ngoại lệ; ở viewport 390px modal nằm trong màn hình, không tràn ngang. Đã smoke menu Lịch bữa ăn và trạng thái chưa thiết lập năm học, không có lỗi JavaScript. Các ca lịch được kiểm tra bằng API test biệt lập; chưa kiểm tra trực quan toàn bộ UI hoặc chạy lại Sonar.
 
-**Thứ tự tiếp theo:** nghiệm thu lịch và luồng đã có → điều chỉnh sau chốt → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết. Import triển khai khi có mẫu Excel; SMS/email sau luồng cấp tài khoản. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
+**Thứ tự tiếp theo:** nghiệm thu lịch/điều chỉnh và luồng đã có → thực đơn/dinh dưỡng → món thực tế/ảnh và màn phụ huynh → báo cáo/truy vết. Import triển khai khi có mẫu Excel; SMS/email sau luồng cấp tài khoản. Không đánh dấu MVP hoàn thành từ các kết quả build/test hiện tại.
 
 Ngày bắt đầu ghi danh bao gồm ngày đó; ngày kết thúc không bao gồm ngày đó. Sau 07:30 UTC+7, chuyển lớp/ngừng học áp dụng sớm nhất từ ngày mai, không sửa lùi ngày vào quá khứ. Số suất lấy lớp theo ngày ăn và chỉ tính dữ liệu ghi danh đã có trước giờ chốt; bản chốt đã lưu giữ nguyên. Dữ liệu trẻ cũ chưa có ngày ghi danh thật được chuyển đổi với ngày bắt đầu là ngày migration, có chú thích để đối chiếu hồ sơ; không suy diễn lịch sử lớp trước thời điểm này. Chưa có thao tác hủy lịch chuyển lớp đã lên kế hoạch.
 
@@ -212,7 +214,7 @@ Admin đối chiếu hồ sơ người dùng, cập nhật SĐT/email nếu cầ
 
 ## 13. Kế hoạch triển khai tiếp theo
 
-Ngoại lệ trước chốt (chặng 2) và lịch vận hành (chặng 3) đã triển khai và có kiểm thử; chặng 3 còn cần nghiệm thu UI, các chặng 4–7 chưa hoàn thành. Nghiệm thu thủ công tiếp tục song song. Model, API và migration phát triển theo use case; không cố định trước số lượng bảng.
+Ngoại lệ trước chốt (chặng 2), lịch vận hành (chặng 3) và điều chỉnh sau chốt (chặng 4) đã triển khai và có kiểm thử; tiếp tục nghiệm thu UI, các chặng 5–7 chưa hoàn thành. Nghiệm thu thủ công tiếp tục song song. Model, API và migration phát triển theo use case; không cố định trước số lượng bảng.
 
 | Chặng | Công việc | Tiêu chí hoàn thành |
 | --- | --- | --- |
@@ -224,6 +226,6 @@ Ngoại lệ trước chốt (chặng 2) và lịch vận hành (chặng 3) đã
 | 6. Bữa ăn thực tế và phụ huynh | Bếp ghi món thực tế/đổi món, tải ảnh; Admin duyệt; Parent xem thông tin đã công bố. | Ảnh/món đúng phiên ăn, có thời điểm và lý do thay đổi; Parent chỉ xem phạm vi con mình. |
 | 7. Báo cáo và truy vết | Báo cáo suất ăn/dinh dưỡng, xuất tệp, duyệt và so sánh bản tính lại. | Truy về bản chốt/điều chỉnh, món và phiên bản công thức; tái lập bản đã duyệt. |
 
-**Đợt code kế tiếp:** chặng 4 — điều chỉnh sau chốt có lý do, duyệt và phiên bản, giữ bản gốc. Giữ giờ chốt 07:30 UTC+7; không bổ sung luồng bắt giáo viên đánh dấu có mặt toàn bộ trẻ mỗi ngày.
+**Đợt code kế tiếp:** chặng 5 — nguyên liệu, nguồn dinh dưỡng/đơn vị, công thức có phiên bản và lập/duyệt/công bố thực đơn. Giữ giờ chốt 07:30 UTC+7; không bổ sung luồng bắt giáo viên đánh dấu có mặt toàn bộ trẻ mỗi ngày.
 
 **Phụ thuộc cần chốt:** lịch học/ngày nghỉ thực tế, quyền duyệt điều chỉnh, hạn công bố thực đơn, nguồn thành phần dinh dưỡng/nhóm tuổi và mẫu báo cáo. Hạn công bố 16:00 vẫn là đề xuất. Import không bắt đầu khi chưa có mẫu Excel; mobile, tài chính chi tiết và SMS/email giữ ở giai đoạn sau.

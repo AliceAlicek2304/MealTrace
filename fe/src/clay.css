@@ -320,6 +320,10 @@ h1 { color: #28374e; }
 .workflow-lists > .pagination { padding: 18px 24px; }
 .student-entry > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 .workflow-form textarea { width: 100%; min-height: 100px; resize: vertical; padding: 12px; border: 2px solid #eaded4; border-radius: 14px; font: inherit; color: inherit; background: #fff; }
+.amendment-panel > h3, .amendment-panel > p, .amendment-panel > .field { margin: 18px 24px; }
+.amendment-panel .entry, .modal-body .entry { overflow-wrap: anywhere; }
+.amendment-panel .entry > .button { margin-top: 12px; }
+.amendment-panel summary, .modal-body summary { cursor: pointer; font-weight: 700; }
 @media (max-width: 760px) {
   .student-entry { align-items: stretch; flex-direction: column; }
   .entry-actions { justify-content: flex-start; max-width: none; }

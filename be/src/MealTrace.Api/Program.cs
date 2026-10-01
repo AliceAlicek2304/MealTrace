@@ -129,6 +129,7 @@ app.MapMealEndpoints();
 app.MapWorkflowEndpoints();
 app.MapMealExceptionEndpoints();
 app.MapMealCalendarEndpoints();
+app.MapPortionAmendmentEndpoints();
 app.MapStudentAdministrationEndpoints();
 app.Run();
 

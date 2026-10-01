@@ -342,14 +342,19 @@ public static class WorkflowEndpoints
             var portions = await BuildPortions(db, day, clock.GetUtcNow());
             if (portions.Count == 0) return Results.BadRequest(new { message = "Niên khóa chưa có lớp với trẻ đang hoạt động." });
             var actor = CurrentUserId(principal).ToString();
+            var decisions = await MealDecisionService.ReadAsync(db, day, clock.GetUtcNow());
             foreach (var room in portions)
             {
                 db.PortionSettlements.Add(new PortionSettlement
                 {
                     MealDayId = id, ClassId = room.ClassId, ClassName = room.ClassName,
                     Count = room.StudentIds.Count, CutoffAt = day.CutoffAt, SettledBy = actor,
+                    SettledAt = clock.GetUtcNow(),
                     Students = room.StudentIds.Select((studentId, index) => new SettlementStudent
                     { StudentId = studentId, StudentName = room.StudentNames[index] }).ToList(),
+                    Decisions = decisions.Where(x => x.ClassId == room.ClassId).Select(x => new SettlementDecision
+                    { StudentId = x.StudentId, StudentName = x.FullName, StudentCode = x.StudentCode, WillEat = x.WillEat,
+                        EnrollmentId = x.EnrollmentId, AbsenceId = x.AbsenceId, ExceptionId = x.LatestEventId, Source = x.Source }).ToList(),
                 });
             }
             day.SettledAt = clock.GetUtcNow();
@@ -373,16 +378,21 @@ public static class WorkflowEndpoints
     }
 
     private sealed record PortionRow(Guid ClassId, string ClassName, string SchoolYear,
-        List<Guid> StudentIds, List<string> StudentNames, List<Guid> AbsentStudentIds, bool IsSettled);
+        List<Guid> StudentIds, List<string> StudentNames, List<Guid> AbsentStudentIds, bool IsSettled,
+        Guid? SettlementId = null, int Version = 0, int? OriginalCount = null, int? Count = null);
 
     private static async Task<List<PortionRow>> BuildPortions(MealTraceDbContext db, MealDay day, DateTimeOffset now)
     {
         var settled = await db.PortionSettlements.AsNoTracking().Where(x => x.MealDayId == day.Id && x.ClassId != null)
             .Include(x => x.Class).Include(x => x.Students).ToListAsync();
         if (day.SettledAt is not null)
-            return settled.Select(x => new PortionRow(x.ClassId!.Value, x.ClassName ?? x.Class!.Name,
-                x.Class?.SchoolYear ?? day.SchoolYear ?? "", x.Students.Select(s => s.StudentId).ToList(),
-                x.Students.Select(s => s.StudentName).ToList(), [], true)).ToList();
+            return settled.GroupBy(x => x.ClassId!.Value).Select(group =>
+            {
+                var x = group.OrderByDescending(s => s.Version).First();
+                return new PortionRow(group.Key, x.ClassName ?? x.Class!.Name, x.Class?.SchoolYear ?? day.SchoolYear ?? "",
+                    x.Students.Select(s => s.StudentId).ToList(), x.Students.Select(s => s.StudentName).ToList(), [], true,
+                    x.Id, x.Version, group.OrderBy(s => s.Version).First().Count, x.Count);
+            }).ToList();
         var decisions = await MealDecisionService.ReadAsync(db, day, now);
         return decisions.GroupBy(x => new { x.ClassId, x.ClassName, x.SchoolYear }).OrderBy(x => x.Key.ClassName).Select(group =>
         {

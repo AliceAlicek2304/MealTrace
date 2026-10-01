@@ -2,17 +2,17 @@
 
 ## 1. Điểm xuất phát
 
-- Mốc trước phần lịch vận hành: `700c50a`, nhánh `main`; phần lịch được bàn giao cùng commit cập nhật kế hoạch này.
+- Mốc trước phần điều chỉnh: `cf1bdfd`, nhánh `main`; điều chỉnh sau chốt được bàn giao cùng commit cập nhật kế hoạch này.
 - Đã có đăng nhập email/SĐT, 4 role, quản lý tài khoản/phạm vi, Admin reset mật khẩu có audit.
 - Đã có mã trẻ, ghi danh/chuyển lớp/ngừng học/ghi danh lại theo ngày, giữ liên kết phụ huynh; tìm kiếm/phân trang; chỉnh sửa bằng modal.
 - Đã có báo/hủy vắng, tạo phiên ăn, xem số suất theo Enrollment và chốt một lần từ 07:30 UTC+7.
 - Đã triển khai ngoại lệ trước chốt: có/vắng/khôi phục mặc định, nguồn quyết định, lịch sử actor và bảo vệ phiên bản nguồn.
 - Parent đăng ký không ăn trong năm học đã thiết lập (kể cả vẫn đi học), chọn tuần/tháng/đến hết năm học, sửa khoảng bằng modal hoặc hủy; giữ lịch sử và Enrollment. Không dùng trạng thái không ăn để suy ra vắng học.
 - Năm học dùng chung: tạo trước lớp, nhập mốc lần đầu; năm tiếp theo sao chép lịch cũ/tăng năm, Admin kiểm tra và lưu. Form lớp/phiên dùng dropdown. Import sau này chọn năm chung nếu Excel thiếu niên khóa/ngày.
-- Kiểm chứng gần nhất ở workspace: 37 test SQLite + 6 test PostgreSQL, 5 test FE; build thành công. Kiểm tra Admin mở/đóng modal ngoại lệ/tạo năm học, layout ngoại lệ 390px không tràn ngang; chưa visual QA toàn bộ màn hình, chưa chạy Sonar mới.
+- Kiểm chứng gần nhất ở workspace: 45 test SQLite + 8 test PostgreSQL, 5 test FE; build thành công. Kiểm tra Admin mở/đóng modal ngoại lệ/tạo năm học, layout ngoại lệ 390px không tràn ngang; chưa visual QA toàn bộ màn hình, chưa chạy Sonar mới.
 - Thực đơn, món thực tế/ảnh, báo cáo và lineage hiện mới có model/API đọc nền tảng; chưa hoàn thành workflow.
 
-Ngoại lệ trước chốt và năm học dùng chung đã push. Lịch vận hành/tạo hàng loạt đã triển khai và đưa vào đợt push này; cần nghiệm thu UI. Điều chỉnh sau chốt và các chặng sau là kế hoạch. Checklist test thủ công vẫn giữ local; không đưa vào Git. README để trống. Các bước không cần Docker.
+Ngoại lệ trước chốt và năm học dùng chung đã push. Lịch vận hành/tạo hàng loạt đã triển khai và đưa vào đợt push này; cần nghiệm thu UI. Điều chỉnh sau chốt đã triển khai và đưa vào đợt push này, cần nghiệm thu UI; thực đơn và các chặng sau là kế hoạch. Checklist test thủ công vẫn giữ local; không đưa vào Git. README để trống. Các bước không cần Docker.
 
 ## 2. Thứ tự và tiêu chí hoàn thành
 
@@ -61,7 +61,7 @@ Không dùng lịch 14 tuần trong proposal để suy ra tiến độ đã hoà
 | Ghi đúng/sau cut-off hoặc phiên đã chốt | Bị từ chối; bản chốt giữ nguyên. |
 | Hai thao tác cùng phiên bản nguồn | Một thao tác thắng; thao tác cũ nhận conflict, lịch sử nhất quán. |
 
-## 4. Lịch vận hành đã triển khai; đợt tiếp theo là điều chỉnh sau chốt
+## 4. Lịch và điều chỉnh đã triển khai; đợt tiếp theo là thực đơn/dinh dưỡng
 
 ### Lịch vận hành — nghiệm thu
 
@@ -73,15 +73,15 @@ Không dùng lịch 14 tuần trong proposal để suy ra tiến độ đã hoà
 - Đã kiểm thử cả năm học, ngày lễ/học bù, lặp tạo không trùng, hủy/khôi phục, quyền, boundary cut-off và cập nhật đồng thời PostgreSQL. Chưa nghiệm thu trực quan đầy đủ.
 - Tạo thủ công kiểm tra lịch; màn chốt suất lọc ngày/phân trang 25 phiên.
 - Chuẩn bị test: lưu ngày năm học thực tế → lưu lịch tuần → xem trước một tuần → tạo → kiểm tra số suất → chỉnh ngày nghỉ/mở lại → đối chiếu lịch sử.
-### Điều chỉnh sau chốt
+### Điều chỉnh sau chốt — nghiệm thu
 
-- Đề xuất: Teacher gửi yêu cầu theo lớp; Admin gửi/duyệt/từ chối; Kitchen đọc bản áp dụng. Quyền duyệt cần trường xác nhận trước khi code.
-- Mỗi đề nghị nêu phiên/lớp, trẻ hoặc chênh lệch suất, bản nguồn, lý do; trạng thái và lịch sử xử lý rõ ràng.
-- Bản duyệt tạo phiên bản mới liên kết bản trước, lưu đầy đủ danh sách nguồn/chênh lệch; bản chốt gốc không bị UPDATE.
-- Bếp thấy rõ bản gốc, bản mới và phần tăng/giảm. Yêu cầu dựa trên bản nguồn lỗi thời phải đối chiếu lại, không tự duyệt.
-- Snapshot mới lưu tham chiếu Enrollment/báo vắng/ngoại lệ đã dùng. Snapshot cũ thiếu nguồn phải được đánh dấu, không tự suy diễn lịch sử.
-- Báo/hủy vắng muộn không tự giảm suất hoặc tự hoàn tiền. Chính sách xử lý phí thuộc phần mở rộng.
-
+- Teacher/Admin đề nghị theo trẻ, lý do/bản nguồn bắt buộc; Admin duyệt/từ chối bằng modal. Kitchen chỉ đọc. Admin được duyệt yêu cầu tự gửi.
+- Duyệt tạo snapshot mới theo lớp và phiên bản, giữ bản gốc; từ chối không đổi suất. Yêu cầu lỗi thời cần từ chối/gửi lại, không tự rebase.
+- Đã có nguồn Enrollment/báo vắng/ngoại lệ trong bản chốt mới; snapshot legacy đánh dấu thiếu nguồn, không suy diễn.
+- Bếp thấy bản gốc, bản đang áp dụng, tên trẻ tăng/giảm và lịch sử/snapshot từng yêu cầu. Tổng ngày ăn chỉ tính bản mới nhất.
+- Kiểm thử nguyên bản, scope, stale, duplicate, sau chốt, ghi danh muộn, nguồn legacy và concurrent PostgreSQL. Chưa visual QA đầy đủ.
+- Chuẩn bị test: phiên đã chốt → Teacher gửi thêm/giảm → Admin xem nguồn/duyệt → Kitchen đối chiếu gốc/mới → gửi yêu cầu thứ hai từ nguồn cũ để kiểm tra conflict.
+- Báo vắng muộn không tự đổi suất/hoàn phí; chưa có gửi thông báo bếp hoặc điều chỉnh tổng không gắn trẻ.
 ### Thực đơn và dinh dưỡng
 
 - Bổ sung nhóm tuổi và nguồn thành phần dinh dưỡng được trường chấp nhận; chốt đơn vị/định lượng, tỷ lệ ăn được/hao hụt và làm tròn.
