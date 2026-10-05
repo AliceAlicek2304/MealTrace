@@ -1,6 +1,8 @@
 using MealTrace.Api.Data;
 using MealTrace.Api.Features;
 using MealTrace.Api.Security;
+using MealTrace.Kitchen.Endpoints;
+using MealTrace.Kitchen.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -102,6 +104,12 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy
     .WithOrigins(builder.Configuration["Frontend:Origin"] ?? "http://localhost:5173")
     .AllowAnyHeader().AllowAnyMethod()));
+
+//Kitchen
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IIngredientService, IngredientService>();
+builder.Services.AddScoped<IRecipeService, RecipeService>();
+builder.Services.AddScoped<INutritionService, NutritionService>();
 
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
