@@ -131,6 +131,7 @@ app.MapMealExceptionEndpoints();
 app.MapMealCalendarEndpoints();
 app.MapPortionAmendmentEndpoints();
 app.MapStudentAdministrationEndpoints();
+app.MapKitchenEndpoints();
 app.Run();
 
 public partial class Program;
