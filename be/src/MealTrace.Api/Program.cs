@@ -22,6 +22,7 @@ try { jwtKey = Convert.FromBase64String(jwtKeyText); }
 catch (FormatException) { throw new InvalidOperationException("Jwt:Key must be a Base64-encoded random key."); }
 if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt:Key must contain at least 32 random bytes.");
 builder.Services.AddApplication();
+builder.Services.AddScoped<MealTrace.Application.Abstractions.ICurrentActor, MealTrace.Api.Authentication.HttpCurrentActor>();
 builder.Services.AddInfrastructure(connectionString, builder.Environment.IsDevelopment());
 builder.Services.AddMealTraceAuthentication(builder.Configuration, jwtKey);
 builder.Services.AddAuthorization();
@@ -30,12 +31,22 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 12, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 12,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "MealTrace API", Version = "v1" });
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "MealTrace API",
+        Version = "v1"
+    });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -44,10 +55,18 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Dán access token từ POST /api/auth/login.",
+
     });
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }] = [],
+        [new OpenApiSecurityScheme
+        {
+            Reference = new OpenApiReference
+            {
+                Type = ReferenceType.SecurityScheme,
+                Id = "Bearer"
+            }
+        }] = [],
     });
 });
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy

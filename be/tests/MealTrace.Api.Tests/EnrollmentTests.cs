@@ -6,7 +6,6 @@ using MealTrace.Domain.Entities;
 using MealTrace.Infrastructure.Persistence;
 using MealTrace.Infrastructure.Identity;
 using MealTrace.Application.Abstractions;
-using MealTrace.Application.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using static MealTrace.Api.Tests.AuthenticationTests;
@@ -45,8 +44,12 @@ public sealed class EnrollmentTests
         {
             var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
             var room = new SchoolClass { Name = "Next class", SchoolYear = "2027-2028" }; db.Classes.Add(room); nextClass = room.Id;
-            var child = new Student { FullName = "History child", ClassId = seed.ClassId,
-                Enrollments = [new Enrollment { ClassId = seed.ClassId, StartDate = today.AddDays(-2), RecordedAt = DateTimeOffset.UtcNow.AddDays(-3) }] };
+            var child = new Student
+            {
+                FullName = "History child",
+                ClassId = seed.ClassId,
+                Enrollments = [new Enrollment { ClassId = seed.ClassId, StartDate = today.AddDays(-2), RecordedAt = DateTimeOffset.UtcNow.AddDays(-3) }]
+            };
             db.Students.Add(child); childId = child.Id;
             var old = new MealDay { Date = today, SchoolYear = "2026-2027", MealType = "Lunch", CutoffAt = DateTimeOffset.UtcNow.AddHours(1) };
             var future = new MealDay { Date = today.AddDays(1), SchoolYear = "2027-2028", MealType = "Lunch", CutoffAt = DateTimeOffset.UtcNow.AddDays(1) };
@@ -67,8 +70,8 @@ public sealed class EnrollmentTests
         Assert.Equal(3, history.GetArrayLength());
         using var check = factory.Services.CreateScope(); var database = check.ServiceProvider.GetRequiredService<MealTraceDbContext>();
         Assert.Single(await database.ParentStudents.Where(x => x.StudentId == childId).ToListAsync());
-        Assert.False(await StudentAdministrationUseCases.OnDate(database, today.AddDays(2)).AnyAsync(x => x.StudentId == childId));
-        Assert.True(await StudentAdministrationUseCases.OnDate(database, today.AddDays(3)).AnyAsync(x => x.StudentId == childId));
+        Assert.False(await database.Enrollments.Where(x => x.StartDate <= today.AddDays(2) && (x.EndDate == null || x.EndDate > today.AddDays(2))).AnyAsync(x => x.StudentId == childId));
+        Assert.True(await database.Enrollments.Where(x => x.StartDate <= today.AddDays(3) && (x.EndDate == null || x.EndDate > today.AddDays(3))).AnyAsync(x => x.StudentId == childId));
     }
 
     [Fact]

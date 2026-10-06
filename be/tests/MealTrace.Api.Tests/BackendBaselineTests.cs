@@ -7,7 +7,7 @@ using MealTrace.Domain.Entities;
 using MealTrace.Infrastructure.Persistence;
 using MealTrace.Infrastructure.Identity;
 using MealTrace.Application.Abstractions;
-using MealTrace.Application.Features;
+using MealTrace.Application.Features.Calendar;
 using MealTrace.Domain.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;

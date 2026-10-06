@@ -1,3 +1,5 @@
+using MealTrace.Application.Abstractions.Repositories;
+using MealTrace.Infrastructure.Persistence.Repositories;
 using MealTrace.Application.Abstractions;
 using MealTrace.Infrastructure.Identity;
 using MealTrace.Infrastructure.Persistence;
@@ -12,7 +14,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString, bool development)
     {
         services.AddDbContext<MealTraceDbContext>(options => options.UseNpgsql(connectionString));
-        services.AddScoped<IMealTraceData>(provider => provider.GetRequiredService<MealTraceDbContext>());
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddIdentityCore<ApplicationUser>(options =>
         {
             options.User.RequireUniqueEmail = false;
@@ -32,6 +34,19 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IAccessTokenService, JwtTokenService>();
+        services.AddScoped<IAuthRepository, AuthRepository>();
+        services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+        services.AddScoped<IStudentAdministrationRepository, StudentAdministrationRepository>();
+        services.AddScoped<IMealCalendarRepository, MealCalendarRepository>();
+        services.AddScoped<IMealExceptionRepository, MealExceptionRepository>();
+        services.AddScoped<IPortionAmendmentRepository, PortionAmendmentRepository>();
+        services.AddScoped<IMealRepository, MealRepository>();
+        services.AddScoped<IMealDecisionRepository, MealDecisionRepository>();
+        services.AddScoped<IPortionRepository, PortionRepository>();
+        services.AddScoped<IIngredientRepository, IngredientRepository>();
+        services.AddScoped<IRecipeRepository, RecipeRepository>();
+        services.AddScoped<INutritionRepository, NutritionRepository>();
         return services;
     }
 }

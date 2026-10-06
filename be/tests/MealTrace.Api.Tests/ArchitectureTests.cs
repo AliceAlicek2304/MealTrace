@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Identity;
+using MealTrace.Application.Features.Workflow;
 using MealTrace.Application.Abstractions.Kitchen;
 using MealTrace.Application.Dtos.Identity;
 using System.Reflection;
 using MealTrace.Application.Abstractions;
-using MealTrace.Application.Features;
-using MealTrace.Application.Kitchen;
+using MealTrace.Application.Abstractions.Repositories;
+using MealTrace.Application.Features.Kitchen;
 using MealTrace.Domain.Entities;
 using MealTrace.Infrastructure.Identity;
 using MealTrace.Infrastructure.Persistence;
@@ -29,6 +31,68 @@ public sealed class ArchitectureTests
         Assert.DoesNotContain(applicationDependencies, name => name.StartsWith("Microsoft.AspNetCore") || name.StartsWith("Microsoft.EntityFrameworkCore") || name.StartsWith("Npgsql"));
     }
 
+    [Fact]
+    public void RepositoryPortsCannotExposeQueryProvidersOrUntypedData()
+    {
+        var ports = typeof(IWorkflowRepository).Assembly.GetExportedTypes()
+            .Where(type => type.IsInterface && type.Namespace == "MealTrace.Application.Abstractions.Repositories").ToArray();
+        Assert.NotEmpty(ports);
+        foreach (var port in ports)
+        {
+            Assert.Empty(port.GetProperties());
+            foreach (var method in port.GetMethods())
+            {
+                Check(method.ReturnType);
+                foreach (var parameter in method.GetParameters()) Check(parameter.ParameterType);
+            }
+        }
+        static void Check(Type type)
+        {
+            Assert.NotEqual(typeof(object), type);
+            Assert.False(typeof(IQueryable).IsAssignableFrom(type), $"Queryable port: {type}");
+            Assert.False(typeof(Delegate).IsAssignableFrom(type), $"Query callback port: {type}");
+            Assert.False(type.Namespace?.StartsWith("System.Linq.Expressions") == true);
+            foreach (var argument in type.GetGenericArguments()) Check(argument);
+            if (type.IsArray) Check(type.GetElementType()!);
+        }
+    }
+
+    [Fact]
+    public void UseCaseOperationsReceiveBusinessInputRatherThanRuntimeDependencies()
+    {
+        var useCases = typeof(WorkflowUseCases).Assembly.GetExportedTypes()
+            .Where(type => type.Name.EndsWith("UseCases")).ToArray();
+        Assert.NotEmpty(useCases);
+        foreach (var useCase in useCases)
+        {
+            Assert.NotEmpty(useCase.GetConstructors());
+            foreach (var method in useCase.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                foreach (var parameter in method.GetParameters())
+                {
+                    Assert.False(parameter.ParameterType.Namespace?.StartsWith("MealTrace.Application.Abstractions") == true,
+                        $"Dependency passed per call: {useCase.Name}.{method.Name}");
+                    Assert.NotEqual(typeof(System.Security.Claims.ClaimsPrincipal), parameter.ParameterType);
+                    Assert.NotEqual(typeof(TimeProvider), parameter.ParameterType);
+                }
+        }
+    }
+
+    [Fact]
+    public void BusinessResultKeepsPayloadTypeAndHasNoHttpMetadata()
+    {
+        var properties = typeof(Result<string>).GetProperties();
+        Assert.Equal(typeof(string), properties.Single(property => property.Name == "Value").PropertyType);
+        Assert.DoesNotContain(properties, property => property.Name is "Status" or "StatusCode" or "Location");
+        var success = Result.Success("value");
+        Assert.True(success.IsSuccess);
+        Assert.Equal("value", success.Value);
+        Assert.Null(success.Error);
+        Result<string> failure = Result.Conflict("Concurrent change");
+        Assert.False(failure.IsSuccess);
+        Assert.Equal(ErrorKind.Conflict, failure.Error!.Kind);
+        Assert.Null(failure.Value);
+    }
+
     private static void CheckProjectReferences(Assembly assembly, string[] allowed) =>
         Assert.All(assembly.GetReferencedAssemblies().Where(name => name.Name!.StartsWith("MealTrace.")),
             name => Assert.Contains(name.Name!, allowed));
@@ -47,6 +111,30 @@ public sealed class ArchitectureTests
     }
 
     [Fact]
+    public async Task IdentityStoreReturnsConcurrencyFailureForStaleAccountUpdate()
+    {
+        using var factory = new AuthTestFactory();
+        var seed = await factory.SeedUsersAsync();
+        using var firstScope = factory.Services.CreateScope();
+        using var secondScope = factory.Services.CreateScope();
+        var firstManager = firstScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var secondManager = secondScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var first = await firstManager.FindByEmailAsync(seed.TeacherEmail);
+        var stale = await secondManager.FindByEmailAsync(seed.TeacherEmail);
+        Assert.NotNull(first);
+        Assert.NotNull(stale);
+        first.FullName = "First update";
+        Assert.True((await firstManager.UpdateAsync(first)).Succeeded);
+        stale.FullName = "Stale update";
+        var result = await secondManager.UpdateAsync(stale);
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Code == "ConcurrencyFailure");
+        using var check = factory.Services.CreateScope();
+        var persisted = await check.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().FindByEmailAsync(seed.TeacherEmail);
+        Assert.Equal("First update", persisted!.FullName);
+    }
+
+    [Fact]
     public async Task IdentityAndBusinessChangesRollbackTogetherThroughPorts()
     {
         using var factory = new AuthTestFactory();
@@ -54,8 +142,8 @@ public sealed class ArchitectureTests
         var id = Guid.NewGuid();
         using (var scope = factory.Services.CreateScope())
         {
-            var data = scope.ServiceProvider.GetRequiredService<IMealTraceData>();
-            Assert.Same(scope.ServiceProvider.GetRequiredService<MealTraceDbContext>(), data);
+            var data = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var repository = scope.ServiceProvider.GetRequiredService<IAccountRepository>();
             var accounts = scope.ServiceProvider.GetRequiredService<IIdentityService>();
             await using var transaction = await data.BeginTransactionAsync();
             var created = await accounts.CreateAsync(new IdentityAccount
@@ -66,7 +154,7 @@ public sealed class ArchitectureTests
                 Email = "rollback@test.local"
             }, "RollbackTest!123");
             Assert.True(created.Succeeded);
-            data.AccountPasswordResetAudits.Add(new AccountPasswordResetAudit { UserId = id, PerformedByUserId = id, Reason = "Rollback test" });
+            repository.AddAccountPasswordResetAudit(new AccountPasswordResetAudit { UserId = id, PerformedByUserId = id, Reason = "Rollback test" });
             await data.SaveChangesAsync();
             // No Commit: disposal must roll back both writes, including the Identity store's SaveChanges.
         }

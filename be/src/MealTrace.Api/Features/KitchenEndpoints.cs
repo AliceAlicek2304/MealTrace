@@ -1,4 +1,4 @@
-using MealTrace.Application.Kitchen;
+using MealTrace.Application.Features.Kitchen;
 using MealTrace.Domain.Security;
 
 namespace MealTrace.Api.Features;
