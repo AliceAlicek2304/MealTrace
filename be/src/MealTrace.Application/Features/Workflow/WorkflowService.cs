@@ -260,7 +260,7 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
             StudentId = studentId,
             Created = created,
             TemporaryPassword = temporaryPassword,
-            Notification = input.SendRegistrationNotification ? await registrationNotifications.SendAsync(parent.PhoneNumber) : null
+            Notification = input.SendRegistrationNotification ? await registrationNotifications.SendAsync(parent.PhoneNumber, student.FullName, temporaryPassword) : null
         });
     }
 

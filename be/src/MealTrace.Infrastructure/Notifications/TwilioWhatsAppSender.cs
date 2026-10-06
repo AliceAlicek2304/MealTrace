@@ -13,7 +13,7 @@ public sealed record TwilioWhatsAppSettings(string? AccountSid, string? AuthToke
 // Trial sends a fixed approved template; never substitute registration credentials into it.
 public sealed class TwilioWhatsAppSender(HttpClient client, TwilioWhatsAppSettings settings) : INotificationSender
 {
-    public async Task<NotificationSendResult> SendAsync(string number, CancellationToken ct)
+    public async Task<NotificationSendResult> SendAsync(string number, CancellationToken ct, string? text = null)
     {
         if (!Matches(settings.AccountSid, @"^AC[0-9a-fA-F]{32}$") || string.IsNullOrWhiteSpace(settings.AuthToken)
             || !Matches(settings.From, @"^\+[1-9][0-9]{7,14}$") || !Matches(number, @"^[1-9][0-9]{7,14}$")

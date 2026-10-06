@@ -14,11 +14,19 @@ public static class DependencyInjection
     public static IServiceCollection AddNotifications(this IServiceCollection services, Microsoft.Extensions.Configuration.IConfiguration config)
     {
         var enabled = bool.TryParse(config["Notifications:Messaging:Enabled"], out var value) && value;
-        services.AddSingleton(new MealTrace.Application.Features.Notifications.NotificationPolicy(enabled, config["Notifications:Messaging:TestNumber"]));
+        var preferVonage = string.Equals(config["Notifications:Messaging:PrimaryProvider"], "Vonage", StringComparison.OrdinalIgnoreCase);
+        services.AddSingleton(new MealTrace.Application.Features.Notifications.NotificationPolicy(enabled, config["Notifications:Messaging:TestNumber"], "WhatsApp", !preferVonage));
         services.AddSingleton(new Notifications.TwilioWhatsAppSettings(config["Notifications:Twilio:AccountSid"], config["Notifications:Twilio:AuthToken"], config["Notifications:Twilio:From"], config["Notifications:Twilio:ContentSid"]));
-        services.AddHttpClient<MealTrace.Application.Abstractions.Notifications.INotificationSender, Notifications.TwilioWhatsAppSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
+        services.AddSingleton(new Notifications.VonageWhatsAppSettings(config["Notifications:Vonage:ApiKey"], config["Notifications:Vonage:ApiSecret"], config["Notifications:Vonage:From"]));
+        services.AddHttpClient<Notifications.TwilioWhatsAppSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
             .RedactLoggedHeaders(["Authorization"]);
+        services.AddHttpClient<Notifications.VonageWhatsAppSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+            .RedactLoggedHeaders(["Authorization"]);
+        services.AddTransient<MealTrace.Application.Abstractions.Notifications.INotificationSender>(sp => preferVonage
+            ? new Notifications.PriorityWhatsAppSender(sp.GetRequiredService<Notifications.VonageWhatsAppSender>(), sp.GetRequiredService<Notifications.TwilioWhatsAppSender>())
+            : sp.GetRequiredService<Notifications.TwilioWhatsAppSender>());
         return services;
     }
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString, bool development)

@@ -49,6 +49,8 @@ public sealed class RegistrationNotificationTests
         Assert.Equal(failNotification ? "UNKNOWN" : "ACCEPTED", result.GetProperty("notification").GetProperty("status").GetString());
         Assert.Equal(1, sender.Calls);
         Assert.Equal("84901234567", sender.Number);
+        Assert.Contains("Child Notification", sender.Text);
+        Assert.Contains(password, sender.Text);
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/admin/students/{childId}/parents", new { phoneNumber = "0901234567", fullName = "Guardian", sendRegistrationNotification = true })).StatusCode);
         Assert.Equal(1, sender.Calls);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, "0901234567", password));
@@ -97,15 +99,18 @@ public sealed class RegistrationNotificationTests
         Assert.Equal(0, sender.Calls);
         Assert.Equal("ACCEPTED", (await service.SendAsync("0901234567")).Status);
         Assert.Equal(1, sender.Calls);
+        Assert.Contains("mat khau hien tai", sender.Text);
+        Assert.DoesNotContain("Mat khau tam:", sender.Text);
     }
 
     private sealed class RecordingSender(bool fail) : INotificationSender
     {
         public int Calls { get; private set; }
         public string Number { get; private set; } = "";
-        public Task<NotificationSendResult> SendAsync(string number, CancellationToken ct)
+        public string Text { get; private set; } = "";
+        public Task<NotificationSendResult> SendAsync(string number, CancellationToken ct, string? text = null)
         {
-            Calls++; Number = number;
+            Calls++; Number = number; Text = text ?? "";
             if (fail) throw new HttpRequestException("simulated failure");
             return Task.FromResult(new NotificationSendResult(NotificationOutcome.Accepted, Guid.NewGuid().ToString(), "Accepted, not delivered"));
         }

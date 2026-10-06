@@ -38,6 +38,7 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
   const [reason, setReason] = useState('')
   const [withdraw, setWithdraw] = useState(false)
   const [historyTarget, setHistoryTarget] = useState<Student | null>(null)
+  const [parentsTarget, setParentsTarget] = useState<Student | null>(null)
   const classes = useQuery({ queryKey: ['classes', 'admin', classSearchTerm, classPage], enabled: !classSearchWaiting && view === 'classes',
     queryFn: async () => (await api.get<Page<Room>>('/admin/classes', { params: { search: classSearchTerm, page: classPage } })).data })
   const students = useQuery({ queryKey: ['students', 'admin', searchTerm, page, classId, status], enabled: !searchWaiting && view === 'students',
@@ -78,7 +79,9 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
         {!students.data?.items.length && <p className="empty compact">{searchTerm || classId || status ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ.'}</p>}
         <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {students.data?.items.map(student => <tr key={student.id}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
-          <td>{student.parents.length ? student.parents.map(p => <div key={p.id}>{p.fullName}<small>{p.phoneNumber || p.email || 'Chưa có liên hệ'}</small></div>) : <span className="muted">Chưa liên kết</span>}</td>
+          <td>{student.parents.length ? <button type="button" className="parent-summary" aria-label={`Xem ${student.parents.length} phụ huynh của ${student.fullName}`} onClick={() => setParentsTarget(student)}>
+            {student.parents[0].fullName}{student.parents.length > 1 && <span aria-hidden="true"> …</span>}
+          </button> : <span className="muted">Chưa liên kết</span>}</td>
           <td><div className="table-actions"><button type="button" className="icon-button" title="Sửa hồ sơ" aria-label={`Sửa hồ sơ ${student.fullName}`} onClick={() => open({ kind: 'student', student })}><Pencil size={17} /></button>
             <button type="button" className="icon-button" title="Ghi danh / chuyển lớp" aria-label={`Ghi danh / chuyển lớp ${student.fullName}`} onClick={() => open({ kind: 'enrollment', student })}><ArrowRightLeft size={17} /></button>
             {student.isActive && <button type="button" className="icon-button action-danger" title="Ngừng học" aria-label={`Ngừng học ${student.fullName}`} onClick={() => { open({ kind: 'enrollment', student }); setWithdraw(true) }}><UserRoundMinus size={17} /></button>}
@@ -100,6 +103,11 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
         </>}
         <div className="form-actions"><button type="button" className="button secondary" disabled={save.isPending} onClick={() => setEditor(null)}>Hủy</button><button type="submit" className="button primary" disabled={save.isPending}>Lưu thay đổi</button></div>
       </form>
+    </Modal>}
+    {parentsTarget && <Modal title={`Phụ huynh: ${parentsTarget.fullName}`} description={parentsTarget.studentCode} onClose={() => setParentsTarget(null)}>
+      <div className="table-wrap"><table><thead><tr><th scope="col">Họ tên</th><th scope="col">SĐT</th><th scope="col">Email</th></tr></thead>
+        <tbody>{parentsTarget.parents.map(parent => <tr key={parent.id}><td>{parent.fullName}</td><td>{parent.phoneNumber || 'Chưa có'}</td><td>{parent.email || 'Chưa có'}</td></tr>)}</tbody>
+      </table></div>
     </Modal>}
     {historyTarget && <Modal title={`Lịch sử: ${historyTarget.fullName}`} description={historyTarget.studentCode} onClose={() => setHistoryTarget(null)}>
       <div className="workflow-form">{history.isPending ? <p>Đang tải…</p> : history.isError ? <p className="error">{apiErrorMessage(history.error)}</p> : !history.data?.length ? <p>Chưa có lịch sử ghi danh.</p> : history.data.map(item =>

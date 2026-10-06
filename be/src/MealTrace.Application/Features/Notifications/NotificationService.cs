@@ -16,7 +16,7 @@ public sealed class NotificationService(INotificationSender sender, Notification
         if (!gate.TryBegin()) return Result.Conflict("Đã có yêu cầu gửi thông báo thử. Đợi ít nhất 60 giây; kiểm tra Logs trước khi gửi lại.");
         try
         {
-            var result = await sender.SendAsync("84" + phone[1..], ct);
+            var result = await sender.SendAsync("84" + phone[1..], ct, "MealTrace: Tin WhatsApp tuy chinh thu nghiem. Khong can thao tac.");
             return Result.Success(new NotificationResponse(result.Outcome.ToString().ToUpperInvariant(), result.ProviderMessageId, "******" + phone[^4..], result.Message));
         }
         finally { gate.End(); }

@@ -47,7 +47,7 @@ public sealed class NotificationTests
     {
         public int Calls { get; private set; }
         public string? Number { get; private set; }
-        public Task<NotificationSendResult> SendAsync(string number, CancellationToken ct) { Calls++; Number = number; return Task.FromResult(new NotificationSendResult(NotificationOutcome.Accepted, Guid.NewGuid().ToString(), "accepted")); }
+        public Task<NotificationSendResult> SendAsync(string number, CancellationToken ct, string? text = null) { Calls++; Number = number; return Task.FromResult(new NotificationSendResult(NotificationOutcome.Accepted, Guid.NewGuid().ToString(), "accepted")); }
     }
     private sealed class Actor(string role) : ICurrentActor
     {

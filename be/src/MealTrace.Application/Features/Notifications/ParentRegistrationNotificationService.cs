@@ -6,7 +6,7 @@ namespace MealTrace.Application.Features.Notifications;
 
 public sealed class ParentRegistrationNotificationService(INotificationSender sender, NotificationPolicy policy, NotificationSendGate gate)
 {
-    public async Task<NotificationResponse> SendAsync(string? phoneNumber)
+    public async Task<NotificationResponse> SendAsync(string? phoneNumber, string? childName = null, string? temporaryPassword = null)
     {
         var phone = PhoneNumbers.Normalize(phoneNumber);
         if (!policy.Enabled || phone is null)
@@ -19,7 +19,9 @@ public sealed class ParentRegistrationNotificationService(INotificationSender se
         try
         {
             // The commit succeeded. Complete this bounded send even if the browser disconnects.
-            var result = await sender.SendAsync("84" + phone[1..], CancellationToken.None);
+            var content = $"MealTrace: Da dang ky cho tre {childName}. Tai khoan: {phone}. "
+                + (temporaryPassword is null ? "Dang nhap bang mat khau hien tai." : $"Mat khau tam: {temporaryPassword}. Vui long doi mat khau sau khi dang nhap.");
+            var result = await sender.SendAsync("84" + phone[1..], CancellationToken.None, content);
             return new(result.Outcome.ToString().ToUpperInvariant(), result.ProviderMessageId, "******" + phone[^4..], result.Message);
         }
         catch (Exception)

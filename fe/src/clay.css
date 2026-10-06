@@ -307,6 +307,9 @@ h1 { color: #28374e; }
 .list-toolbar .field { flex: 1 1 190px; min-width: 0; max-width: 340px; }
 .list-toolbar .table-actions { flex: 1 1 100%; }
 .table-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.parent-summary { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 4px 0; cursor: pointer; }
+.parent-summary:hover { color: #7653b1; text-decoration: underline; }
+.parent-summary:focus-visible { outline: 3px solid #9771cf; outline-offset: 3px; border-radius: 4px; }
 .table-actions .button { font-size: 12px; padding: 8px 11px; }
 .table-actions .icon-button { background: #f5effc; border: 1px solid #e8dcf4; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; }
 .table-actions .action-danger { color: #a53f35; background: #fff0ed; border-color: #edb2a7; }
