@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using MealTrace.Api.Data;
+using MealTrace.Domain.Entities;
+using MealTrace.Infrastructure.Persistence;
+using MealTrace.Infrastructure.Identity;
+using MealTrace.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using static MealTrace.Api.Tests.AuthenticationTests;

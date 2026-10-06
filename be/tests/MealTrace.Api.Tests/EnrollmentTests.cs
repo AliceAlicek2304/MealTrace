@@ -2,8 +2,11 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using MealTrace.Api.Data;
-using MealTrace.Api.Features;
+using MealTrace.Domain.Entities;
+using MealTrace.Infrastructure.Persistence;
+using MealTrace.Infrastructure.Identity;
+using MealTrace.Application.Abstractions;
+using MealTrace.Application.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using static MealTrace.Api.Tests.AuthenticationTests;
@@ -37,7 +40,7 @@ public sealed class EnrollmentTests
     public async Task FutureTransferWithdrawalAndReEnrollmentRespectDatesAndKeepGuardians()
     {
         using var factory = new AuthTestFactory(); using var client = factory.CreateClient(); var seed = await factory.SeedUsersAsync();
-        var today = StudentAdministrationEndpoints.Today; Guid childId; Guid nextClass; Guid todayMeal; Guid futureMeal;
+        var today = MealTrace.Domain.Time.SchoolTime.Today(TimeProvider.System.GetUtcNow()); Guid childId; Guid nextClass; Guid todayMeal; Guid futureMeal;
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
@@ -64,8 +67,8 @@ public sealed class EnrollmentTests
         Assert.Equal(3, history.GetArrayLength());
         using var check = factory.Services.CreateScope(); var database = check.ServiceProvider.GetRequiredService<MealTraceDbContext>();
         Assert.Single(await database.ParentStudents.Where(x => x.StudentId == childId).ToListAsync());
-        Assert.False(await StudentAdministrationEndpoints.OnDate(database, today.AddDays(2)).AnyAsync(x => x.StudentId == childId));
-        Assert.True(await StudentAdministrationEndpoints.OnDate(database, today.AddDays(3)).AnyAsync(x => x.StudentId == childId));
+        Assert.False(await StudentAdministrationUseCases.OnDate(database, today.AddDays(2)).AnyAsync(x => x.StudentId == childId));
+        Assert.True(await StudentAdministrationUseCases.OnDate(database, today.AddDays(3)).AnyAsync(x => x.StudentId == childId));
     }
 
     [Fact]

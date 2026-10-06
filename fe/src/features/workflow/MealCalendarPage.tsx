@@ -33,6 +33,7 @@ export function MealCalendarPage() {
   const [code, setCode] = useState('')
   const [range, setRange] = useState<Range | null>(null)
   const [dayPage, setDayPage] = useState(1)
+  const [dayStatus, setDayStatus] = useState('')
   const [edit, setEdit] = useState<Edit | null>(null)
   const [checkedDays, setCheckedDays] = useState<number[]>([])
   const [typesText, setTypesText] = useState('')
@@ -47,6 +48,7 @@ export function MealCalendarPage() {
     queryFn: async () => (await api.get<Audit[]>(`/admin/meal-calendar/${encodeURIComponent(code)}/history`)).data })
   const data = calendar.data
   const currentRange = range ?? (data ? { from: data.from, to: data.to } : { from: '', to: '' })
+  const visibleDays = data?.days.filter(day => !dayStatus || (dayStatus === 'OPEN' ? day.isOpen : dayStatus === 'CLOSED' ? !day.isOpen : day.isException)) ?? []
   async function refresh() {
     await Promise.all(['meal-calendar', 'calendar-history', 'workflow-days', 'meal-days', 'portions', 'meal-decisions', 'meal-day'].map(key => cache.invalidateQueries({ queryKey: [key] })))
   }
@@ -78,23 +80,22 @@ export function MealCalendarPage() {
     setRange({ from, to: to > data.endDate ? data.endDate : to }); setDayPage(1)
   }
   return <><div className="eyebrow">LỊCH VẬN HÀNH</div><h1>Lịch bữa ăn</h1><p className="lead">Thiết lập lịch tuần một lần, tạo phiên theo tuần/tháng/năm học và xử lý ngày nghỉ hoặc học bù. Tạo phiên trước không chốt số suất trước.</p>
-    <section className="panel workflow-form"><SchoolYearPicker configuredOnly value={code} onChange={value => { setCode(value); setRange(null); setDayPage(1) }} /></section>
+    <section className="panel list-toolbar"><SchoolYearPicker configuredOnly value={code} onChange={value => { setCode(value); setRange(null); setDayPage(1); setDayStatus('') }} />
+      {data && <><label className="field">Từ ngày<input type="date" required min={data.startDate} max={data.endDate} value={currentRange.from} onChange={e => { const value = e.target.value; if (value < data.startDate || value > data.endDate) return; setRange({ from: value, to: value > currentRange.to ? value : currentRange.to }); setDayPage(1) }} /></label>
+        <label className="field">Đến ngày<input type="date" required min={currentRange.from} max={data.endDate} value={currentRange.to} onChange={e => { const value = e.target.value; if (value < currentRange.from || value > data.endDate) return; setRange({ from: currentRange.from, to: value }); setDayPage(1) }} /></label>
+        <label className="field">Lọc ngày<select value={dayStatus} onChange={e => { setDayStatus(e.target.value); setDayPage(1) }}><option value="">Tất cả ngày</option><option value="OPEN">Có tổ chức ăn</option><option value="CLOSED">Không tổ chức ăn</option><option value="EXCEPTION">Ngày đặc biệt</option></select></label>
+        <div className="table-actions"><button type="button" className="button secondary" onClick={() => setPeriod('week')}>1 tuần</button><button type="button" className="button secondary" onClick={() => setPeriod('month')}>1 tháng</button><button type="button" className="button secondary" onClick={() => setPeriod('year')}>Cả năm học</button></div></>}
+    </section>
     {code && (calendar.isPending ? <p>Đang tải lịch…</p> : calendar.isError ? <p className="error">{apiErrorMessage(calendar.error)}</p> : data && <>
-      <section className="panel"><div className="panel-head"><div><h2>Lịch tuần · {code}</h2><p>{data.revision ? `${data.weekdays.map(x => weekdays[x]).join(', ') || 'Chỉ mở ngày đặc biệt'} · ${data.mealTypes.join(', ')}` : 'Chưa thiết lập. Các lựa chọn gợi ý chỉ áp dụng sau khi bạn lưu.'}</p></div>
-        <button type="button" className="button primary" onClick={openSchedule}>{data.revision ? 'Sửa lịch tuần' : 'Thiết lập lịch tuần'}</button></div>
-        <p className="empty compact">Năm học: {data.startDate} đến {data.endDate}. Thay đổi lịch chỉ xử lý phiên còn trước giờ chốt. Phiên đã chốt/công bố không được hủy; không xóa lịch sử.</p></section>
-      <section className="panel"><div className="panel-head"><div><h2>Tạo lịch hàng loạt</h2><p>Chọn khoảng ngày, xem trước rồi xác nhận. Ngày nghỉ, phiên đã có hoặc ngày đã qua giờ chốt sẽ được bỏ qua.</p></div></div>
-        <div className="workflow-form"><div className="workflow-fields"><label className="field">Từ ngày<input type="date" required min={data.startDate} max={data.endDate} value={currentRange.from} onChange={e => { const value = e.target.value; if (value < data.startDate || value > data.endDate) return; setRange({ from: value, to: value > currentRange.to ? value : currentRange.to }); setDayPage(1) }} /></label>
-          <label className="field">Đến ngày<input type="date" required min={currentRange.from} max={data.endDate} value={currentRange.to} onChange={e => { const value = e.target.value; if (value < currentRange.from || value > data.endDate) return; setRange({ from: currentRange.from, to: value }); setDayPage(1) }} /></label></div>
-          <div className="form-actions"><button type="button" className="button secondary" onClick={() => setPeriod('week')}>1 tuần</button><button type="button" className="button secondary" onClick={() => setPeriod('month')}>1 tháng</button><button type="button" className="button secondary" onClick={() => setPeriod('year')}>Cả năm học</button>
-            <button type="button" className="button primary" disabled={!data.revision || calendar.isFetching || preview.isPending || !currentRange.from || !currentRange.to || currentRange.to < currentRange.from} onClick={() => preview.mutate({ code, input: { ...currentRange, expectedRevision: data.revision } })}>Xem trước tạo phiên</button></div>
-        </div></section>
-      <section className="panel workflow-lists"><div className="panel-head"><div><h2>Ngày nghỉ và ngày ăn đặc biệt</h2><p>Đổi ngày bằng modal. Mở ngày học bù rồi xem trước tạo phiên còn thiếu. “Theo lịch tuần” bỏ thiết lập riêng của ngày.</p></div><button type="button" className="button secondary" onClick={() => setHistoryOpen(true)}>Lịch sử thay đổi</button></div>
-        <div className="calendar-grid">{data.days.slice((dayPage - 1) * 31, dayPage * 31).map(day => <article className={`calendar-day ${day.isOpen ? 'calendar-open' : 'calendar-closed'}`} key={day.date}>
-          <strong>{day.date} · {weekdays[new Date(`${day.date}T00:00:00Z`).getUTCDay()]}</strong><small>{day.isOpen ? day.mealTypes.join(', ') : 'Không tổ chức ăn'}{day.isException ? ' · Ngày đặc biệt' : ''}</small>
-          {day.reason && <small>{day.reason}</small>}{day.sessions.map(session => <small key={session.id}>{session.mealType}: {session.isCancelled ? 'Đã hủy' : session.isSettled ? 'Đã chốt' : 'Đã tạo phiên'}</small>)}
-          <button type="button" className="button secondary" disabled={!data.revision || day.locked || calendar.isFetching} onClick={() => openDay(day)}>{day.locked ? 'Đã khóa ngày' : 'Sửa ngày'}</button>
-        </article>)}</div><Pagination page={dayPage} total={data.days.length} pageSize={31} busy={calendar.isFetching} onChange={setDayPage} /></section>
+      <section className="panel workflow-lists"><div className="panel-head"><div><h2>Lịch bữa ăn · {code}</h2><p>{data.revision ? `${data.weekdays.map(x => weekdays[x]).join(', ') || 'Chỉ mở ngày đặc biệt'} · ${data.mealTypes.join(', ')}` : 'Chưa thiết lập lịch tuần.'}</p></div>
+        <div className="table-actions"><button type="button" className="button secondary" onClick={openSchedule}>{data.revision ? 'Sửa lịch tuần' : 'Thiết lập lịch tuần'}</button>
+          <button type="button" className="button secondary" onClick={() => setHistoryOpen(true)}>Lịch sử</button>
+          <button type="button" className="button primary" disabled={!data.revision || calendar.isFetching || preview.isPending || !currentRange.from || !currentRange.to || currentRange.to < currentRange.from} onClick={() => preview.mutate({ code, input: { ...currentRange, expectedRevision: data.revision } })}>Tạo lịch hàng loạt</button></div></div>
+        <div className="table-wrap"><table><thead><tr><th scope="col">Ngày</th><th scope="col">Thứ</th><th scope="col">Lịch phục vụ</th><th scope="col">Phiên đã tạo</th><th scope="col">Ghi chú</th><th scope="col">Thao tác</th></tr></thead><tbody>{visibleDays.slice((dayPage - 1) * 31, dayPage * 31).map(day => <tr key={day.date}>
+          <td><strong>{day.date}</strong></td><td>{weekdays[new Date(`${day.date}T00:00:00Z`).getUTCDay()]}</td><td>{!data.revision && !day.isException ? 'Chưa cấu hình lịch tuần' : day.isOpen ? day.mealTypes.join(', ') : 'Không tổ chức ăn'}{day.isException && <small>Ngày đặc biệt</small>}</td>
+          <td>{day.sessions.length ? day.sessions.map(session => <div key={session.id}>{session.mealType}<small>{session.isCancelled ? 'Đã hủy' : session.isSettled ? 'Đã chốt' : 'Đã tạo phiên'}</small></div>) : '—'}</td><td>{day.reason ?? '—'}</td>
+          <td><button type="button" className="button secondary" disabled={!data.revision || day.locked || calendar.isFetching} onClick={() => openDay(day)}>{day.locked ? 'Đã khóa ngày' : 'Sửa ngày'}</button></td>
+        </tr>)}{!visibleDays.length && <tr><td colSpan={6} className="empty compact">Không có ngày phù hợp.</td></tr>}</tbody></table></div><Pagination page={dayPage} total={visibleDays.length} pageSize={31} busy={calendar.isFetching} onChange={setDayPage} /></section>
     </>)}
     {edit && <Modal title={edit.kind === 'schedule' ? 'Thiết lập lịch tuần' : `Chỉnh ngày ${edit.date}`} description="Bắt buộc lý do. Phiên đã chốt hoặc qua giờ chốt giữ nguyên; lỗi lưu giữ dữ liệu bạn nhập." busy={save.isPending} onClose={() => setEdit(null)}>
       <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!save.isPending) save.mutate() }}>
@@ -106,7 +107,7 @@ export function MealCalendarPage() {
       </form></Modal>}
     {previewDialog && <Modal wide title={`Xem trước · ${previewDialog.code}`} description={`${previewDialog.input.from} đến ${previewDialog.input.to}. Chưa tạo dữ liệu trước khi xác nhận.`} busy={generate.isPending} onClose={() => setPreviewDialog(null)}>
       <div className="workflow-form"><p><strong>{previewDialog.data.createCount} phiên mới · {previewDialog.data.restoreCount} khôi phục · {previewDialog.data.existingCount} phiên đã có</strong></p>
-        {previewDialog.data.items.slice((previewPage - 1) * 25, previewPage * 25).map(item => <div className="entry" key={`${item.date}-${item.mealType}`}><strong>{item.date} {item.mealType && `· ${item.mealType}`}</strong><small>{actionLabel[item.action] ?? item.action}</small></div>)}
+        <div className="table-wrap"><table><thead><tr><th scope="col">Ngày</th><th scope="col">Bữa ăn</th><th scope="col">Thao tác dự kiến</th></tr></thead><tbody>{previewDialog.data.items.slice((previewPage - 1) * 25, previewPage * 25).map(item => <tr key={`${item.date}-${item.mealType}`}><td>{item.date}</td><td>{item.mealType || '—'}</td><td>{actionLabel[item.action] ?? item.action}</td></tr>)}</tbody></table></div>
         <Pagination page={previewPage} total={previewDialog.data.items.length} pageSize={25} busy={generate.isPending} onChange={setPreviewPage} />
         <div className="form-actions"><button type="button" className="button secondary" disabled={generate.isPending} onClick={() => setPreviewDialog(null)}>Đóng</button><button type="button" className="button primary" disabled={generate.isPending || !(previewDialog.data.createCount + previewDialog.data.restoreCount)} onClick={() => generate.mutate()}>Xác nhận tạo lịch</button></div>
       </div></Modal>}

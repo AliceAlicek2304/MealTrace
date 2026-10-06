@@ -1,6 +1,7 @@
-using MealTrace.Kitchen.Services;
+using MealTrace.Application.Kitchen;
+using MealTrace.Domain.Security;
 
-namespace MealTrace.Kitchen.Endpoints;
+namespace MealTrace.Api.Features;
 
 public static class KitchenEndpoints
 {
@@ -9,7 +10,7 @@ public static class KitchenEndpoints
     {
         var kitchen = app.MapGroup("/api/kitchen")
             // JWT Bearer: anonymous => 401, Teacher/Parent => 403.
-            .RequireAuthorization(policy => policy.RequireRole("Kitchen", "Admin"))
+            .RequireAuthorization(policy => policy.RequireRole(RoleNames.KitchenStaff, RoleNames.Admin))
             .AddEndpointFilter<KitchenProblemFilter>();
 
         kitchen.MapIngredientEndpoints();

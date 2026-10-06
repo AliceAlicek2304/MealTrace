@@ -3,8 +3,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
-using MealTrace.Api.Data;
-using MealTrace.Api.Security;
+using MealTrace.Domain.Entities;
+using MealTrace.Infrastructure.Persistence;
+using MealTrace.Infrastructure.Identity;
+using MealTrace.Application.Abstractions;
+using MealTrace.Domain.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -467,10 +470,13 @@ public sealed class AuthenticationTests
         private readonly string? _schema;
         private bool _disposed;
         private readonly TimeProvider? _clock;
+        private readonly Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? _commands;
 
-        public AuthTestFactory(bool postgres = false, TimeProvider? clock = null)
+        public AuthTestFactory(bool postgres = false, TimeProvider? clock = null,
+            Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? commands = null)
         {
             _clock = clock;
+            _commands = commands;
             if (postgres)
             {
                 var connection = Environment.GetEnvironmentVariable("MEALTRACE_TEST_CONNECTION")
@@ -515,6 +521,7 @@ public sealed class AuthenticationTests
                 {
                     if (_postgresConnection is not null) options.UseNpgsql(_postgresConnection);
                     else options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteTestModelCustomizer>();
+                    if (_commands is not null) options.AddInterceptors(_commands);
                 });
             });
         }

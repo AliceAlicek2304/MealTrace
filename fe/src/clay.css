@@ -297,6 +297,41 @@ h1 { color: #28374e; }
 .modal-body .credential-once { margin: 22px 25px; }
 .modal-body .form-actions { flex-wrap: wrap; }
 .calendar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; padding: 22px 25px; }
+/* Management screens: filters above a list; forms open on demand. */
+.list-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.list-tabs button { border: 1px solid #e4d8f3; border-radius: 12px; padding: 10px 18px; color: #7251a4; background: #f6f0ff; font-weight: 700; }
+.list-tabs button[aria-pressed='true'] { background: #7955b1; border-color: #7955b1; color: #fff; box-shadow: 0 3px 0 #5d3f8c; }
+.list-tabs button:focus-visible, .table-actions button:focus-visible { outline: 3px solid #9771cf; outline-offset: 3px; }
+.modal-tabs { padding: 18px 24px 0; margin-bottom: 0; }
+.list-toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; padding: 20px 24px; border-bottom: 1px solid #f1e9df; }
+.list-toolbar .field { flex: 1 1 190px; min-width: 0; max-width: 340px; }
+.list-toolbar .table-actions { flex: 1 1 100%; }
+.table-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.table-actions .button { font-size: 12px; padding: 8px 11px; }
+.table-actions .icon-button { background: #f5effc; border: 1px solid #e8dcf4; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; }
+.table-actions .action-danger { color: #a53f35; background: #fff0ed; border-color: #edb2a7; }
+.table-wrap table { min-width: 640px; }
+.table-wrap th { color: #6b587e; background: #f7f2fb; padding: 13px 18px; }
+.table-wrap td { padding: 15px 18px; border-color: #f0e9df; max-width: 300px; overflow-wrap: anywhere; line-height: 1.5; }
+.table-wrap td:last-child:has(.table-actions) { min-width: 190px; }
+.table-wrap td small { color: #718098; font-size: 12px; }
+.table-wrap tbody tr:hover { background: #fffaf1; }
+.table-wrap td.empty { display: table-cell; height: 85px; }
+.button.danger { background: #fff0ed; border: 1px solid #edb2a7; color: #a53f35; }
+.button.danger:hover { background: #ffe2dc; }
+.app-modal .panel { border: 0; border-radius: 0; box-shadow: none; }
+.app-modal .workflow-lists { margin-top: 0; }
+.app-modal .table-wrap table { min-width: 540px; }
+.app-modal:not(.app-modal-wide) .table-wrap table { min-width: 0; }
+.panel-head { flex-wrap: wrap; }
+.panel-head > div:first-child { min-width: 0; }
+@media (max-width: 700px) {
+  .list-toolbar { padding: 16px; gap: 12px; }
+  .list-toolbar .field { flex-basis: 100%; max-width: none; }
+  .table-wrap td, .table-wrap th { padding: 12px; }
+  .panel-head { padding: 18px 16px; }
+  .modal-tabs { padding: 16px 16px 0; }
+}
 .calendar-day { display: flex; flex-direction: column; gap: 10px; border: 1px solid #e8ded1; border-radius: 18px; padding: 18px; overflow-wrap: anywhere; }
 .calendar-day small { line-height: 1.5; color: #66758a; }
 .calendar-open { background: #eefbf4; }
@@ -314,6 +349,12 @@ h1 { color: #28374e; }
 /* Enrollment directory and paginated scope selectors share the clay form language. */
 .entry-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; max-width: 520px; }
 .class-picker { display: grid; gap: 10px; min-width: 0; }
+.list-toolbar > .class-picker-compact { flex: 1 1 190px; max-width: 340px; }
+.picker-search { color: #7251a4; font-size: 12px; }
+.picker-search summary { cursor: pointer; }
+.picker-search[open] { display: grid; gap: 10px; }
+.list-toolbar:has(.class-picker-compact) { align-items: flex-start; }
+.toolbar:has(.class-picker-compact) { align-items: flex-start; flex-wrap: wrap; }
 .toolbar > .class-picker { min-width: 220px; }
 .panel-head > input { padding: 10px 12px; border: 2px solid #e8e0d8; border-radius: 11px; background: #fff; color: #334058; font: inherit; }
 .class-picker .pagination { margin: 0; padding: 0; flex-wrap: wrap; }

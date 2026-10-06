@@ -5,6 +5,7 @@ import { api, apiErrorMessage } from '../../lib/api'
 import { Modal } from '../../components/Modal'
 import { ClassPicker } from '../../components/ClassPicker'
 import { Pagination } from '../../components/Pagination'
+import { ArrowRightLeft, History, Pencil, UserRoundMinus, UserRoundPlus } from 'lucide-react'
 
 type Page<T> = { items: T[]; total: number; earliestChangeDate?: string }
 type Room = { id: string; name: string; schoolYear: string; studentCount: number }
@@ -13,13 +14,16 @@ type Student = { id: string; studentCode: string; fullName: string; revision: nu
 type Enrollment = { id: string; className: string; schoolYear: string; startDate: string; endDate: string | null; reason: string; endReason: string | null }
 type Editor = { kind: 'class'; room: Room } | { kind: 'student' | 'enrollment'; student: Student }
 
-export function StudentDirectory({ onLink }: { onLink: (student: { id: string; fullName: string }) => void }) {
+export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initialClassId }: {
+  onLink: (student: { id: string; fullName: string }) => void; view: 'classes' | 'students'; onCreate: () => void;
+  onViewStudents: (classId: string) => void; initialClassId: string
+}) {
   const cache = useQueryClient()
   const [classSearch, setClassSearch] = useState('')
   const [classPage, setClassPage] = useState(1)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [classId, setClassId] = useState('')
+  const [classId, setClassId] = useState(initialClassId)
   const [status, setStatus] = useState('')
   const [editor, setEditor] = useState<Editor | null>(null)
   const [name, setName] = useState('')
@@ -28,9 +32,9 @@ export function StudentDirectory({ onLink }: { onLink: (student: { id: string; f
   const [reason, setReason] = useState('')
   const [withdraw, setWithdraw] = useState(false)
   const [historyTarget, setHistoryTarget] = useState<Student | null>(null)
-  const classes = useQuery({ queryKey: ['classes', 'admin', classSearch, classPage],
+  const classes = useQuery({ queryKey: ['classes', 'admin', classSearch, classPage], enabled: view === 'classes',
     queryFn: async () => (await api.get<Page<Room>>('/admin/classes', { params: { search: classSearch, page: classPage } })).data })
-  const students = useQuery({ queryKey: ['students', 'admin', search, page, classId, status],
+  const students = useQuery({ queryKey: ['students', 'admin', search, page, classId, status], enabled: view === 'students',
     queryFn: async () => (await api.get<Page<Student>>('/admin/students', { params: { search, page, classId: classId || undefined, status } })).data })
   const history = useQuery({ queryKey: ['enrollments', historyTarget?.id], enabled: !!historyTarget,
     queryFn: async () => (await api.get<Enrollment[]>(`/admin/students/${historyTarget!.id}/enrollments`)).data })
@@ -47,29 +51,35 @@ export function StudentDirectory({ onLink }: { onLink: (student: { id: string; f
     setTargetClass(''); setReason(''); setWithdraw(false); setDate(students.data?.earliestChangeDate ?? '')
   }
   return <>
-    <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách lớp</h2><input aria-label="Tìm lớp" placeholder="Tên lớp hoặc niên khóa" value={classSearch} onChange={e => { setClassSearch(e.target.value); setClassPage(1) }} /></div>
+    {view === 'classes' && <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách lớp</h2><button type="button" className="button primary" onClick={onCreate}>Tạo lớp</button></div>
+      <div className="list-toolbar"><label className="field">Tìm lớp<input placeholder="Tên lớp hoặc niên khóa" value={classSearch} onChange={e => { setClassSearch(e.target.value); setClassPage(1) }} /></label></div>
       {classes.isPending ? <p className="empty compact">Đang tải…</p> : classes.isError ? <p className="empty compact error">{apiErrorMessage(classes.error)}</p> : <>
         {!classes.data?.items.length && <p className="empty compact">Không có lớp phù hợp.</p>}
-        {classes.data?.items.map(room => <div className="entry student-entry" key={room.id}><div><strong>{room.name}</strong><small>{room.schoolYear} · {room.studentCount} trẻ đang học hôm nay</small></div>
-          <div className="entry-actions"><button type="button" className="button secondary" onClick={() => { setClassId(room.id); setPage(1) }}>Xem trẻ</button>
-            <button type="button" className="button secondary" onClick={() => open({ kind: 'class', room })}>Sửa lớp</button></div></div>)}
+        <div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Trẻ đang học</th><th scope="col">Thao tác</th></tr></thead><tbody>
+        {classes.data?.items.map(room => <tr key={room.id}><td><strong>{room.name}</strong></td><td>{room.schoolYear}</td><td>{room.studentCount}</td>
+          <td><div className="table-actions"><button type="button" className="button secondary" onClick={() => { setClassId(room.id); setPage(1); onViewStudents(room.id) }}>Xem trẻ</button>
+            <button type="button" className="button secondary" onClick={() => open({ kind: 'class', room })}>Sửa lớp</button></div></td></tr>)}
+        </tbody></table></div>
       </>}
       <Pagination page={classPage} total={classes.data?.total ?? 0} pageSize={20} busy={classes.isFetching} onChange={setClassPage} />
-    </section>
-    <section className="panel workflow-lists"><h2>Danh sách trẻ</h2><div className="workflow-form"><ClassPicker value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối nếu chưa học" />
-      <div className="workflow-fields"><label className="field">Tìm trẻ<input placeholder="Mã trẻ hoặc họ tên" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
-        <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label></div></div>
+    </section>}
+    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách trẻ</h2><button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div><div className="list-toolbar"><ClassPicker compact value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
+      <label className="field">Tìm trẻ<input placeholder="Mã trẻ hoặc họ tên" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
+        <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label></div>
       {students.isPending ? <p className="empty compact">Đang tải…</p> : students.isError ? <p className="empty compact error">{apiErrorMessage(students.error)}</p> : <>
         {!students.data?.items.length && <p className="empty compact">Không có trẻ phù hợp.</p>}
-        {students.data?.items.map(student => <div className="entry student-entry" key={student.id}><div><strong>{student.fullName}</strong><small>{student.studentCode} · {student.className} · {student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</small>
-          <small>{student.parents.length ? `Phụ huynh: ${student.parents.map(p => `${p.fullName} (${p.phoneNumber || p.email || ''})`).join(', ')}` : 'Chưa liên kết phụ huynh'}</small></div>
-          <div className="entry-actions"><button type="button" className="button secondary" onClick={() => open({ kind: 'student', student })}>Sửa hồ sơ</button>
-            <button type="button" className="button secondary" onClick={() => open({ kind: 'enrollment', student })}>Ghi danh / chuyển lớp</button>
-            <button type="button" className="button secondary" onClick={() => setHistoryTarget(student)}>Lịch sử</button>
-            <button type="button" className="button secondary" onClick={() => onLink(student)}>Liên kết phụ huynh</button></div></div>)}
+        <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
+        {students.data?.items.map(student => <tr key={student.id}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
+          <td>{student.parents.length ? student.parents.map(p => <div key={p.id}>{p.fullName}<small>{p.phoneNumber || p.email || 'Chưa có liên hệ'}</small></div>) : <span className="muted">Chưa liên kết</span>}</td>
+          <td><div className="table-actions"><button type="button" className="icon-button" title="Sửa hồ sơ" aria-label={`Sửa hồ sơ ${student.fullName}`} onClick={() => open({ kind: 'student', student })}><Pencil size={17} /></button>
+            <button type="button" className="icon-button" title="Ghi danh / chuyển lớp" aria-label={`Ghi danh / chuyển lớp ${student.fullName}`} onClick={() => open({ kind: 'enrollment', student })}><ArrowRightLeft size={17} /></button>
+            {student.isActive && <button type="button" className="icon-button action-danger" title="Ngừng học" aria-label={`Ngừng học ${student.fullName}`} onClick={() => { open({ kind: 'enrollment', student }); setWithdraw(true) }}><UserRoundMinus size={17} /></button>}
+            <button type="button" className="icon-button" title="Lịch sử ghi danh" aria-label={`Lịch sử ${student.fullName}`} onClick={() => setHistoryTarget(student)}><History size={17} /></button>
+            <button type="button" className="icon-button" title="Liên kết phụ huynh" aria-label={`Liên kết phụ huynh ${student.fullName}`} onClick={() => onLink(student)}><UserRoundPlus size={17} /></button></div></td></tr>)}
+        </tbody></table></div>
       </>}
       <Pagination page={page} total={students.data?.total ?? 0} pageSize={20} busy={students.isFetching} onChange={setPage} />
-    </section>
+    </section>}
     {editor && <Modal title={editor.kind === 'class' ? 'Sửa lớp' : editor.kind === 'student' ? 'Sửa hồ sơ trẻ' : `Ghi danh: ${editor.student.fullName}`} busy={save.isPending} onClose={() => setEditor(null)}>
       <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!save.isPending) save.mutate() }}>
         {editor.kind !== 'enrollment' ? <><label className="field">{editor.kind === 'class' ? 'Tên lớp' : 'Họ tên trẻ'}<input required maxLength={editor.kind === 'class' ? 100 : 150} value={name} onChange={e => setName(e.target.value)} /></label>

@@ -35,6 +35,8 @@ export function PortionAmendments({ mealId, rooms, roles }: { mealId: string; ro
   const [search, setSearch] = useState('')
   const [candidatePage, setCandidatePage] = useState(1)
   const [page, setPage] = useState(1)
+  const [view, setView] = useState<'requests' | 'candidates'>('requests')
+  const [snapshotDialog, setSnapshotDialog] = useState<{ title: string; snapshot: Snapshot } | null>(null)
   const [target, setTarget] = useState<{ kind: 'request'; child: Candidate; baseId: string; baseVersion: number; classId: string } | { kind: 'review'; request: Request } | null>(null)
   const [reason, setReason] = useState('')
   const endpoint = `/meal-days/${mealId}/amendments`
@@ -67,29 +69,31 @@ export function PortionAmendments({ mealId, rooms, roles }: { mealId: string; ro
 
   return <section className="panel workflow-lists amendment-panel"><h2>Điều chỉnh sau chốt</h2>
     <p>Bản gốc giữ nguyên. Mỗi yêu cầu điều chỉnh một trẻ; chỉ bản được Admin duyệt mới áp dụng cho bếp.</p>
-    <label className="field">Lớp<select value={classId} onChange={event => { setPickedClass(event.target.value); setSearch(''); setCandidatePage(1); setPage(1) }}>
+    <div className="list-toolbar"><label className="field">Lớp<select value={classId} onChange={event => { setPickedClass(event.target.value); setSearch(''); setCandidatePage(1); setPage(1) }}>
       {rooms.map(room => <option key={room.classId} value={room.classId}>{room.className}</option>)}</select></label>
+      {view === 'candidates' && <label className="field">Tìm trẻ<input placeholder="Tên hoặc mã trẻ" value={search} onChange={event => { setSearch(event.target.value); setCandidatePage(1) }} /></label>}
+    </div>
     {query.isPending ? <p className="empty">Đang tải bản suất…</p> : query.isError ? <p className="error">Không tải được điều chỉnh. <button type="button" className="button secondary" onClick={() => void query.refetch()}>Thử lại</button></p> : data && <>
-      <div className="entry"><strong>{data.className}: gốc {data.original.count} → đang áp dụng {data.current.count} suất · bản {data.current.version}</strong>
-        <p>Tăng: {data.added.map(x => x.studentName).join(', ') || 'Không'} · Giảm: {data.removed.map(x => x.studentName).join(', ') || 'Không'}</p></div>
+      <div className="panel-head"><div><strong>{data.className}: gốc {data.original.count} → đang áp dụng {data.current.count} suất · bản {data.current.version}</strong>
+        <p>Tăng {data.added.length} trẻ · Giảm {data.removed.length} trẻ</p></div><div className="table-actions"><button type="button" className="button secondary" onClick={() => setSnapshotDialog({ title: 'Bản gốc', snapshot: data.original })}>Xem bản gốc</button><button type="button" className="button secondary" onClick={() => setSnapshotDialog({ title: 'Đang áp dụng', snapshot: data.current })}>Xem bản hiện hành</button></div></div>
       {!data.hasOriginalSources && <p className="muted">Bản chốt cũ chưa lưu đầy đủ nguồn quyết định. Giữ danh sách gốc; không suy diễn lại lịch sử báo vắng.</p>}
       {!data.hasCompleteRoster && <p className="error">Bản cũ thiếu danh sách trẻ khớp tổng suất. Cần đối chiếu hồ sơ trước khi điều chỉnh theo trẻ.</p>}
-      <SnapshotView title="Bản gốc" snapshot={data.original} />
-      {data.current.id !== data.original.id && <SnapshotView title="Đang áp dụng" snapshot={data.current} />}
-      {data.canRequest && <><h3>Gửi yêu cầu cho trẻ</h3><label className="field">Tìm trẻ theo tên hoặc mã<input value={search} onChange={event => { setSearch(event.target.value); setCandidatePage(1) }} /></label>
+      <div className="list-tabs modal-tabs"><button type="button" aria-pressed={view === 'requests'} onClick={() => setView('requests')}>Yêu cầu và lịch sử</button>{data.canRequest && <button type="button" aria-pressed={view === 'candidates'} onClick={() => setView('candidates')}>Tạo yêu cầu</button>}</div>
+      {view === 'candidates' && data.canRequest && <>
         <div className="table-wrap"><table><thead><tr><th>Trẻ</th><th>Bản đang áp dụng</th><th>Nguồn</th><th>Thao tác</th></tr></thead><tbody>
           {data.candidates.map(child => <tr key={child.studentId}><td>{child.studentCode} · {child.studentName}</td><td>{child.willEat ? 'Có suất' : 'Không có suất'}</td><td>{sources[child.source] ?? child.source}</td>
             <td><button type="button" className="button secondary" onClick={() => { setReason(''); setTarget({ kind: 'request', child, baseId: data.current.id, baseVersion: data.current.version, classId }) }}>Yêu cầu {child.willEat ? 'giảm' : 'thêm'} suất</button></td></tr>)}</tbody></table></div>
         {!data.candidates.length && <p className="empty">Không có trẻ phù hợp.</p>}
         <Pagination page={candidatePage} total={data.candidateTotal} pageSize={25} busy={query.isFetching} onChange={setCandidatePage} /></>}
-      <h3>Yêu cầu và lịch sử xử lý</h3>
-      {data.items.map(item => <div className="entry" key={item.id}><strong>{item.studentCode} · {item.studentName} · {item.willEat ? '+1' : '−1'} suất · {statuses[item.status]}</strong>
-        <p>{item.reason}</p><small>{item.requestedByName} · {time(item.requestedAt)} · nguồn bản {item.baseVersion}</small>
-        {item.reviewedAt && <p>{item.reviewedByName} · {time(item.reviewedAt)}: {item.reviewReason}</p>}
-        <button type="button" className="button secondary" onClick={() => { setReason(''); setTarget({ kind: 'review', request: item }) }}>{isAdmin && item.status === 'PENDING' ? 'Xem và xử lý' : 'Xem bản nguồn'}</button></div>)}
+      {view === 'requests' && <><div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Thay đổi</th><th scope="col">Trạng thái</th><th scope="col">Lý do</th><th scope="col">Người gửi / bản nguồn</th><th scope="col">Thao tác</th></tr></thead><tbody>
+      {data.items.map(item => <tr key={item.id}><td><strong>{item.studentName}</strong><small>{item.studentCode}</small></td><td>{item.willEat ? '+1' : '−1'} suất</td><td>{statuses[item.status]}</td>
+        <td>{item.reason}{item.reviewedAt && <small>{item.reviewedByName} · {time(item.reviewedAt)}: {item.reviewReason}</small>}</td><td>{item.requestedByName}<small>{time(item.requestedAt)} · bản {item.baseVersion}</small></td>
+        <td><button type="button" className="button secondary" onClick={() => { setReason(''); setTarget({ kind: 'review', request: item }) }}>{isAdmin && item.status === 'PENDING' ? 'Xem và xử lý' : 'Xem bản nguồn'}</button></td></tr>)}
+      </tbody></table></div>
       {!data.items.length && <p className="empty">Chưa có yêu cầu điều chỉnh.</p>}
-      <Pagination page={page} total={data.total} pageSize={25} busy={query.isFetching} onChange={setPage} />
+      <Pagination page={page} total={data.total} pageSize={25} busy={query.isFetching} onChange={setPage} /></>}
     </>}
+    {snapshotDialog && <Modal wide title={snapshotDialog.title} onClose={() => setSnapshotDialog(null)}><div className="workflow-form"><SnapshotView title={snapshotDialog.title} snapshot={snapshotDialog.snapshot} /></div></Modal>}
     {target && <Modal wide title={target.kind === 'request' ? 'Yêu cầu điều chỉnh suất' : 'Chi tiết yêu cầu điều chỉnh'} busy={busy} onClose={() => setTarget(null)}>
       {target.kind === 'request' ? <form className="workflow-form" onSubmit={event => { event.preventDefault(); request.mutate() }}>
         <p>{target.child.studentName} · bản nguồn {target.baseVersion}: {target.child.willEat ? 'Có suất → Không có suất' : 'Không có suất → Có suất'}</p>

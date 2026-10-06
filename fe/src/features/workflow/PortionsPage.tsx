@@ -6,6 +6,7 @@ import { MealExceptions } from './MealExceptions'
 import { PortionAmendments } from './PortionAmendments'
 import { SchoolYearPicker } from '../../components/SchoolYearPicker'
 import { Pagination } from '../../components/Pagination'
+import { Modal } from '../../components/Modal'
 
 type Day = { id: string; date: string; mealType: string; schoolYear: string | null; cutoffAt: string; isSettled: boolean; isCancelled: boolean; cancellationReason: string | null }
 type DayPage = { items: Day[]; total: number }
@@ -23,16 +24,20 @@ export function PortionsPage({ roles }: { roles: string[] }) {
   const [date, setDate] = useState('')
   const [mealType, setMealType] = useState('Bữa trưa')
   const [schoolYear, setSchoolYear] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [detailTab, setDetailTab] = useState<'portions' | 'exceptions' | 'amendments'>('portions')
+  const [roster, setRoster] = useState<Room | null>(null)
+  const [confirmSettle, setConfirmSettle] = useState(false)
   const days = useQuery({ queryKey: ['workflow-days', filterDate, dayPage], queryFn: async () => (await api.get<DayPage>('/meal-days/workflow', { params: { date: filterDate || undefined, page: dayPage } })).data })
   const portions = useQuery({ queryKey: ['portions', selected], enabled: !!selected,
     queryFn: async () => (await api.get<Portions>(`/meal-days/${selected}/portions`)).data })
   const createDay = useMutation({ mutationFn: () => api.post<Day>('/meal-days', { date, mealType, schoolYear }),
-    onSuccess: async response => { setSelected(response.data.id); setPicked(response.data); toast.success('Đã tạo phiên ăn.'); await queryClient.invalidateQueries({ queryKey: ['workflow-days'] }) },
-    onError: error => toast.error(apiErrorMessage(error)) })
+    onSuccess: async response => { setCreateOpen(false); setDetailTab('portions'); setSelected(response.data.id); setPicked(response.data); toast.success('Đã tạo phiên ăn.'); await queryClient.invalidateQueries({ queryKey: ['workflow-days'] }) },
+    onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   const settle = useMutation({ mutationFn: () => api.post(`/meal-days/${selected}/settle`),
-    onSuccess: async () => { toast.success('Đã chốt số suất và lưu danh sách trẻ nguồn cho bếp.'); await Promise.all([
+    onSuccess: async () => { setConfirmSettle(false); toast.success('Đã chốt số suất và lưu danh sách trẻ nguồn cho bếp.', { toasterId: 'edit-modal' }); await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['workflow-days'] }), queryClient.invalidateQueries({ queryKey: ['portions', selected] }), queryClient.invalidateQueries({ queryKey: ['meal-decisions', selected] })]) },
-    onError: error => toast.error(apiErrorMessage(error)) })
+    onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   function submitDay(event: FormEvent) { event.preventDefault(); createDay.mutate() }
   const current = days.data?.items.find(day => day.id === selected) ?? picked
   const cancelled = portions.data?.isCancelled ?? current?.isCancelled
@@ -41,27 +46,36 @@ export function PortionsPage({ roles }: { roles: string[] }) {
 
   return <><div className="eyebrow">SỐ SUẤT GỬI BẾP</div><h1>Danh sách dự kiến ăn</h1>
     <p className="lead">Số suất lấy từ ghi danh tại ngày ăn, báo vắng đúng hạn và các ngoại lệ đã ghi. Bản chốt giữ nguyên sau giờ chốt.</p>
-    {isAdmin && <section className="panel"><h2>Tạo phiên ăn</h2><form className="workflow-form workflow-fields" onSubmit={submitDay}>
+    {createOpen && <Modal title="Tạo phiên ăn" busy={createDay.isPending} onClose={() => setCreateOpen(false)}><form className="workflow-form" onSubmit={submitDay}>
       <label className="field">Ngày ăn<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
       <label className="field">Phiên ăn<input required maxLength={60} value={mealType} onChange={e => setMealType(e.target.value)} /></label>
       <SchoolYearPicker value={schoolYear} onChange={setSchoolYear} configuredOnly />
       <button type="submit" className="button primary" disabled={createDay.isPending}>Tạo phiên</button>
-    </form></section>}
-    <section className="panel workflow-lists"><h2>Chọn phiên ăn</h2><div className="workflow-form">
+    </form></Modal>}
+    <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách phiên ăn</h2>{isAdmin && <button type="button" className="button primary" onClick={() => setCreateOpen(true)}>Tạo phiên ăn</button>}</div><div className="list-toolbar">
       <label className="field">Lọc ngày ăn<input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setDayPage(1) }} /></label>
-      {days.isError ? <p className="error">Không tải được phiên ăn.</p> : <select value={selected} onChange={e => { setSelected(e.target.value); setPicked(days.data?.items.find(day => day.id === e.target.value) ?? null) }}><option value="">Chọn ngày và phiên ăn</option>
-        {picked && !days.data?.items.some(day => day.id === picked.id) && <option value={picked.id}>{picked.date} · {picked.mealType} · Đang chọn</option>}
-        {days.data?.items.map(day => <option key={day.id} value={day.id}>{day.date} · {day.mealType} · {day.schoolYear ?? 'Chưa gắn niên khóa'} {day.isCancelled ? '· Đã hủy' : day.isSettled ? '· Đã chốt' : ''}</option>)}</select>}
+      <button type="button" className="button secondary" onClick={() => { setFilterDate(''); setDayPage(1) }}>Bỏ lọc</button></div>
+      {days.isPending ? <p className="empty compact">Đang tải phiên ăn…</p> : days.isError ? <p className="empty compact error">Không tải được phiên ăn.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Ngày ăn</th><th scope="col">Bữa ăn</th><th scope="col">Năm học</th><th scope="col">Giờ chốt</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>
+        {days.data?.items.map(day => <tr key={day.id}><td>{day.date}</td><td><strong>{day.mealType}</strong></td><td>{day.schoolYear ?? 'Chưa gắn năm học'}</td><td>{new Date(day.cutoffAt).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })}</td><td><span className={`status ${day.isCancelled ? 'suspended' : day.isSettled ? 'active' : ''}`}>{day.isCancelled ? 'Đã hủy' : day.isSettled ? 'Đã chốt' : 'Chưa chốt'}</span></td><td><button type="button" className="button secondary" onClick={() => { setSelected(day.id); setPicked(day); setDetailTab('portions') }}>Xem / Quản lý</button></td></tr>)}
+        {!days.data?.items.length && <tr><td colSpan={6} className="empty compact">Không có phiên ăn phù hợp.</td></tr>}
+      </tbody></table></div>}
       <Pagination page={dayPage} total={days.data?.total ?? 0} pageSize={25} busy={days.isFetching} onChange={setDayPage} />
-    </div></section>
-    {selected && <section className="panel workflow-lists"><div className="panel-head"><div><h2>{current?.mealType ?? 'Phiên ăn'} · {current?.date}</h2>
+    </section>
+    {selected && <Modal wide title={`${current?.mealType ?? 'Phiên ăn'} · ${current?.date ?? ''}`} busy={settle.isPending} onClose={() => { setSelected(''); setPicked(null); setRoster(null); setConfirmSettle(false) }}>
+      <div className="list-tabs modal-tabs" aria-label="Quản lý phiên ăn"><button type="button" aria-pressed={detailTab === 'portions'} onClick={() => setDetailTab('portions')}>Suất theo lớp</button>
+        {(isAdmin || isTeacher) && <button type="button" aria-pressed={detailTab === 'exceptions'} onClick={() => setDetailTab('exceptions')}>Nguồn / Ngoại lệ</button>}
+        {settled && !cancelled && <button type="button" aria-pressed={detailTab === 'amendments'} onClick={() => setDetailTab('amendments')}>Điều chỉnh sau chốt</button>}</div>
+    {detailTab === 'portions' && <section className="workflow-lists"><div className="panel-head"><div><h2>Suất ăn theo lớp</h2>
       <p>Giờ chốt: {current ? new Date(current.cutoffAt).toLocaleString('vi-VN') : '—'} · {total} suất</p>{cancelled && <p className="error">Đã hủy: {portions.data?.cancellationReason ?? current?.cancellationReason}</p>}</div>
-      {isAdmin && current && !settled && !cancelled && <button type="button" className="button primary" disabled={settle.isPending || new Date() < new Date(current.cutoffAt)} onClick={() => settle.mutate()}>Chốt và gửi bếp</button>}</div>
-      {portions.isPending ? <p className="empty compact">Đang tính số suất…</p> : portions.isError ? <p className="empty compact error">Không tải được danh sách.</p> : portions.data?.classes.map(room =>
-        <div className="entry" key={room.classId}><strong>{room.className} · {room.count ?? room.studentIds.length} suất</strong><small>{room.isSettled ? `Đang áp dụng bản ${room.version} · gốc ${room.originalCount} suất` : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</small>
-          <div className="workflow-names">{room.studentNames.join(', ') || 'Không có trẻ dự kiến ăn'}</div>
-        </div>)}</section>}
-    {selected && (isAdmin || isTeacher) && <MealExceptions key={selected} mealId={selected} />}
-    {selected && settled && !cancelled && portions.data && <PortionAmendments key={selected} mealId={selected} rooms={portions.data.classes} roles={roles} />}
+      {isAdmin && current && !settled && !cancelled && <button type="button" className="button primary" disabled={settle.isPending || new Date() < new Date(current.cutoffAt)} onClick={() => setConfirmSettle(true)}>Chốt và gửi bếp</button>}</div>
+      {portions.isPending ? <p className="empty compact">Đang tính số suất…</p> : portions.isError ? <p className="empty compact error">Không tải được danh sách.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Số suất</th><th scope="col">Trạng thái / phiên bản</th><th scope="col">Thao tác</th></tr></thead><tbody>{portions.data?.classes.map(room =>
+        <tr key={room.classId}><td><strong>{room.className}</strong></td><td>{room.schoolYear}</td><td>{room.count ?? room.studentIds.length}</td><td>{room.isSettled ? `Bản ${room.version} · gốc ${room.originalCount} suất` : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</td>
+          <td><button type="button" className="button secondary" onClick={() => setRoster(room)}>Danh sách trẻ</button></td></tr>)}
+        {!portions.data?.classes.length && <tr><td colSpan={5} className="empty compact">Chưa có suất theo lớp.</td></tr>}</tbody></table></div>}</section>}
+    {detailTab === 'exceptions' && (isAdmin || isTeacher) && <MealExceptions key={selected} mealId={selected} />}
+    {detailTab === 'amendments' && settled && !cancelled && portions.data && <PortionAmendments key={selected} mealId={selected} rooms={portions.data.classes} roles={roles} />}
+    </Modal>}
+    {roster && <Modal title={`Trẻ có suất · ${roster.className}`} onClose={() => setRoster(null)}><div className="table-wrap"><table><thead><tr><th scope="col">STT</th><th scope="col">Họ tên trẻ</th></tr></thead><tbody>{roster.studentNames.map((name, index) => <tr key={roster.studentIds[index]}><td>{index + 1}</td><td>{name}</td></tr>)}{!roster.studentNames.length && <tr><td colSpan={2} className="empty compact">Không có trẻ có suất.</td></tr>}</tbody></table></div></Modal>}
+    {confirmSettle && <Modal title="Xác nhận chốt suất" busy={settle.isPending} onClose={() => setConfirmSettle(false)}><div className="workflow-form"><p>Chốt {total} suất của {current?.mealType} ngày {current?.date} và gửi bếp? Bản chốt giữ nguyên; thay đổi sau đó cần gửi yêu cầu điều chỉnh.</p><div className="form-actions"><button type="button" className="button secondary" disabled={settle.isPending} onClick={() => setConfirmSettle(false)}>Quay lại</button><button type="button" className="button primary" disabled={settle.isPending || portions.isPending || portions.isError} onClick={() => settle.mutate()}>Xác nhận chốt</button></div></div></Modal>}
   </>
 }

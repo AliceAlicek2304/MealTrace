@@ -59,11 +59,12 @@ export function MealExceptions({ mealId }: { mealId: string }) {
     {decisions.isPending ? <p className="empty compact">Đang tải…</p> : decisions.isError ? <p className="empty compact error">{apiErrorMessage(decisions.error)}</p> : <>
       {!canEdit && <p className="empty compact">{decisions.data?.isCancelled ? `Phiên đã hủy: ${decisions.data.cancellationReason ?? 'Theo lịch trường'}` : 'Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.'}</p>}
       {!decisions.data?.items.length && <p className="empty compact">Không có trẻ phù hợp.</p>}
-      {decisions.data?.items.map(student => <div className="entry student-entry" key={student.studentId}><div><strong>{student.fullName}</strong>
-        <small>{student.studentCode} · {student.className} · {student.willEat ? 'Có suất' : 'Không có suất'}</small><small>{sourceLabel[student.source] ?? student.source}</small>
-        {student.latestReason && <small>Lý do thao tác gần nhất: {student.latestReason}</small>}</div>
-        <div className="entry-actions"><button type="button" className="button secondary" disabled={!canEdit || decisions.isFetching} onClick={() => open(student, 'edit')}>Ghi ngoại lệ</button>
-          <button type="button" className="button secondary" onClick={() => open(student, 'history')}>Lịch sử</button></div></div>)}
+      <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Suất</th><th scope="col">Nguồn / lý do</th><th scope="col">Thao tác</th></tr></thead><tbody>
+      {decisions.data?.items.map(student => <tr key={student.studentId}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td>{student.willEat ? 'Có suất' : 'Không có suất'}</td><td>{sourceLabel[student.source] ?? student.source}
+        {student.latestReason && <small>{student.latestReason}</small>}</td>
+        <td><div className="table-actions"><button type="button" className="button secondary" disabled={!canEdit || decisions.isFetching} onClick={() => open(student, 'edit')}>Ghi ngoại lệ</button>
+          <button type="button" className="button secondary" onClick={() => open(student, 'history')}>Lịch sử</button></div></td></tr>)}
+      </tbody></table></div>
     </>}
     <Pagination page={page} total={decisions.data?.total ?? 0} pageSize={25} busy={decisions.isFetching} onChange={setPage} />
     {target && <Modal title={`${target.kind === 'edit' ? 'Ngoại lệ' : 'Lịch sử'}: ${target.student.fullName}`} description={`${target.student.studentCode} · ${target.student.className}`} busy={save.isPending} onClose={() => setTarget(null)}>

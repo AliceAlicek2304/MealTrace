@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using MealTrace.Api.Data;
-using MealTrace.Api.Features;
+using MealTrace.Domain.Entities;
+using MealTrace.Infrastructure.Persistence;
+using MealTrace.Infrastructure.Identity;
+using MealTrace.Application.Abstractions;
+using MealTrace.Application.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using static MealTrace.Api.Tests.AuthenticationTests;
@@ -104,7 +107,7 @@ public sealed class MealCalendarTests
     {
         var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock); using var client = factory.CreateClient();
         var (_, monday) = await Setup(factory, clock, client); var preview = await Preview(client, monday, monday);
-        clock.Set(MealCalendarEndpoints.Cutoff(monday));
+        clock.Set(MealCalendarUseCases.Cutoff(monday));
         Assert.Equal(HttpStatusCode.Conflict, (await EditDay(client, monday, "CLOSED", 1)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await Generate(client, monday, monday, preview)).StatusCode);
         var now = await Preview(client, monday, monday); Assert.All(now.GetProperty("items").EnumerateArray(), x => Assert.Equal("LOCKED", x.GetProperty("action").GetString()));
