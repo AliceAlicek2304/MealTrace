@@ -1,19 +1,47 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import { Database, UtensilsCrossed } from 'lucide-react'
 import { useState } from 'react'
+import { Modal } from '../../components/Modal'
+import { Pagination } from '../../components/Pagination'
 
 type MealDay = { id: string; date: string; mealType: string; publishedAt: string | null; isCancelled: boolean; cancellationReason: string | null; settledPortions: number | null; dishes: { id: string; name: string; recipeVersionId: string }[] }
 type Detail = MealDay & { cutoffAt: string; settlements: { id: string; classId: string | null; className: string | null; count: number; settledAt: string }[]; evidence: { id: string; kind: string; description: string; capturedAt: string; syncedAt: string; photoUrl: string | null }[] }
-const date = (value: string) => new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' }).format(new Date(`${value}T00:00:00`))
+const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' }).format(new Date(`${value}T00:00:00`))
 
 export function MealDaysPage() {
   const [selected, setSelected] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [filterDate, setFilterDate] = useState('')
+  const [status, setStatus] = useState('')
+  const [page, setPage] = useState(1)
   const days = useQuery({ queryKey: ['meal-days'], queryFn: async () => (await api.get<MealDay[]>('/meal-days')).data })
   const detail = useQuery({ queryKey: ['meal-day', selected], queryFn: async () => (await api.get<Detail>(`/meal-days/${selected}`)).data, enabled: !!selected })
-  const items = days.data ?? []
-
-  if (selected) return <><button type="button" className="back" onClick={() => setSelected(null)}>← Quay lại tổng quan</button><div className="eyebrow">HỒ SƠ THỰC HIỆN BỮA ĂN</div>{detail.isPending ? <p>Đang tải…</p> : detail.isError ? <p className="error">Không tải được hồ sơ.</p> : detail.data && <><h1>{detail.data.mealType} · {date(detail.data.date)}</h1><p className="lead">Đối chiếu thực đơn, số suất chốt và minh chứng.</p>{detail.data.isCancelled && <p className="error">Phiên đã hủy: {detail.data.cancellationReason}</p>}<div className="grid"><section className="panel"><h2>Thực đơn dự kiến</h2>{detail.data.dishes.length ? detail.data.dishes.map(d => <div className="entry" key={d.id}>{d.name}<small>Recipe version: {d.recipeVersionId}</small></div>) : <p className="empty">Chưa có món ăn.</p>}</section><section className="panel"><h2>Số suất đang áp dụng</h2><strong className="big">{detail.data.settledPortions ?? '—'}</strong><p className="note">Cut-off: {new Date(detail.data.cutoffAt).toLocaleString('vi-VN')}</p><p className="note">{detail.data.settlements.length} bản ghi theo lớp</p></section></div><section className="panel evidence"><h2>Minh chứng bữa ăn</h2>{detail.data.evidence.length ? detail.data.evidence.map(e => <div className="entry" key={e.id}><strong>{e.kind}</strong> — {e.description}<small>Chụp: {new Date(e.capturedAt).toLocaleString('vi-VN')} · Đồng bộ: {new Date(e.syncedAt).toLocaleString('vi-VN')}</small>{e.photoUrl && <a href={e.photoUrl} target="_blank" rel="noreferrer">Xem ảnh</a>}</div>) : <p className="empty">Chưa có minh chứng.</p>}</section></>}</>
-
-  return <><div className="eyebrow">HỆ THỐNG QUẢN LÝ BỮA ĂN BÁN TRÚ</div><h1>Tổng quan ngày ăn</h1><p className="lead">Theo dõi thực đơn, số suất đã chốt và hồ sơ thực hiện bữa ăn.</p><div className="stats"><div><span>Ngày ăn trong danh sách</span><strong>{days.isPending ? '—' : items.length}</strong></div><div><span>Thực đơn công bố</span><strong>{days.isPending ? '—' : items.filter(x => x.publishedAt).length}</strong></div><div><span>Ngày đã chốt suất</span><strong>{days.isPending ? '—' : items.filter(x => x.settledPortions !== null).length}</strong></div></div><section className="panel"><div className="panel-head"><div><h2>Danh sách ngày ăn</h2><p>Dữ liệu trực tiếp từ MealTrace API; tối đa 100 bản ghi.</p></div><UtensilsCrossed size={22} /></div>{days.isPending ? <p className="empty">Đang tải dữ liệu…</p> : days.isError ? <p className="empty error">Chưa kết nối được API. Hãy chạy backend và PostgreSQL.</p> : !items.length ? <div className="empty"><Database size={30} /><h3>Chưa có ngày ăn</h3><p>Database đã sẵn sàng cho thực đơn đầu tiên.</p></div> : items.map(day => <button type="button" className="row" key={day.id} onClick={() => setSelected(day.id)}><span className="date">{day.date.slice(8, 10)}<small>THÁNG {day.date.slice(5, 7)}</small></span><span className="row-text"><strong>{day.mealType} · {date(day.date)}</strong><small>{day.dishes.map(d => d.name).join(' · ') || 'Chưa gắn món ăn'}</small></span><span className="badge">{day.isCancelled ? 'Đã hủy' : day.settledPortions === null ? 'Chưa chốt suất' : `${day.settledPortions} suất`}</span>›</button>)}</section></>
+  const items = (days.data ?? []).filter(day => (!filterDate || day.date === filterDate) &&
+    (!status || (status === 'CANCELLED' ? day.isCancelled : status === 'SETTLED' ? !day.isCancelled && day.settledPortions !== null : !day.isCancelled && day.settledPortions === null)) &&
+    `${day.mealType} ${day.dishes.map(d => d.name).join(' ')}`.toLocaleLowerCase('vi-VN').includes(search.trim().toLocaleLowerCase('vi-VN')))
+  const record = detail.data
+  const visiblePage = Math.min(page, Math.max(1, Math.ceil(items.length / 25)))
+  return <>
+    <div className="eyebrow">HỆ THỐNG QUẢN LÝ BỮA ĂN BÁN TRÚ</div><h1>Tổng quan ngày ăn</h1>
+    <p className="lead">Theo dõi thực đơn, số suất đã chốt và hồ sơ thực hiện bữa ăn.</p>
+    <section className="panel"><div className="panel-head"><h2>Danh sách ngày ăn</h2><p>Tối đa 100 bản ghi gần nhất</p></div>
+      <div className="list-toolbar"><label className="field">Tìm kiếm<input placeholder="Bữa ăn hoặc tên món" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
+        <label className="field">Ngày ăn<input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setPage(1) }} /></label>
+        <label className="field">Trạng thái<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="SETTLED">Đã chốt</option><option value="PENDING">Chưa chốt</option><option value="CANCELLED">Đã hủy</option></select></label></div>
+      {days.isPending ? <p className="empty compact">Đang tải dữ liệu…</p> : days.isError ? <p className="empty compact error">Không tải được ngày ăn.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Ngày</th><th scope="col">Bữa ăn</th><th scope="col">Thực đơn</th><th scope="col">Số suất</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>
+        {items.slice((visiblePage - 1) * 25, visiblePage * 25).map(day => <tr key={day.id}><td>{formatDate(day.date)}</td><td><strong>{day.mealType}</strong></td><td>{day.dishes.map(d => d.name).join(', ') || 'Chưa gắn món ăn'}</td><td>{day.settledPortions ?? '—'}</td><td>{day.isCancelled ? 'Đã hủy' : day.settledPortions === null ? 'Chưa chốt' : 'Đã chốt'}<small>{day.publishedAt ? 'Đã công bố' : 'Chưa công bố'}</small></td><td><button type="button" className="button secondary" onClick={() => setSelected(day.id)}>Xem hồ sơ</button></td></tr>)}
+        {!items.length && <tr><td colSpan={6} className="empty compact">Không có ngày ăn phù hợp.</td></tr>}
+      </tbody></table></div>}
+      <Pagination page={visiblePage} total={items.length} pageSize={25} busy={days.isFetching} onChange={setPage} />
+    </section>
+    {selected && <Modal wide title={record ? `${record.mealType} · ${formatDate(record.date)}` : 'Hồ sơ ngày ăn'} onClose={() => setSelected(null)}>
+      {detail.isPending ? <p className="empty compact">Đang tải…</p> : detail.isError ? <p className="empty compact error">Không tải được hồ sơ.</p> : record && <div className="workflow-form">
+        {record.isCancelled && <p className="error">Phiên đã hủy: {record.cancellationReason}</p>}
+        <p><strong>{record.settledPortions ?? 'Chưa chốt'} suất</strong> · Giờ chốt: {new Date(record.cutoffAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</p>
+        <h3>Thực đơn dự kiến</h3><div className="table-wrap"><table><thead><tr><th scope="col">Món ăn</th></tr></thead><tbody>{record.dishes.map(d => <tr key={d.id}><td>{d.name}</td></tr>)}{!record.dishes.length && <tr><td>Chưa có món ăn.</td></tr>}</tbody></table></div>
+        <h3>Số suất theo lớp</h3><div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Số suất</th><th scope="col">Thời điểm chốt</th></tr></thead><tbody>{record.settlements.map(row => <tr key={row.id}><td>{row.className ?? 'Chưa có lớp'}</td><td>{row.count}</td><td>{new Date(row.settledAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</td></tr>)}{!record.settlements.length && <tr><td colSpan={3}>Chưa có bản chốt.</td></tr>}</tbody></table></div>
+        <h3>Minh chứng bữa ăn</h3><div className="table-wrap"><table><thead><tr><th scope="col">Loại / mô tả</th><th scope="col">Chụp / đồng bộ</th><th scope="col">Ảnh</th></tr></thead><tbody>{record.evidence.map(e => <tr key={e.id}><td><strong>{e.kind}</strong><small>{e.description}</small></td><td>{new Date(e.capturedAt).toLocaleString('vi-VN')}<small>{new Date(e.syncedAt).toLocaleString('vi-VN')}</small></td><td>{e.photoUrl ? <a href={e.photoUrl} target="_blank" rel="noreferrer">Xem ảnh</a> : '—'}</td></tr>)}{!record.evidence.length && <tr><td colSpan={3}>Chưa có minh chứng.</td></tr>}</tbody></table></div>
+      </div>}
+    </Modal>}
+  </>
 }

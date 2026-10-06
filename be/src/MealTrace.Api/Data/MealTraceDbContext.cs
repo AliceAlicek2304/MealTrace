@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using MealTrace.Api.Time;
 
 namespace MealTrace.Api.Data;
 
-public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> options)
+public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> options, TimeProvider? clock = null)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     public DbSet<AccountPasswordResetAudit> AccountPasswordResetAudits => Set<AccountPasswordResetAudit>();
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
@@ -134,8 +136,9 @@ public sealed class MealTraceDbContext(DbContextOptions<MealTraceDbContext> opti
             throw new InvalidOperationException("Meal exceptions are append-only; record a new event instead.");
         // Also covers seed/test creation through the DbContext, not just the HTTP endpoint.
         var added = ChangeTracker.Entries<Student>().Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToList();
+        var now = _clock.GetUtcNow();
         foreach (var student in added.Where(x => x.IsActive && x.Enrollments.Count == 0))
             Enrollments.Add(new Enrollment { Student = student, ClassId = student.ClassId == Guid.Empty ? student.Class.Id : student.ClassId,
-                StartDate = DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).DateTime) });
+                StartDate = SchoolTime.Today(now), RecordedAt = now });
     }
 }

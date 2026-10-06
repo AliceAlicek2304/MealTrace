@@ -37,7 +37,7 @@ public sealed class EnrollmentTests
     public async Task FutureTransferWithdrawalAndReEnrollmentRespectDatesAndKeepGuardians()
     {
         using var factory = new AuthTestFactory(); using var client = factory.CreateClient(); var seed = await factory.SeedUsersAsync();
-        var today = StudentAdministrationEndpoints.Today; Guid childId; Guid nextClass; Guid todayMeal; Guid futureMeal;
+        var today = MealTrace.Api.Time.SchoolTime.Today(TimeProvider.System.GetUtcNow()); Guid childId; Guid nextClass; Guid todayMeal; Guid futureMeal;
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using MealTrace.Api.Data;
 using MealTrace.Api.Security;
+using MealTrace.Api.Time;
 using Microsoft.EntityFrameworkCore;
 
 namespace MealTrace.Api.Features;
@@ -17,8 +18,8 @@ public static class MealCalendarEndpoints
     private sealed record PlanItem(DateOnly Date, string MealType, string Action, Guid? MealId = null);
     private sealed class CalendarConflict(string message) : Exception(message);
 
-    public static DateTimeOffset Cutoff(DateOnly date) => new DateTimeOffset(date.ToDateTime(new TimeOnly(7, 30)), TimeSpan.FromHours(7)).ToUniversalTime();
-    private static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
+    public static DateTimeOffset Cutoff(DateOnly date) => SchoolTime.Cutoff(date);
+    private static DateOnly Today(TimeProvider clock) => SchoolTime.Today(clock.GetUtcNow());
     private static string[] Types(string json) => JsonSerializer.Deserialize<string[]>(json) ?? [];
     private static bool ValidReason(string? reason) => !string.IsNullOrWhiteSpace(reason) && reason.Trim().Length <= 500;
     private static string[]? NormalizeTypes(string[]? types)
@@ -63,7 +64,8 @@ public static class MealCalendarEndpoints
         group.MapGet("/{code}", async (string code, DateOnly? from, DateOnly? to, MealTraceDbContext db, TimeProvider clock) =>
         {
             var year = await db.AcademicYears.AsNoTracking().FirstOrDefaultAsync(x => x.Code == code); if (year is null) return Results.NotFound();
-            var start = from ?? (Today(clock) < year.StartDate ? year.StartDate : Today(clock) > year.EndDate ? year.EndDate : Today(clock));
+            var now = clock.GetUtcNow(); var today = SchoolTime.Today(now);
+            var start = from ?? (today < year.StartDate ? year.StartDate : today > year.EndDate ? year.EndDate : today);
             var end = to ?? (start.AddDays(Math.Min(30, year.EndDate.DayNumber - start.DayNumber)));
             if (!ValidRange(year, start, end)) return Results.BadRequest(new { message = "Chọn tối đa 400 ngày trong năm học." });
             var schedule = await db.MealSchedules.AsNoTracking().FirstOrDefaultAsync(x => x.SchoolYear == code);
@@ -77,7 +79,7 @@ public static class MealCalendarEndpoints
                 exceptions.TryGetValue(date, out var exception);
                 var types = schedule is null ? [] : ForDate(schedule, exception, date);
                 days.Add(new { date, isOpen = types.Length > 0, mealTypes = types, isException = exception != null, reason = exception?.Reason,
-                    locked = Cutoff(date) <= clock.GetUtcNow() || sessionsByDate[date].Any(x => x.SettledAt != null || x.PublishedAt != null),
+                    locked = Cutoff(date) <= now || sessionsByDate[date].Any(x => x.SettledAt != null || x.PublishedAt != null),
                     sessions = sessionsByDate[date].Select(x => new { x.Id, x.MealType, x.IsCancelled, x.CancellationReason, isSettled = x.SettledAt != null }) });
             }
             return Results.Ok(new { schoolYear = code, year.StartDate, year.EndDate, from = start, to = end, revision = schedule?.Revision ?? 0,
@@ -187,6 +189,7 @@ public static class MealCalendarEndpoints
         var sessionIds = sessions.Values.Select(x => x.Id).ToArray();
         var protectedIds = await db.PortionSettlements.Where(x => sessionIds.Contains(x.MealDayId)).Select(x => x.MealDayId).ToListAsync();
         protectedIds.AddRange(await db.MealEvidence.Where(x => sessionIds.Contains(x.MealDayId)).Select(x => x.MealDayId).ToListAsync());
+        var now = clock.GetUtcNow();
         var result = new List<PlanItem>();
         for (var dayNumber = range.From.DayNumber; dayNumber <= range.To.DayNumber; dayNumber++)
         {
@@ -197,7 +200,7 @@ public static class MealCalendarEndpoints
             {
                 sessions.TryGetValue(new { Date = date, MealType = type }, out var day);
                 var action = day is not null && day.SchoolYear != year.Code ? "OTHER_YEAR" : day is not null && !day.IsCancelled ? "EXISTS"
-                    : Cutoff(date) <= clock.GetUtcNow() || (day is not null && (day.CutoffAt <= clock.GetUtcNow() || day.SettledAt != null || day.PublishedAt != null || protectedIds.Contains(day.Id))) ? "LOCKED" : day is null ? "CREATE" : "RESTORE";
+                    : Cutoff(date) <= now || (day is not null && (day.CutoffAt <= now || day.SettledAt != null || day.PublishedAt != null || protectedIds.Contains(day.Id))) ? "LOCKED" : day is null ? "CREATE" : "RESTORE";
                 result.Add(new(date, type, action, day?.Id));
             }
         }
@@ -208,13 +211,15 @@ public static class MealCalendarEndpoints
         var changed = days.Where(x => x.IsCancelled == allowed(x)).ToArray(); var ids = changed.Select(x => x.Id).ToArray();
         var protectedIds = await db.PortionSettlements.Where(x => ids.Contains(x.MealDayId)).Select(x => x.MealDayId).ToListAsync();
         protectedIds.AddRange(await db.MealEvidence.Where(x => ids.Contains(x.MealDayId)).Select(x => x.MealDayId).ToListAsync());
-        if (changed.Any(x => x.SettledAt != null || x.PublishedAt != null || protectedIds.Contains(x.Id) || x.CutoffAt <= clock.GetUtcNow()))
+        var now = clock.GetUtcNow();
+        if (changed.Any(x => x.SettledAt != null || x.PublishedAt != null || protectedIds.Contains(x.Id) || x.CutoffAt <= now))
             throw new CalendarConflict("Thay đổi ảnh hưởng phiên đã chốt/công bố hoặc qua giờ chốt. Giữ lịch cũ và điều chỉnh sau chốt riêng.");
         foreach (var day in changed) { day.IsCancelled = !allowed(day); day.CancellationReason = day.IsCancelled ? reason : null; day.DecisionRevision++; }
     }
     private static void GuardChangedDays(MealTraceDbContext db, TimeProvider clock)
     {
-        if (db.ChangeTracker.Entries<MealDay>().Any(x => x.State == EntityState.Modified && x.Entity.CutoffAt <= clock.GetUtcNow()))
+        var now = clock.GetUtcNow();
+        if (db.ChangeTracker.Entries<MealDay>().Any(x => x.State == EntityState.Modified && x.Entity.CutoffAt <= now))
             throw new CalendarConflict("Đã qua giờ chốt trong lúc lưu. Tải lại lịch.");
     }
     private static async Task Audit(MealTraceDbContext db, ClaimsPrincipal principal, TimeProvider clock, string code, DateOnly? date, string kind, string before, object after, string reason)

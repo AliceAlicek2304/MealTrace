@@ -54,7 +54,7 @@ public sealed class PostgresConcurrencyTests
             await db.SaveChangesAsync();
         }
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, seed.AdminEmail, seed.Password));
-        var input = new { classId = roomId, effectiveDate = StudentAdministrationEndpoints.Today.AddDays(1), reason = "Transfer", revision = 0 };
+        var input = new { classId = roomId, effectiveDate = MealTrace.Api.Time.SchoolTime.Today(TimeProvider.System.GetUtcNow()).AddDays(1), reason = "Transfer", revision = 0 };
         var responses = await Task.WhenAll(client.PostAsJsonAsync($"/api/admin/students/{childId}/enrollments", input), client.PostAsJsonAsync($"/api/admin/students/{childId}/enrollments", input));
         Assert.Single(responses, x => x.StatusCode == HttpStatusCode.NoContent); Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Conflict);
         using var check = factory.Services.CreateScope(); var database = check.ServiceProvider.GetRequiredService<MealTraceDbContext>();
@@ -72,7 +72,7 @@ public sealed class PostgresConcurrencyTests
             var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
             var child = new Student { FullName = "Concurrent meal child", ClassId = seed.ClassId }; db.Students.Add(child); childId = child.Id;
             await db.SaveChangesAsync();
-            var day = new MealDay { Date = StudentAdministrationEndpoints.Today, SchoolYear = "2026-2027", MealType = "Lunch", CutoffAt = DateTimeOffset.UtcNow };
+            var day = new MealDay { Date = MealTrace.Api.Time.SchoolTime.Today(TimeProvider.System.GetUtcNow()), SchoolYear = "2026-2027", MealType = "Lunch", CutoffAt = DateTimeOffset.UtcNow };
             db.MealDays.Add(day); dayId = day.Id; await db.SaveChangesAsync();
         }
         var adminToken = await LoginAsync(client, seed.AdminEmail, seed.Password);
@@ -81,7 +81,7 @@ public sealed class PostgresConcurrencyTests
         var result = await linked.Content.ReadFromJsonAsync<JsonElement>();
         var parentToken = await LoginAsync(client, "0901234567", result.GetProperty("temporaryPassword").GetString()!);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", parentToken);
-        var date = StudentAdministrationEndpoints.Today.AddDays(1);
+        var date = MealTrace.Api.Time.SchoolTime.Today(TimeProvider.System.GetUtcNow()).AddDays(1);
         var absence = new { studentId = childId, fromDate = date, toDate = date, reason = "Absent" };
         var reports = await Task.WhenAll(client.PostAsJsonAsync("/api/parent/absences", absence), client.PostAsJsonAsync("/api/parent/absences", absence));
         Assert.Single(reports, x => x.StatusCode == HttpStatusCode.Created); Assert.Single(reports, x => x.StatusCode == HttpStatusCode.Conflict);

@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using MealTrace.Api.Data;
 using MealTrace.Api.Security;
+using MealTrace.Api.Time;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -11,9 +12,6 @@ namespace MealTrace.Api.Features;
 
 public static class WorkflowEndpoints
 {
-    private static readonly TimeSpan SchoolOffset = TimeSpan.FromHours(7);
-    private static readonly TimeOnly DefaultCutoff = new(7, 30);
-
     private sealed record CreateClass(string Name, string SchoolYear);
     private sealed record CreateStudent(string FullName, Guid ClassId, string? StudentCode = null, DateOnly? StartDate = null);
     private sealed record LinkParent(string? Email, string? FullName, string? PhoneNumber = null);
@@ -61,7 +59,7 @@ public static class WorkflowEndpoints
             { return Results.Conflict(new { message = "Dữ liệu trùng hoặc vừa thay đổi. Hãy tải lại và thử lại." }); }
         });
 
-        api.MapGet("/classes", async (ClaimsPrincipal principal, MealTraceDbContext db) =>
+        api.MapGet("/classes", async (ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
         {
             var query = db.Classes.AsNoTracking().AsQueryable();
             if (!principal.IsInRole(RoleNames.Admin) && principal.IsInRole(RoleNames.Teacher))
@@ -69,7 +67,7 @@ public static class WorkflowEndpoints
                 var userId = CurrentUserId(principal);
                 query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == userId && a.ClassId == x.Id));
             }
-            var date = SchoolToday();
+            var date = SchoolTime.Today(clock.GetUtcNow());
             return await query.OrderBy(x => x.SchoolYear).ThenBy(x => x.Name)
                 .Select(x => new { x.Id, x.Name, x.SchoolYear, StudentCount = db.Enrollments.Count(s => s.ClassId == x.Id && s.StartDate <= date && (s.EndDate == null || s.EndDate > date)) }).ToListAsync();
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
@@ -89,10 +87,10 @@ public static class WorkflowEndpoints
             return Results.Created($"/api/classes/{room.Id}", new { room.Id, room.Name, room.SchoolYear });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
 
-        api.MapGet("/classes/{classId:guid}/students", async (Guid classId, ClaimsPrincipal principal, MealTraceDbContext db) =>
+        api.MapGet("/classes/{classId:guid}/students", async (Guid classId, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
         {
             if (!await CanReadClass(db, principal, classId)) return Results.Forbid();
-            var students = await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).Where(x => x.ClassId == classId)
+            var students = await StudentAdministrationEndpoints.OnDate(db, SchoolTime.Today(clock.GetUtcNow())).Where(x => x.ClassId == classId)
                 .OrderBy(x => x.Student.FullName).Select(x => new { Id = x.StudentId, x.Student.StudentCode, x.Student.FullName, x.ClassId }).ToListAsync();
             var ids = students.Select(x => x.Id).ToArray();
             var parents = await db.ParentStudents.AsNoTracking().Where(x => ids.Contains(x.StudentId))
@@ -104,7 +102,7 @@ public static class WorkflowEndpoints
             }));
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher));
 
-        api.MapPost("/students", async (CreateStudent input, ClaimsPrincipal principal, MealTraceDbContext db) =>
+        api.MapPost("/students", async (CreateStudent input, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
         {
             var name = input.FullName?.Trim();
             if (string.IsNullOrWhiteSpace(name) || name.Length > 150 || !await db.Classes.AnyAsync(x => x.Id == input.ClassId))
@@ -120,9 +118,10 @@ public static class WorkflowEndpoints
             }
             if (await db.Students.AnyAsync(x => x.StudentCode == student.StudentCode))
                 return Results.Conflict(new { message = "Mã trẻ đã tồn tại." });
-            var start = input.StartDate ?? SchoolToday();
-            if (start < SchoolToday()) return Results.BadRequest(new { message = "Ghi danh mới không được lùi ngày về quá khứ." });
-            student.Enrollments.Add(new Enrollment { ClassId = input.ClassId, StartDate = start, RecordedByUserId = CurrentUserId(principal) });
+            var now = clock.GetUtcNow(); var today = SchoolTime.Today(now);
+            var start = input.StartDate ?? today;
+            if (start < today) return Results.BadRequest(new { message = "Ghi danh mới không được lùi ngày về quá khứ." });
+            student.Enrollments.Add(new Enrollment { ClassId = input.ClassId, StartDate = start, RecordedByUserId = CurrentUserId(principal), RecordedAt = now });
             db.Students.Add(student);
             try { await db.SaveChangesAsync(); }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation)
@@ -183,8 +182,8 @@ public static class WorkflowEndpoints
             return Results.Ok(new { parentId = parent.Id, parent.FullName, parent.Email, parent.PhoneNumber, studentId, created, temporaryPassword });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
 
-        api.MapGet("/parent/students", async (ClaimsPrincipal principal, MealTraceDbContext db) =>
-            await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).Where(x => db.ParentStudents.Any(p => p.UserId == CurrentUserId(principal) && p.StudentId == x.StudentId))
+        api.MapGet("/parent/students", async (ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
+            await StudentAdministrationEndpoints.OnDate(db, SchoolTime.Today(clock.GetUtcNow())).Where(x => db.ParentStudents.Any(p => p.UserId == CurrentUserId(principal) && p.StudentId == x.StudentId))
                 .OrderBy(x => x.Student.FullName)
                 .Select(x => new { x.StudentId, x.Student.StudentCode, x.Student.FullName, x.ClassId, ClassName = x.Class.Name, x.Class.SchoolYear,
                     YearStartDate = db.AcademicYears.Where(y => y.Code == x.Class.SchoolYear).Select(y => (DateOnly?)y.StartDate).FirstOrDefault(),
@@ -197,11 +196,10 @@ public static class WorkflowEndpoints
             // Lock a shared parent row so two guardians cannot create overlapping absence intervals.
             if (db.Database.IsNpgsql())
                 await db.Students.FromSqlInterpolated($"SELECT * FROM \"Students\" WHERE \"Id\" = {input.StudentId} FOR UPDATE").ToListAsync();
-            var userId = CurrentUserId(principal);
+            var userId = CurrentUserId(principal); var today = SchoolTime.Today(clock.GetUtcNow());
             if (!await db.ParentStudents.AnyAsync(x => x.UserId == userId && x.StudentId == input.StudentId) ||
-                !await StudentAdministrationEndpoints.OnDate(db, SchoolToday()).AnyAsync(x => x.StudentId == input.StudentId))
+                !await StudentAdministrationEndpoints.OnDate(db, today).AnyAsync(x => x.StudentId == input.StudentId))
                 return Results.Forbid();
-            var today = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(SchoolOffset).DateTime);
             if (input.FromDate < today || input.ToDate < input.FromDate ||
                 string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
                 return Results.BadRequest(new { message = "Khoảng không ăn phải từ hôm nay, ngày kết thúc hợp lệ và có lý do." });
@@ -210,10 +208,13 @@ public static class WorkflowEndpoints
             if (await db.MealAbsences.AnyAsync(x => x.StudentId == input.StudentId && x.CancelledAt == null &&
                 x.FromDate <= input.ToDate && x.ToDate >= input.FromDate))
                 return Results.Conflict(new { message = "Khoảng ngày vắng bị trùng với báo vắng đang hiệu lực." });
+            var acceptedAt = clock.GetUtcNow();
+            if (input.FromDate < SchoolTime.Today(acceptedAt))
+                return Results.Conflict(new { message = "Đã sang ngày mới trong lúc lưu. Tải lại khoảng không ăn." });
             var absence = new MealAbsence
             {
                 StudentId = input.StudentId, ReportedByUserId = userId,
-                FromDate = input.FromDate, ToDate = input.ToDate, Reason = input.Reason.Trim(), ReportedAt = clock.GetUtcNow(), SchoolYear = year.Code,
+                FromDate = input.FromDate, ToDate = input.ToDate, Reason = input.Reason.Trim(), ReportedAt = acceptedAt, SchoolYear = year.Code,
             };
             db.MealAbsences.Add(absence);
             await db.SaveChangesAsync();
@@ -235,7 +236,7 @@ public static class WorkflowEndpoints
             var absence = await db.MealAbsences.SingleAsync(x => x.Id == id);
             if (!await db.ParentStudents.AnyAsync(x => x.UserId == userId && x.StudentId == absence.StudentId)) return Results.Forbid();
             if (absence.CancelledAt is not null) return Results.Conflict(new { message = "Đăng ký đã hủy hoặc được cập nhật. Hãy tải lại danh sách." });
-            var now = clock.GetUtcNow(); var today = DateOnly.FromDateTime(now.ToOffset(SchoolOffset).DateTime);
+            var today = SchoolTime.Today(clock.GetUtcNow());
             if (input.StudentId != absence.StudentId || input.ToDate < today || input.ToDate < input.FromDate ||
                 (input.FromDate < today && input.FromDate != absence.FromDate) ||
                 string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
@@ -246,6 +247,9 @@ public static class WorkflowEndpoints
             if (await db.MealAbsences.AnyAsync(x => x.Id != id && x.StudentId == absence.StudentId && x.CancelledAt == null &&
                 x.FromDate <= input.ToDate && x.ToDate >= input.FromDate))
                 return Results.Conflict(new { message = "Khoảng ngày trùng với đăng ký đang hiệu lực." });
+            var now = clock.GetUtcNow(); var acceptedToday = SchoolTime.Today(now);
+            if (input.ToDate < acceptedToday || (input.FromDate < acceptedToday && input.FromDate != absence.FromDate))
+                return Results.Conflict(new { message = "Đã sang ngày mới trong lúc lưu. Tải lại khoảng không ăn." });
             absence.CancelledAt = now;
             var replacement = new MealAbsence { StudentId = absence.StudentId, ReportedByUserId = userId,
                 FromDate = input.FromDate, ToDate = input.ToDate, Reason = input.Reason.Trim(), ReportedAt = now, SchoolYear = year.Code };
@@ -295,7 +299,7 @@ public static class WorkflowEndpoints
             var day = new MealDay
             {
                 Date = input.Date, MealType = mealType, SchoolYear = schoolYear,
-                CutoffAt = new DateTimeOffset(input.Date.ToDateTime(DefaultCutoff), SchoolOffset).ToUniversalTime(),
+                CutoffAt = SchoolTime.Cutoff(input.Date),
             };
             db.MealDays.Add(day);
             if (day.CutoffAt <= clock.GetUtcNow()) return Results.Conflict(new { message = "Đã qua giờ chốt; không tạo phiên mới." });
@@ -314,54 +318,42 @@ public static class WorkflowEndpoints
             return Results.Ok(new { items, total, page = number, pageSize = 25 });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
-        api.MapGet("/meal-days/{id:guid}/portions", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
+        api.MapGet("/meal-days/{id:guid}/portions", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock, CancellationToken ct) =>
         {
-            var day = await db.MealDays.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+            var day = await db.MealDays.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
             if (day is null) return Results.NotFound();
-            var preview = await BuildPortions(db, day, clock.GetUtcNow());
+            Guid[]? allowed = null;
             if (principal.IsInRole(RoleNames.Teacher) && !principal.IsInRole(RoleNames.Admin) &&
                 !principal.IsInRole(RoleNames.KitchenStaff))
             {
-                var assigned = await db.TeacherAssignments.Where(x => x.UserId == CurrentUserId(principal)).Select(x => x.ClassId).ToListAsync();
-                preview = preview.Where(x => assigned.Contains(x.ClassId)).ToList();
+                allowed = await db.TeacherAssignments.AsNoTracking().Where(x => x.UserId == CurrentUserId(principal)).Select(x => x.ClassId).ToArrayAsync(ct);
             }
+            var preview = await PortionService.ReadAsync(db, day, clock.GetUtcNow(), allowed, ct);
             return Results.Ok(new { day.Id, day.Date, day.MealType, day.CutoffAt, day.IsCancelled, day.CancellationReason, isSettled = day.SettledAt != null, Classes = preview });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher, RoleNames.KitchenStaff));
 
-        api.MapPost("/meal-days/{id:guid}/settle", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
+        api.MapPost("/meal-days/{id:guid}/settle", async (Guid id, ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock, CancellationToken ct) =>
         {
-            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var day = db.Database.IsNpgsql()
-                ? (await db.MealDays.FromSqlInterpolated($"SELECT * FROM \"MealDays\" WHERE \"Id\" = {id} FOR UPDATE").ToListAsync()).SingleOrDefault()
-                : await db.MealDays.FindAsync(id);
+                ? (await db.MealDays.FromSqlInterpolated($"SELECT * FROM \"MealDays\" WHERE \"Id\" = {id} FOR UPDATE").ToListAsync(ct)).SingleOrDefault()
+                : await db.MealDays.FindAsync([id], ct);
             if (day is null) return Results.NotFound();
             if (day.IsCancelled) return Results.Conflict(new { message = "Phiên đã hủy theo lịch bữa ăn; không thể chốt." });
             if (clock.GetUtcNow() < day.CutoffAt) return Results.Conflict(new { message = "Chưa đến giờ chốt suất." });
-            if (day.SettledAt is not null || await db.PortionSettlements.AnyAsync(x => x.MealDayId == id))
+            if (day.SettledAt is not null || await db.PortionSettlements.AnyAsync(x => x.MealDayId == id, ct))
                 return Results.Conflict(new { message = "Phiên ăn đã có bản chốt." });
-            var portions = await BuildPortions(db, day, clock.GetUtcNow());
-            if (portions.Count == 0) return Results.BadRequest(new { message = "Niên khóa chưa có lớp với trẻ đang hoạt động." });
+            var decisions = await MealDecisionService.ReadAsync(db, day, clock.GetUtcNow(), ct: ct);
+            if (decisions.Count == 0) return Results.BadRequest(new { message = "Niên khóa chưa có lớp với trẻ đang hoạt động." });
             var actor = CurrentUserId(principal).ToString();
-            var decisions = await MealDecisionService.ReadAsync(db, day, clock.GetUtcNow());
-            foreach (var room in portions)
-            {
-                db.PortionSettlements.Add(new PortionSettlement
-                {
-                    MealDayId = id, ClassId = room.ClassId, ClassName = room.ClassName,
-                    Count = room.StudentIds.Count, CutoffAt = day.CutoffAt, SettledBy = actor,
-                    SettledAt = clock.GetUtcNow(),
-                    Students = room.StudentIds.Select((studentId, index) => new SettlementStudent
-                    { StudentId = studentId, StudentName = room.StudentNames[index] }).ToList(),
-                    Decisions = decisions.Where(x => x.ClassId == room.ClassId).Select(x => new SettlementDecision
-                    { StudentId = x.StudentId, StudentName = x.FullName, StudentCode = x.StudentCode, WillEat = x.WillEat,
-                        EnrollmentId = x.EnrollmentId, AbsenceId = x.AbsenceId, ExceptionId = x.LatestEventId, Source = x.Source }).ToList(),
-                });
-            }
-            day.SettledAt = clock.GetUtcNow();
+            var settledAt = clock.GetUtcNow();
+            var snapshots = PortionService.CreateSnapshots(day, decisions, actor, settledAt);
+            db.PortionSettlements.AddRange(snapshots);
+            day.SettledAt = settledAt;
             try
             {
-                await db.SaveChangesAsync();
-                await transaction.CommitAsync();
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
             }
             catch (PostgresException ex) when (ex.SqlState is PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.UniqueViolation)
             {
@@ -371,42 +363,10 @@ public static class WorkflowEndpoints
             {
                 return Results.Conflict(new { message = "Phiên ăn vừa được chốt bởi yêu cầu khác. Hãy tải lại danh sách." });
             }
-            return Results.Ok(new { day.Id, Classes = portions.Count, Total = portions.Sum(x => x.StudentIds.Count) });
+            return Results.Ok(new { day.Id, Classes = snapshots.Count, Total = snapshots.Sum(x => x.Count) });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
 
         return app;
-    }
-
-    private sealed record PortionRow(Guid ClassId, string ClassName, string SchoolYear,
-        List<Guid> StudentIds, List<string> StudentNames, List<Guid> AbsentStudentIds, bool IsSettled,
-        Guid? SettlementId = null, int Version = 0, int? OriginalCount = null, int? Count = null);
-
-    private static async Task<List<PortionRow>> BuildPortions(MealTraceDbContext db, MealDay day, DateTimeOffset now)
-    {
-        var settled = await db.PortionSettlements.AsNoTracking().Where(x => x.MealDayId == day.Id && x.ClassId != null)
-            .Include(x => x.Class).Include(x => x.Students).ToListAsync();
-        if (day.SettledAt is not null)
-            return settled.GroupBy(x => x.ClassId!.Value).Select(group =>
-            {
-                var x = group.OrderByDescending(s => s.Version).First();
-                return new PortionRow(group.Key, x.ClassName ?? x.Class!.Name, x.Class?.SchoolYear ?? day.SchoolYear ?? "",
-                    x.Students.Select(s => s.StudentId).ToList(), x.Students.Select(s => s.StudentName).ToList(), [], true,
-                    x.Id, x.Version, group.OrderBy(s => s.Version).First().Count, x.Count);
-            }).ToList();
-        var decisions = await MealDecisionService.ReadAsync(db, day, now);
-        return decisions.GroupBy(x => new { x.ClassId, x.ClassName, x.SchoolYear }).OrderBy(x => x.Key.ClassName).Select(group =>
-        {
-            var room = group.Key;
-            var snapshot = settled.FirstOrDefault(x => x.ClassId == room.ClassId);
-            if (snapshot is not null)
-                return new PortionRow(room.ClassId, snapshot.ClassName ?? room.ClassName, room.SchoolYear,
-                    snapshot.Students.Select(x => x.StudentId).ToList(), snapshot.Students.Select(x => x.StudentName).ToList(), [], true);
-            var members = group.OrderBy(x => x.FullName).ThenBy(x => x.StudentId).ToList();
-            var eating = members.Where(x => x.WillEat).ToList();
-            return new PortionRow(room.ClassId, room.ClassName, room.SchoolYear,
-                eating.Select(x => x.StudentId).ToList(), eating.Select(x => x.FullName).ToList(),
-                members.Where(x => !x.WillEat).Select(x => x.StudentId).ToList(), false);
-        }).ToList();
     }
 
     private static string? NextYearCode(string code)
@@ -422,7 +382,6 @@ public static class WorkflowEndpoints
         return code is null ? null : await db.AcademicYears.AsNoTracking().FirstOrDefaultAsync(x => x.Code == code && x.StartDate <= from && x.EndDate >= to);
     }
 
-    private static DateOnly SchoolToday() => DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(SchoolOffset).DateTime);
     private static Guid CurrentUserId(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
     private static async Task<bool> CanReadClass(MealTraceDbContext db, ClaimsPrincipal principal, Guid classId) =>
         principal.IsInRole(RoleNames.Admin) || await db.TeacherAssignments.AnyAsync(x => x.UserId == CurrentUserId(principal) && x.ClassId == classId);

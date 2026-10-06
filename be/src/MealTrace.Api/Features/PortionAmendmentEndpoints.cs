@@ -179,8 +179,10 @@ public static class PortionAmendmentEndpoints
                     AbsenceId = source?.AbsenceId, ExceptionId = source?.ExceptionId, AmendmentId = request.Id, Source = "APPROVED_AMENDMENT" });
                 applied.Count = applied.Students.Count; db.PortionSettlements.Add(applied);
             }
+            var reviewedAt = clock.GetUtcNow();
+            if (applied is not null) applied.SettledAt = reviewedAt;
             db.PortionAmendmentResolutions.Add(new PortionAmendmentResolution { AmendmentId = requestId, Approved = input.Approve,
-                AppliedSettlement = applied, Reason = input.Reason.Trim(), ReviewedBy = Actor(principal), ReviewedByName = reviewer, ReviewedAt = clock.GetUtcNow() });
+                AppliedSettlement = applied, Reason = input.Reason.Trim(), ReviewedBy = Actor(principal), ReviewedByName = reviewer, ReviewedAt = reviewedAt });
             await db.SaveChangesAsync(); await transaction.CommitAsync();
             return Results.Ok(new { status = input.Approve ? "APPROVED" : "REJECTED", settlementId = applied?.Id, version = applied?.Version });
         }).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));

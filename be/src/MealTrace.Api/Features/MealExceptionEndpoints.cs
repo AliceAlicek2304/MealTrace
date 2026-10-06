@@ -24,21 +24,17 @@ public static class MealExceptionEndpoints
         });
 
         group.MapGet("/{id:guid}/decisions", async (Guid id, Guid? classId, string? search, int? page, int? pageSize,
-            ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock) =>
+            ClaimsPrincipal principal, MealTraceDbContext db, TimeProvider clock, CancellationToken ct) =>
         {
-            var day = await db.MealDays.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id); if (day is null) return Results.NotFound();
-            var allowed = await AllowedClasses(db, principal);
+            var day = await db.MealDays.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct); if (day is null) return Results.NotFound();
+            var allowed = await AllowedClasses(db, principal, ct);
             if (classId.HasValue && allowed is not null && !allowed.Contains(classId.Value)) return Results.Forbid();
-            var now = clock.GetUtcNow(); var all = await MealDecisionService.ReadAsync(db, day, now, allowed);
-            var rooms = all.GroupBy(x => new { x.ClassId, x.ClassName }).Select(x => new { id = x.Key.ClassId, name = x.Key.ClassName }).OrderBy(x => x.name).ToArray();
-            var filtered = all.AsEnumerable();
-            if (classId.HasValue) filtered = filtered.Where(x => x.ClassId == classId.Value);
-            if (!string.IsNullOrWhiteSpace(search)) filtered = filtered.Where(x => x.FullName.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || x.StudentCode.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
-            var rows = filtered.OrderBy(x => x.ClassName).ThenBy(x => x.FullName).ThenBy(x => x.StudentId).ToList();
             var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
+            var now = clock.GetUtcNow();
+            var result = await MealDecisionService.ReadPageAsync(db, day, now, allowed, classId, search, number, size, ct);
             return Results.Ok(new { day.Id, day.Date, day.CutoffAt, isSettled = day.SettledAt != null,
                 day.IsCancelled, day.CancellationReason, canEdit = !day.IsCancelled && day.SettledAt == null && now < day.CutoffAt, asOf = now < day.CutoffAt ? now : day.CutoffAt,
-                classes = rooms, items = rows.Skip((number - 1) * size).Take(size), total = rows.Count, page = number, pageSize = size });
+                classes = result.Classes, items = result.Items, total = result.Total, page = number, pageSize = size });
         }).WithName("MealDecisions");
 
         group.MapGet("/{id:guid}/students/{studentId:guid}/exceptions", async (Guid id, Guid studentId, int? page, int? pageSize,
@@ -101,8 +97,8 @@ public static class MealExceptionEndpoints
     }
 
     private static Guid UserId(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
-    private static async Task<Guid[]?> AllowedClasses(MealTraceDbContext db, ClaimsPrincipal principal) => principal.IsInRole(RoleNames.Admin)
-        ? null : await db.TeacherAssignments.Where(x => x.UserId == UserId(principal)).Select(x => x.ClassId).ToArrayAsync();
+    private static async Task<Guid[]?> AllowedClasses(MealTraceDbContext db, ClaimsPrincipal principal, CancellationToken ct = default) => principal.IsInRole(RoleNames.Admin)
+        ? null : await db.TeacherAssignments.AsNoTracking().Where(x => x.UserId == UserId(principal)).Select(x => x.ClassId).ToArrayAsync(ct);
     private static async Task<bool> CanEditClass(MealTraceDbContext db, ClaimsPrincipal principal, Guid classId) =>
         principal.IsInRole(RoleNames.Admin) || await db.TeacherAssignments.AnyAsync(x => x.UserId == UserId(principal) && x.ClassId == classId);
     private static Task<Enrollment?> Member(MealTraceDbContext db, MealDay day, Guid studentId, DateTimeOffset now) =>

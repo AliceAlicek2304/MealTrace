@@ -13,6 +13,8 @@ type LinkResult = { parentId: string; fullName: string; email: string | null; ph
 
 export function ClassesPage() {
   const queryClient = useQueryClient()
+  const [tab, setTab] = useState<'students' | 'classes' | 'years'>('students')
+  const [creating, setCreating] = useState<'class' | 'student' | null>(null)
   const [name, setName] = useState('')
   const [schoolYear, setSchoolYear] = useState('')
   const [studentName, setStudentName] = useState('')
@@ -27,13 +29,13 @@ export function ClassesPage() {
   const [credentialPhone, setCredentialPhone] = useState('')
   const [temporaryPassword, setTemporaryPassword] = useState('')
   const addClass = useMutation({ mutationFn: () => api.post('/classes', { name, schoolYear }),
-    onSuccess: async () => { setName(''); toast.success('Đã tạo lớp.'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['classes'] }), queryClient.invalidateQueries({ queryKey: ['scope-options'] }), queryClient.invalidateQueries({ queryKey: ['admin-academic-years'] })]) },
-    onError: error => toast.error(apiErrorMessage(error)) })
+    onSuccess: async () => { setCreating(null); setName(''); toast.success('Đã tạo lớp.'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['classes'] }), queryClient.invalidateQueries({ queryKey: ['scope-options'] }), queryClient.invalidateQueries({ queryKey: ['admin-academic-years'] })]) },
+    onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   const addStudent = useMutation({ mutationFn: () => api.post<Student>('/students', { fullName: studentName, classId, studentCode: studentCode || null, startDate }),
-    onSuccess: async response => { setStudentName(''); setStudentCode(''); setSelectedStudentName(response.data.fullName); setSelectedStudentId(response.data.id); toast.success('Đã thêm trẻ. Bạn có thể liên kết phụ huynh trong cửa sổ đang mở.'); await Promise.all([
+    onSuccess: async response => { setCreating(null); setStudentName(''); setStudentCode(''); setParentPhone(''); setParentName(''); setTemporaryPassword(''); setSelectedStudentName(response.data.fullName); setSelectedStudentId(response.data.id); toast.success('Đã thêm trẻ. Bạn có thể liên kết phụ huynh trong cửa sổ đang mở.'); await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['students'] }), queryClient.invalidateQueries({ queryKey: ['classes'] }),
       queryClient.invalidateQueries({ queryKey: ['scope-options'] })]) },
-    onError: error => toast.error(apiErrorMessage(error)) })
+    onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   const linkParent = useMutation({ mutationFn: async () => (await api.post<LinkResult>(`/admin/students/${selectedStudentId}/parents`,
     { phoneNumber: parentPhone, fullName: parentName })).data,
     onSuccess: async result => {
@@ -52,22 +54,25 @@ export function ClassesPage() {
   return <>
     <div className="eyebrow">DỮ LIỆU NỀN</div><h1>Lớp và trẻ</h1>
     <p className="lead">Tạo lớp, thêm trẻ và liên kết phụ huynh bằng SĐT. Một trẻ có thể có nhiều người giám hộ.</p>
-    <AcademicYears />
-    <div className="grid">
-      <section className="panel"><h2>Tạo lớp</h2><form className="workflow-form" onSubmit={submitClass}>
+    <div className="list-tabs" aria-label="Danh mục quản lý">
+      <button type="button" aria-pressed={tab === 'students'} onClick={() => setTab('students')}>Trẻ</button>
+      <button type="button" aria-pressed={tab === 'classes'} onClick={() => setTab('classes')}>Lớp</button>
+      <button type="button" aria-pressed={tab === 'years'} onClick={() => setTab('years')}>Năm học</button>
+    </div>
+    {tab === 'years' ? <AcademicYears /> : <StudentDirectory view={tab} onCreate={() => { setCreating(tab === 'classes' ? 'class' : 'student'); setName(''); setStudentName(''); setStudentCode(''); setStartDate(today) }} onViewStudents={id => { setClassId(id); setTab('students') }} initialClassId={classId}
+      onLink={student => { setSelectedStudentId(student.id); setSelectedStudentName(student.fullName); setParentPhone(''); setParentName(''); setTemporaryPassword('') }} />}
+    {creating === 'class' && <Modal title="Tạo lớp" busy={addClass.isPending} onClose={() => setCreating(null)}><form className="workflow-form" onSubmit={submitClass}>
         <label className="field">Tên lớp<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
         <SchoolYearPicker value={schoolYear} onChange={setSchoolYear} />
         <button type="submit" className="button primary" disabled={addClass.isPending}>Lưu lớp</button>
-      </form></section>
-      <section className="panel"><h2>Thêm trẻ</h2><form className="workflow-form" onSubmit={submitStudent}>
+      </form></Modal>}
+    {creating === 'student' && <Modal title="Thêm trẻ" busy={addStudent.isPending} onClose={() => setCreating(null)}><form className="workflow-form" onSubmit={submitStudent}>
         <ClassPicker required value={classId} onChange={setClassId} />
         <label className="field">Họ tên trẻ<input required maxLength={150} value={studentName} onChange={e => setStudentName(e.target.value)} /></label>
         <label className="field">Mã trẻ (bỏ trống để tự tạo)<input maxLength={40} value={studentCode} onChange={e => setStudentCode(e.target.value)} placeholder="HS-2026-0012" /></label>
         <label className="field">Ngày bắt đầu học<input type="date" required min={today} value={startDate} onChange={e => setStartDate(e.target.value)} /></label>
         <button type="submit" className="button primary" disabled={addStudent.isPending}>Lưu trẻ</button>
-      </form></section>
-    </div>
-    <StudentDirectory onLink={student => { setSelectedStudentId(student.id); setSelectedStudentName(student.fullName); setParentPhone(''); setParentName(''); setTemporaryPassword('') }} />
+      </form></Modal>}
     {selectedStudentId && <Modal title={`Liên kết phụ huynh cho ${selectedStudentName || 'trẻ vừa tạo'}`} busy={linkParent.isPending} onClose={() => { setSelectedStudentId(''); setParentPhone(''); setParentName(''); setTemporaryPassword('') }}>
       <form className="workflow-form" onSubmit={submitLink}><p className="form-help">Nhập SĐT đã có tài khoản để liên kết ngay. Nếu SĐT chưa tồn tại, nhập thêm họ tên để tạo tài khoản phụ huynh mới; mật khẩu tạm chỉ hiển thị một lần.</p>
         <div className="workflow-fields"><label className="field">SĐT phụ huynh<input required type="tel" maxLength={30} value={parentPhone} onChange={e => setParentPhone(e.target.value)} /></label>

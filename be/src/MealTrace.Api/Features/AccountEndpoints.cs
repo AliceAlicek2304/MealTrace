@@ -66,12 +66,12 @@ public static class AccountEndpoints
         }).WithName("GetUser");
 
         group.MapGet("/scope-options", async (string? search, Guid? classId, int? classPage, int? studentPage,
-            string? selectedClassIds, string? selectedStudentIds, MealTraceDbContext db) =>
+            string? selectedClassIds, string? selectedStudentIds, MealTraceDbContext db, TimeProvider clock) =>
         {
             var cp = Math.Clamp(classPage ?? 1, 1, 100000); var sp = Math.Clamp(studentPage ?? 1, 1, 100000); const int size = 25;
             if (!TryIds(selectedClassIds, out var classIds) || !TryIds(selectedStudentIds, out var studentIds))
                 return Results.BadRequest(new { message = "Danh sách ID phạm vi không hợp lệ hoặc vượt quá 1000 mục." });
-            var classes = db.Classes.AsNoTracking(); var students = db.Students.AsNoTracking(); var date = StudentAdministrationEndpoints.Today;
+            var classes = db.Classes.AsNoTracking(); var students = db.Students.AsNoTracking(); var date = MealTrace.Api.Time.SchoolTime.Today(clock.GetUtcNow());
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var term = search.Trim().ToLower();

@@ -467,10 +467,13 @@ public sealed class AuthenticationTests
         private readonly string? _schema;
         private bool _disposed;
         private readonly TimeProvider? _clock;
+        private readonly Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? _commands;
 
-        public AuthTestFactory(bool postgres = false, TimeProvider? clock = null)
+        public AuthTestFactory(bool postgres = false, TimeProvider? clock = null,
+            Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? commands = null)
         {
             _clock = clock;
+            _commands = commands;
             if (postgres)
             {
                 var connection = Environment.GetEnvironmentVariable("MEALTRACE_TEST_CONNECTION")
@@ -515,6 +518,7 @@ public sealed class AuthenticationTests
                 {
                     if (_postgresConnection is not null) options.UseNpgsql(_postgresConnection);
                     else options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteTestModelCustomizer>();
+                    if (_commands is not null) options.AddInterceptors(_commands);
                 });
             });
         }
