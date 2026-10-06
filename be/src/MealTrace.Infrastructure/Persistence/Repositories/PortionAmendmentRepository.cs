@@ -30,13 +30,7 @@ internal sealed class PortionAmendmentRepository(MealTraceDbContext db) : IPorti
             return await db.PortionSettlements.Where(x => x.MealDayId == dayId && x.ClassId == classId).OrderByDescending(x => x.Version).Include("Students").Include("Decisions").AsSplitQuery().FirstOrDefaultAsync();
         });
     }
-    public async Task<bool> HasPortionInAnotherClassAsync(Guid studentId, Guid dayId, Guid classId)
-    {
-        return await PersistenceErrors.ExecuteAsync(async () =>
-        {
-            return await db.SettlementStudents.AnyAsync(x => x.StudentId == studentId && x.PortionSettlement.MealDayId == dayId && x.PortionSettlement.ClassId != null && x.PortionSettlement.ClassId != classId && !db.PortionSettlements.Any(newer => newer.MealDayId == dayId && newer.ClassId == x.PortionSettlement.ClassId && newer.Version > x.PortionSettlement.Version));
-        });
-    }
+
     public async Task<MealDay?> FindMealDayAsync(Guid dayId)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
@@ -102,6 +96,9 @@ internal sealed class PortionAmendmentRepository(MealTraceDbContext db) : IPorti
                 EnrollmentId = x.EnrollmentId,
                 WasEating = x.WasEating,
                 WillEat = x.WillEat,
+                Quantity = x.Quantity,
+                IsQuantityOnly = x.IsQuantityOnly,
+                Students = x.Students.Select(s => new AmendmentStudentSummary(s.StudentId, s.StudentName, s.StudentCode)).ToList(),
                 Reason = x.Reason,
                 RequestedByName = x.RequestedByName,
                 RequestedAt = x.RequestedAt,
@@ -120,27 +117,27 @@ internal sealed class PortionAmendmentRepository(MealTraceDbContext db) : IPorti
             return await db.TeacherAssignments.AnyAsync(x => x.UserId == userId && x.ClassId == input.ClassId);
         });
     }
-    public async Task<Enrollment?> FindCandidateEnrollmentAsync(MealDay day, RequestInput input)
-    {
-        return await PersistenceErrors.ExecuteAsync(async () =>
-        {
-            return await EnrollmentQueries.OnDate(db, day.Date).AsNoTracking().Where(x => x.ClassId == input.ClassId && x.StudentId == input.StudentId).Include("Student").FirstOrDefaultAsync();
-        });
-    }
-    public async Task<bool> HasPendingAmendmentAsync(PortionSettlement current, RequestInput input)
-    {
-        return await PersistenceErrors.ExecuteAsync(async () =>
-        {
-            return await db.PortionAmendments.AnyAsync(x => x.BaseSettlementId == current.Id && x.StudentId == input.StudentId && x.Resolution == null);
-        });
-    }
-    public async Task<string> GetStudentCodeAsync(RequestInput input)
-    {
-        return await PersistenceErrors.ExecuteAsync(async () =>
-        {
-            return await db.Students.Where(x => x.Id == input.StudentId).Select(x => x.StudentCode).SingleAsync();
-        });
-    }
+
+
+    public Task<List<AmendmentCandidateRow>> FindStudentsAsync(Guid[] studentIds) =>
+        PersistenceErrors.ExecuteAsync(() => db.Students.AsNoTracking().Where(x => studentIds.Contains(x.Id))
+            .Select(x => new AmendmentCandidateRow { Id = x.Id, FullName = x.FullName, StudentCode = x.StudentCode }).ToListAsync());
+
+    public Task<List<Enrollment>> FindCandidateEnrollmentsAsync(MealDay day, Guid classId, Guid[] studentIds) =>
+        PersistenceErrors.ExecuteAsync(() => EnrollmentQueries.OnDate(db, day.Date).AsNoTracking()
+            .Where(x => x.ClassId == classId && studentIds.Contains(x.StudentId)).Include(x => x.Student).ToListAsync());
+
+    public Task<bool> HasPendingStudentsAsync(Guid settlementId, Guid[] studentIds) =>
+        PersistenceErrors.ExecuteAsync(() => db.PortionAmendments.AnyAsync(x => x.BaseSettlementId == settlementId
+            && x.Resolution == null && !x.IsQuantityOnly
+            && (studentIds.Contains(x.StudentId) || x.Students.Any(s => studentIds.Contains(s.StudentId)))));
+
+    public Task<bool> HasAnyPortionElsewhereAsync(Guid dayId, Guid classId, Guid[] studentIds) =>
+        PersistenceErrors.ExecuteAsync(() => db.SettlementStudents.AnyAsync(x => studentIds.Contains(x.StudentId)
+            && x.PortionSettlement.MealDayId == dayId && x.PortionSettlement.ClassId != null && x.PortionSettlement.ClassId != classId
+            && !db.PortionSettlements.Any(newer => newer.MealDayId == dayId && newer.ClassId == x.PortionSettlement.ClassId
+                && newer.Version > x.PortionSettlement.Version)));
+
     public async Task<PortionAmendment?> FindAmendmentDetailsAsync(Guid requestId, Guid dayId)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>

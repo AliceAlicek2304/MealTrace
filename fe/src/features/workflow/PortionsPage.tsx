@@ -10,7 +10,7 @@ import { Modal } from '../../components/Modal'
 
 type Day = { id: string; date: string; mealType: string; schoolYear: string | null; cutoffAt: string; isSettled: boolean; isCancelled: boolean; cancellationReason: string | null }
 type DayPage = { items: Day[]; total: number }
-type Room = { classId: string; className: string; schoolYear: string; studentIds: string[]; studentNames: string[]; absentStudentIds: string[]; isSettled: boolean; version: number; originalCount: number | null; count: number | null }
+type Room = { classId: string; className: string; schoolYear: string; studentIds: string[]; studentNames: string[]; absentStudentIds: string[]; isSettled: boolean; version: number; originalCount: number | null; count: number | null; kitchenAdjustment: number }
 type Portions = { id: string; date: string; mealType: string; cutoffAt: string; classes: Room[]; isCancelled: boolean; cancellationReason: string | null; isSettled: boolean }
 
 export function PortionsPage({ roles }: { roles: string[] }) {
@@ -63,19 +63,19 @@ export function PortionsPage({ roles }: { roles: string[] }) {
     </section>
     {selected && <Modal wide title={`${current?.mealType ?? 'Phiên ăn'} · ${current?.date ?? ''}`} busy={settle.isPending} onClose={() => { setSelected(''); setPicked(null); setRoster(null); setConfirmSettle(false) }}>
       <div className="list-tabs modal-tabs" aria-label="Quản lý phiên ăn"><button type="button" aria-pressed={detailTab === 'portions'} onClick={() => setDetailTab('portions')}>Suất theo lớp</button>
-        {(isAdmin || isTeacher) && <button type="button" aria-pressed={detailTab === 'exceptions'} onClick={() => setDetailTab('exceptions')}>Nguồn / Ngoại lệ</button>}
+        {(isAdmin || isTeacher) && <button type="button" aria-pressed={detailTab === 'exceptions'} onClick={() => setDetailTab('exceptions')}>{settled ? 'Nguồn trước điều chỉnh' : 'Nguồn / Ngoại lệ'}</button>}
         {settled && !cancelled && <button type="button" aria-pressed={detailTab === 'amendments'} onClick={() => setDetailTab('amendments')}>Điều chỉnh sau chốt</button>}</div>
     {detailTab === 'portions' && <section className="workflow-lists"><div className="panel-head"><div><h2>Suất ăn theo lớp</h2>
       <p>Giờ chốt: {current ? new Date(current.cutoffAt).toLocaleString('vi-VN') : '—'} · {total} suất</p>{cancelled && <p className="error">Đã hủy: {portions.data?.cancellationReason ?? current?.cancellationReason}</p>}</div>
       {isAdmin && current && !settled && !cancelled && <button type="button" className="button primary" disabled={settle.isPending || new Date() < new Date(current.cutoffAt)} onClick={() => setConfirmSettle(true)}>Chốt và gửi bếp</button>}</div>
       {portions.isPending ? <p className="empty compact">Đang tính số suất…</p> : portions.isError ? <p className="empty compact error">Không tải được danh sách.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Số suất</th><th scope="col">Trạng thái / phiên bản</th><th scope="col">Thao tác</th></tr></thead><tbody>{portions.data?.classes.map(room =>
-        <tr key={room.classId}><td><strong>{room.className}</strong></td><td>{room.schoolYear}</td><td>{room.count ?? room.studentIds.length}</td><td>{room.isSettled ? `Bản ${room.version} · gốc ${room.originalCount} suất` : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</td>
+        <tr key={room.classId}><td><strong>{room.className}</strong></td><td>{room.schoolYear}</td><td>{room.count ?? room.studentIds.length}{room.kitchenAdjustment !== 0 && <small>{room.studentIds.length} trẻ · bếp {room.kitchenAdjustment > 0 ? "+" : ""}{room.kitchenAdjustment}</small>}</td><td>{room.isSettled ? `Bản ${room.version} · gốc ${room.originalCount} suất` : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</td>
           <td><button type="button" className="button secondary" onClick={() => setRoster(room)}>Danh sách trẻ</button></td></tr>)}
         {!portions.data?.classes.length && <tr><td colSpan={5} className="empty compact">Chưa có suất theo lớp.</td></tr>}</tbody></table></div>}</section>}
     {detailTab === 'exceptions' && (isAdmin || isTeacher) && <MealExceptions key={selected} mealId={selected} />}
     {detailTab === 'amendments' && settled && !cancelled && portions.data && <PortionAmendments key={selected} mealId={selected} rooms={portions.data.classes} roles={roles} />}
     </Modal>}
-    {roster && <Modal title={`Trẻ có suất · ${roster.className}`} onClose={() => setRoster(null)}><div className="table-wrap"><table><thead><tr><th scope="col">STT</th><th scope="col">Họ tên trẻ</th></tr></thead><tbody>{roster.studentNames.map((name, index) => <tr key={roster.studentIds[index]}><td>{index + 1}</td><td>{name}</td></tr>)}{!roster.studentNames.length && <tr><td colSpan={2} className="empty compact">Không có trẻ có suất.</td></tr>}</tbody></table></div></Modal>}
+    {roster && <Modal title={`Trẻ có suất · ${roster.className}`} onClose={() => setRoster(null)}><p className="workflow-form">{roster.studentIds.length} trẻ có suất · gửi bếp {roster.count ?? roster.studentIds.length} suất · điều chỉnh số lượng bếp {roster.kitchenAdjustment > 0 ? "+" : ""}{roster.kitchenAdjustment}</p><div className="table-wrap"><table><thead><tr><th scope="col">STT</th><th scope="col">Họ tên trẻ</th></tr></thead><tbody>{roster.studentNames.map((name, index) => <tr key={roster.studentIds[index]}><td>{index + 1}</td><td>{name}</td></tr>)}{!roster.studentNames.length && <tr><td colSpan={2} className="empty compact">Không có trẻ có suất.</td></tr>}</tbody></table></div></Modal>}
     {confirmSettle && <Modal title="Xác nhận chốt suất" busy={settle.isPending} onClose={() => setConfirmSettle(false)}><div className="workflow-form"><p>Chốt {total} suất của {current?.mealType} ngày {current?.date} và gửi bếp? Bản chốt giữ nguyên; thay đổi sau đó cần gửi yêu cầu điều chỉnh.</p><div className="form-actions"><button type="button" className="button secondary" disabled={settle.isPending} onClick={() => setConfirmSettle(false)}>Quay lại</button><button type="button" className="button primary" disabled={settle.isPending || portions.isPending || portions.isError} onClick={() => settle.mutate()}>Xác nhận chốt</button></div></div></Modal>}
   </>
 }

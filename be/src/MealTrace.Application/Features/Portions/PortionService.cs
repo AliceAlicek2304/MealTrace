@@ -22,7 +22,7 @@ public sealed class PortionService(IPortionRepository repository, MealDecisionSe
             foreach (var row in latest)
                 snapshots.Add(row.ClassId, new(row.ClassId, row.ClassName, row.SchoolYear,
                     roster[row.Id].Select(x => x.StudentId).ToList(), roster[row.Id].Select(x => x.StudentName).ToList(), [], true,
-                    row.Id, row.Version, row.OriginalCount, row.Count));
+                    row.Id, row.Version, row.OriginalCount, row.Count, row.KitchenAdjustment));
         }
         if (day.SettledAt is not null) return snapshots.Values.ToList();
         var decisions = await decisionService.ReadAsync(day, now, allowedClasses, ct);
