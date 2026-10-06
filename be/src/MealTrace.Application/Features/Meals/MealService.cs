@@ -3,7 +3,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Application.Dtos.Meals;
 
 namespace MealTrace.Application.Features.Meals;
-public sealed class MealUseCases(IMealRepository repository)
+public sealed class MealService(IMealRepository repository)
 {
     public async Task<Result<List<MealDaySummary>>> ListMealDaysAsync(DateOnly? from, DateOnly? to)
     {

@@ -5,7 +5,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Domain.Time;
 
 namespace MealTrace.Application.Features.Students;
-public sealed class StudentAdministrationUseCases(IStudentAdministrationRepository repository, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
+public sealed class StudentAdministrationService(IStudentAdministrationRepository repository, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
 {
     public async Task<Result<ClassListResponse>> SearchClassesAsync(string? search, int? page, int? pageSize)
     {

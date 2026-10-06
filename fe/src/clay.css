@@ -302,7 +302,7 @@ h1 { color: #28374e; }
 .list-tabs button { border: 1px solid #e4d8f3; border-radius: 12px; padding: 10px 18px; color: #7251a4; background: #f6f0ff; font-weight: 700; }
 .list-tabs button[aria-pressed='true'] { background: #7955b1; border-color: #7955b1; color: #fff; box-shadow: 0 3px 0 #5d3f8c; }
 .list-tabs button:focus-visible, .table-actions button:focus-visible { outline: 3px solid #9771cf; outline-offset: 3px; }
-.modal-tabs { padding: 18px 24px 0; margin-bottom: 0; }
+.modal-tabs { padding: 18px 24px; margin-bottom: 0; }
 .list-toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; padding: 20px 24px; border-bottom: 1px solid #f1e9df; }
 .list-toolbar .field { flex: 1 1 190px; min-width: 0; max-width: 340px; }
 .list-toolbar .table-actions { flex: 1 1 100%; }
@@ -330,7 +330,7 @@ h1 { color: #28374e; }
   .list-toolbar .field { flex-basis: 100%; max-width: none; }
   .table-wrap td, .table-wrap th { padding: 12px; }
   .panel-head { padding: 18px 16px; }
-  .modal-tabs { padding: 16px 16px 0; }
+  .modal-tabs { padding: 16px; }
 }
 .calendar-day { display: flex; flex-direction: column; gap: 10px; border: 1px solid #e8ded1; border-radius: 18px; padding: 18px; overflow-wrap: anywhere; }
 .calendar-day small { line-height: 1.5; color: #66758a; }

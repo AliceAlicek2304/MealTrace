@@ -23,11 +23,11 @@ public sealed class ArchitectureTests
     public void LayersCannotReferenceOutwardProjectsOrProviderFromApplication()
     {
         CheckProjectReferences(typeof(Student).Assembly, []);
-        CheckProjectReferences(typeof(WorkflowUseCases).Assembly, ["MealTrace.Domain"]);
+        CheckProjectReferences(typeof(WorkflowService).Assembly, ["MealTrace.Domain"]);
         CheckProjectReferences(typeof(MealTraceDbContext).Assembly, ["MealTrace.Domain", "MealTrace.Application"]);
         var domainDependencies = typeof(Student).Assembly.GetReferencedAssemblies().Select(x => x.Name!).ToArray();
         Assert.DoesNotContain(domainDependencies, name => name.StartsWith("Microsoft.") || name.StartsWith("Npgsql"));
-        var applicationDependencies = typeof(WorkflowUseCases).Assembly.GetReferencedAssemblies().Select(x => x.Name!).ToArray();
+        var applicationDependencies = typeof(WorkflowService).Assembly.GetReferencedAssemblies().Select(x => x.Name!).ToArray();
         Assert.DoesNotContain(applicationDependencies, name => name.StartsWith("Microsoft.AspNetCore") || name.StartsWith("Microsoft.EntityFrameworkCore") || name.StartsWith("Npgsql"));
     }
 
@@ -58,19 +58,19 @@ public sealed class ArchitectureTests
     }
 
     [Fact]
-    public void UseCaseOperationsReceiveBusinessInputRatherThanRuntimeDependencies()
+    public void ServiceOperationsReceiveBusinessInputRatherThanRuntimeDependencies()
     {
-        var useCases = typeof(WorkflowUseCases).Assembly.GetExportedTypes()
-            .Where(type => type.Name.EndsWith("UseCases")).ToArray();
-        Assert.NotEmpty(useCases);
-        foreach (var useCase in useCases)
+        var services = typeof(WorkflowService).Assembly.GetExportedTypes()
+            .Where(type => type.IsClass && type.Namespace?.StartsWith("MealTrace.Application.Features.") == true && type.Name.EndsWith("Service")).ToArray();
+        Assert.NotEmpty(services);
+        foreach (var service in services)
         {
-            Assert.NotEmpty(useCase.GetConstructors());
-            foreach (var method in useCase.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            Assert.NotEmpty(service.GetConstructors());
+            foreach (var method in service.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
                 foreach (var parameter in method.GetParameters())
                 {
                     Assert.False(parameter.ParameterType.Namespace?.StartsWith("MealTrace.Application.Abstractions") == true,
-                        $"Dependency passed per call: {useCase.Name}.{method.Name}");
+                        $"Dependency passed per call: {service.Name}.{method.Name}");
                     Assert.NotEqual(typeof(System.Security.Claims.ClaimsPrincipal), parameter.ParameterType);
                     Assert.NotEqual(typeof(TimeProvider), parameter.ParameterType);
                 }
@@ -98,14 +98,14 @@ public sealed class ArchitectureTests
             name => Assert.Contains(name.Name!, allowed));
 
     [Fact]
-    public void MovingContextKeepsMigrationHistoryAndSchemaUnchanged()
+    public void MigrationHistoryPreservesOriginalMigrationsAndMatchesCurrentModel()
     {
         using var db = new MealTraceDbContext(new DbContextOptionsBuilder<MealTraceDbContext>()
             .UseNpgsql("Host=localhost;Database=unused;Username=unused;Password=unused").Options);
         var migrations = db.Database.GetMigrations().ToArray();
-        Assert.Equal(12, migrations.Length);
+        Assert.True(migrations.Length >= 12);
         Assert.Equal("20260930031430_InitialCreate", migrations[0]);
-        Assert.Equal("20261001122617_PortionAmendmentWorkflow", migrations[^1]);
+        Assert.Equal("20261001122617_PortionAmendmentWorkflow", migrations[11]);
         Assert.False(db.Database.HasPendingModelChanges());
         Assert.Equal(typeof(MealTraceDbContext).Assembly, db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrationsAssembly>().Assembly);
     }

@@ -6,6 +6,7 @@ public sealed record SettlementSnapshot
     public Guid Id { get; init; }
     public int Version { get; init; }
     public int Count { get; init; }
+    public int KitchenAdjustment { get; init; }
     public DateTimeOffset SettledAt { get; init; }
     public required string SettledBy { get; init; }
     public string? Reason { get; init; }

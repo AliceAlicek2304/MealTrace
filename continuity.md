@@ -4,7 +4,18 @@
 
 ## 1. Tổng quan
 
-MealTrace quản lý bữa ăn bán trú trường mầm non. BE: ASP.NET Core 8, EF Core code-first, PostgreSQL. FE: React/TypeScript. Không dùng Docker. `mobile/` mới giữ chỗ; README để trống theo yêu cầu.
+MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docker. `mobile/` mới giữ chỗ; đã chốt Flutter, chưa khởi tạo ứng dụng. README để trống theo yêu cầu.
+
+### Tech stack đã chốt
+
+| Thành phần | Công nghệ |
+| --- | --- |
+| Web | React + TypeScript + Vite |
+| Mobile | Flutter (Dart) |
+| Backend | C# — ASP.NET Core 8, REST API |
+| Database | PostgreSQL + EF Core Code First |
+| API/kiểm thử | Swagger, xUnit, Vitest |
+| Architecture | Clean Architecture |
 
 **Đã có luồng lớp/trẻ → đăng ký không ăn → lịch bữa ăn → chốt suất → điều chỉnh suất. Chưa hoàn chỉnh MVP thực đơn/dinh dưỡng, minh chứng và báo cáo.**
 
@@ -18,7 +29,7 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. BE: ASP.NET Core 8
 | Không ăn/báo vắng | Parent đăng ký theo khoảng ngày, chọn nhanh tuần/tháng/đến cuối năm học; sửa/hủy giữ lịch sử. |
 | Lịch bữa ăn | Admin thiết lập thứ và bữa phục vụ; xem trước/tạo hàng loạt tuần/tháng/năm học; sửa ngày nghỉ/học bù, giữ lịch sử. |
 | Ngoại lệ trước chốt | Teacher/Admin ghi có suất/không có suất/khôi phục mặc định, kèm lý do và nguồn; Teacher chỉ lớp được giao. |
-| Chốt và điều chỉnh | Admin chốt suất theo lớp; Teacher/Admin gửi điều chỉnh từng trẻ, Admin duyệt/từ chối; thêm phiên bản mới, giữ gốc. Kitchen đọc suất áp dụng và chênh lệch. |
+| Chốt và điều chỉnh | Admin chốt suất theo lớp; Teacher/Admin gửi một phiếu cho nhiều trẻ hoặc số lượng bếp không gắn trẻ; Admin duyệt/từ chối toàn phiếu; thêm phiên bản mới, giữ gốc. Kitchen đọc suất áp dụng và chênh lệch. |
 | Nguyên liệu/dinh dưỡng — Hùng | Đã merge BE nguyên liệu và phiên bản, công thức và phiên bản, tính Kcal/protein. Chưa hoàn chỉnh luồng bếp lập/duyệt/công bố thực đơn. |
 | FE | Style claymorphism, tiếng Việt và Sonner toast. Các trang quản lý dùng table với tìm kiếm/lọc ở phía trên; tạo/sửa/xem chi tiết/hủy mở modal. Lớp/trẻ/năm học và chi tiết suất chia tab, không hiển thị tất cả form cùng lúc. Cần tiếp tục nghiệm thu với dữ liệu thực. |
 
@@ -30,6 +41,8 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. BE: ASP.NET Core 8
 - Giờ chốt mặc định **07:30 UTC+7**. Sau cut-off, thay đổi không được sửa suất đã khóa; xử lý qua điều chỉnh sau chốt. Báo không ăn sửa/hủy muộn vẫn giữ lịch sử và không làm đổi bản chốt cũ.
 - Khôi phục mặc định vẫn áp dụng đăng ký không ăn của Parent.
 - Bản chốt, nguồn quyết định và điều chỉnh lưu theo phiên bản; không ghi đè/xóa gốc. Dữ liệu cũ thiếu nguồn phải hiển thị đúng là thiếu nguồn.
+- Phiếu chọn trẻ thay đổi trạng thái suất của các trẻ được chọn; phiếu số lượng chỉ thay đổi tổng gửi bếp, giữ danh sách/trạng thái ăn và không tự đổi tiền ăn. Không giảm vượt tổng hiện hành; duyệt tạo đúng một bản mới.
+- Tab nguồn của phiên đã chốt hiển thị riêng suất tại giờ chốt và suất hiện hành theo trẻ, kèm tổng đang gửi bếp; không suy ra trẻ không ăn từ bản cũ thiếu danh sách. Điều chỉnh số lượng không gắn trẻ được giải thích riêng.
 - Parent chỉ xem/thao tác con được liên kết; Teacher theo lớp được giao; Admin chốt/duyệt; Kitchen xem kết quả.
 
 ## 4. Đang làm và vấn đề còn lại
@@ -50,8 +63,9 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. BE: ASP.NET Core 8
 ## 6. Làm việc chung
 
 - Làm trên nhánh cá nhân, bàn giao phần BE hoàn chỉnh theo luồng và review trước merge main; tránh làm gián đoạn các bạn khác.
+- Quy ước Application: class xử lý nghiệp vụ dùng hậu tố `Service` (AuthService, WorkflowService, MealCalendarService…). Endpoint gọi Service; Service gọi repository qua interface; giữ phân tầng Clean Architecture.
 - Thay DbContext/entities/Program hoặc API dùng chung cần phối hợp; giữ tương thích FE.
 - Quy ước FE: trang quản lý mở bằng danh sách table; thanh tìm kiếm/lọc trên bảng, thao tác theo dòng mở modal. Giữ claymorphism cho màu sắc/nút; dùng hủy/ngừng học/khóa theo nghiệp vụ để bảo toàn lịch sử.
 - Không push secrets, cấu hình DB/JWT local, checklist thủ công hoặc continuity cá nhân. Chi tiết test tự động/đo hiệu năng của Cường chỉ ghi local.
-- Migration workflow hiện có đến `20261001122617_PortionAmendmentWorkflow`; đã áp dụng ở máy phát triển trước đó. Máy khác tự cấu hình DB và áp dụng migration bằng `dotnet ef database update --project be/src/MealTrace.Infrastructure --startup-project be/src/MealTrace.Api`. Đợt thay đổi này không đổi schema.
+- Migration mới `20261006054822_BatchPortionAmendments` bổ sung phiếu nhiều trẻ và số lượng bếp. Máy khác áp dụng bằng `dotnet ef database update --project be/src/MealTrace.Infrastructure --startup-project be/src/MealTrace.Api`.
 - Chạy local: BE `dotnet run --project be/src/MealTrace.Api --launch-profile http` (5184); FE `npm run dev` trong `fe/` (5173). Swagger bật ở Development. Cấu hình connection/JWT bằng scripts trong `be/scripts`; giữ ngoài Git.

@@ -23,11 +23,116 @@ public sealed class PortionAmendmentTests
         client.PostAsJsonAsync(Route(seed), new { classId = seed.ClassId, studentId = child, baseSettlementId = source, willEat, reason });
     private static Task<HttpResponseMessage> Review(HttpClient client, Scenario seed, Guid requestId, bool approve, string reason = "Reviewed school records") =>
         client.PostAsJsonAsync(Route(seed) + $"/{requestId}/review", new { approve, reason });
-    private static async Task<Scenario> Setup(AuthTestFactory factory, TestClock clock, HttpClient client)
+    private static async Task<Scenario> Setup(AuthTestFactory factory, TestClock clock, HttpClient client, int extraChildren = 0)
     {
         var seed = await SeedScenario(factory, clock); await Authorize(client, seed.AdminEmail, seed.Password);
+        if (extraChildren > 0)
+        {
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var date = (await db.MealDays.FindAsync(seed.DayId))!.Date;
+            for (var i = 0; i < extraChildren; i++)
+                db.Students.Add(new Student { FullName = "Batch child " + i, ClassId = seed.ClassId,
+                    Enrollments = [new Enrollment { ClassId = seed.ClassId, StartDate = date, RecordedAt = seed.Cutoff.AddDays(-1) }] });
+            await db.SaveChangesAsync();
+        }
         clock.Set(seed.Cutoff); (await client.PostAsync($"/api/meal-days/{seed.DayId}/settle", null)).EnsureSuccessStatusCode();
         return seed;
+    }
+
+    private static Task<HttpResponseMessage> SubmitBatch(HttpClient client, Scenario seed, Guid source,
+        Guid[] ids, bool willEat, int quantity) => client.PostAsJsonAsync(Route(seed),
+            new { classId = seed.ClassId, baseSettlementId = source, studentIds = ids, willEat, quantity, reason = "Batch correction" });
+
+    [Fact]
+    public async Task FourChildrenAreReviewedTogetherAndCreateExactlyOneNewSnapshot()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock); using var client = factory.CreateClient();
+        var seed = await Setup(factory, clock, client, 3); var original = await Base(client, seed);
+        var state = await client.GetFromJsonAsync<JsonElement>(Route(seed) + "?classId=" + seed.ClassId);
+        var ids = state.GetProperty("current").GetProperty("students").EnumerateArray().Select(x => x.GetProperty("studentId").GetGuid()).ToArray();
+        Assert.Equal(4, ids.Length);
+        await Authorize(client, seed.TeacherEmail, seed.Password);
+        var requestId = await EventId(await SubmitBatch(client, seed, original, ids, false, 4));
+        Assert.Equal(original, await Base(client, seed));
+        Assert.Equal(HttpStatusCode.Conflict, (await Submit(client, seed, original, ids[3], false)).StatusCode);
+        await Authorize(client, seed.AdminEmail, seed.Password);
+        (await Review(client, seed, requestId, true)).EnsureSuccessStatusCode();
+        state = await client.GetFromJsonAsync<JsonElement>(Route(seed) + "?classId=" + seed.ClassId);
+        Assert.Equal(0, state.GetProperty("current").GetProperty("count").GetInt32());
+        Assert.Equal(2, state.GetProperty("current").GetProperty("version").GetInt32());
+        Assert.Equal(4, state.GetProperty("original").GetProperty("count").GetInt32());
+        Assert.Equal(4, state.GetProperty("items")[0].GetProperty("students").GetArrayLength());
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        Assert.Single(await db.PortionAmendments.ToListAsync()); Assert.Single(await db.PortionAmendmentResolutions.ToListAsync());
+        Assert.Equal(4, await db.SettlementDecisions.CountAsync(x => x.AmendmentId == requestId && !x.WillEat));
+        var immutable = await db.PortionAmendments.SingleAsync();
+        immutable.Students[0].StudentName = "Attempted rewrite";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task QuantityOnlyCorrectionPreservesChildrenAndFollowingChildCorrectionKeepsKitchenOffset()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock); using var client = factory.CreateClient();
+        var seed = await Setup(factory, clock, client, 3); var original = await Base(client, seed);
+        var requestId = await EventId(await SubmitBatch(client, seed, original, [], false, 4));
+        (await Review(client, seed, requestId, true)).EnsureSuccessStatusCode();
+        var state = await client.GetFromJsonAsync<JsonElement>(Route(seed) + "?classId=" + seed.ClassId);
+        Assert.Equal(0, state.GetProperty("current").GetProperty("count").GetInt32());
+        Assert.Equal(-4, state.GetProperty("current").GetProperty("kitchenAdjustment").GetInt32());
+        Assert.Equal(4, state.GetProperty("current").GetProperty("students").GetArrayLength());
+        Assert.Empty(state.GetProperty("removed").EnumerateArray()); Assert.True(state.GetProperty("canRequest").GetBoolean());
+        Assert.True(state.GetProperty("items")[0].GetProperty("isQuantityOnly").GetBoolean());
+        var current = await Base(client, seed);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Submit(client, seed, current, seed.PresentId, false)).StatusCode);
+        var add = await EventId(await Submit(client, seed, current, seed.AbsentId, true));
+        (await Review(client, seed, add, true)).EnsureSuccessStatusCode();
+        state = await client.GetFromJsonAsync<JsonElement>(Route(seed) + "?classId=" + seed.ClassId);
+        Assert.Equal(1, state.GetProperty("current").GetProperty("count").GetInt32());
+        Assert.Equal(-4, state.GetProperty("current").GetProperty("kitchenAdjustment").GetInt32());
+        Assert.Equal(5, state.GetProperty("current").GetProperty("students").GetArrayLength());
+        var portions = await client.GetFromJsonAsync<JsonElement>($"/api/meal-days/{seed.DayId}/portions");
+        Assert.Equal(1, portions.GetProperty("classes").EnumerateArray().Single(x => x.GetProperty("classId").GetGuid() == seed.ClassId).GetProperty("count").GetInt32());
+    }
+
+    [Fact]
+    public async Task InvalidBatchNeverPartiallyWritesAndQuantityRejectionOrStaleReviewNeverChangesCount()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock); using var client = factory.CreateClient();
+        var seed = await Setup(factory, clock, client); var source = await Base(client, seed);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SubmitBatch(client, seed, source, [seed.PresentId, seed.ForeignId], false, 2)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SubmitBatch(client, seed, source, [seed.PresentId, seed.PresentId], false, 2)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SubmitBatch(client, seed, source, [seed.PresentId], false, 4)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SubmitBatch(client, seed, source, [], false, 2)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SubmitBatch(client, seed, source, [], true, 0)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SubmitBatch(client, seed, source, [], true, 201)).StatusCode);
+        using (var scope = factory.Services.CreateScope())
+            Assert.Empty(await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().PortionAmendments.ToListAsync());
+        var rejected = await EventId(await SubmitBatch(client, seed, source, [], true, 4));
+        (await Review(client, seed, rejected, false)).EnsureSuccessStatusCode(); Assert.Equal(source, await Base(client, seed));
+        var first = await EventId(await SubmitBatch(client, seed, source, [], true, 4));
+        var stale = await EventId(await SubmitBatch(client, seed, source, [], false, 1));
+        (await Review(client, seed, first, true)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await Review(client, seed, stale, true)).StatusCode);
+        (await Review(client, seed, stale, false)).EnsureSuccessStatusCode();
+        var state = await client.GetFromJsonAsync<JsonElement>(Route(seed) + "?classId=" + seed.ClassId);
+        Assert.Equal(5, state.GetProperty("current").GetProperty("count").GetInt32());
+        Assert.Equal(2, state.GetProperty("current").GetProperty("version").GetInt32());
+    }
+
+    [PostgresFact]
+    public async Task ConcurrentBatchAndQuantityApprovalsUseOneSourceVersionOnly()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(postgres: true, clock: clock); using var client = factory.CreateClient();
+        var seed = await Setup(factory, clock, client, 3); var source = await Base(client, seed);
+        var batch = await EventId(await SubmitBatch(client, seed, source, [seed.PresentId], false, 1));
+        var quantity = await EventId(await SubmitBatch(client, seed, source, [], false, 4));
+        var results = await Task.WhenAll(Review(client, seed, batch, true), Review(client, seed, quantity, true));
+        Assert.Single(results, x => x.StatusCode == HttpStatusCode.OK); Assert.Single(results, x => x.StatusCode == HttpStatusCode.Conflict);
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        Assert.Single(await db.PortionAmendmentResolutions.ToListAsync());
+        Assert.Equal(2, await db.PortionSettlements.CountAsync(x => x.ClassId == seed.ClassId));
     }
 
     [Fact]

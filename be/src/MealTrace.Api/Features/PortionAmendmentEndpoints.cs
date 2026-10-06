@@ -20,13 +20,13 @@ public static class PortionAmendmentEndpoints
             { return Results.Conflict(new MessageResponse("Dữ liệu vừa thay đổi. Tải lại bản suất và đối chiếu lại yêu cầu.")); }
         });
 
-        api.MapGet("", async (Guid dayId, Guid classId, string? q, int? page, int? candidatePage, PortionAmendmentUseCases service) => (await service.GetClassAmendmentsAsync(dayId, classId, q, page, candidatePage)).ToHttpResult()).Produces<ClassAmendmentsResponse>(StatusCodes.Status200OK);
+        api.MapGet("", async (Guid dayId, Guid classId, string? q, int? page, int? candidatePage, PortionAmendmentService service) => (await service.GetClassAmendmentsAsync(dayId, classId, q, page, candidatePage)).ToHttpResult()).Produces<ClassAmendmentsResponse>(StatusCodes.Status200OK);
 
-        api.MapPost("", async (Guid dayId, RequestInput input, PortionAmendmentUseCases service) => (await service.RequestAmendmentAsync(dayId, input)).ToHttpResult()).Produces<AmendmentCreatedResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher));
+        api.MapPost("", async (Guid dayId, RequestInput input, PortionAmendmentService service) => (await service.RequestAmendmentAsync(dayId, input)).ToHttpResult()).Produces<AmendmentCreatedResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher));
 
-        api.MapGet("/{requestId:guid}", async (Guid dayId, Guid requestId, PortionAmendmentUseCases service) => (await service.GetAmendmentAsync(dayId, requestId)).ToHttpResult()).Produces<AmendmentComparisonResponse>(StatusCodes.Status200OK);
+        api.MapGet("/{requestId:guid}", async (Guid dayId, Guid requestId, PortionAmendmentService service) => (await service.GetAmendmentAsync(dayId, requestId)).ToHttpResult()).Produces<AmendmentComparisonResponse>(StatusCodes.Status200OK);
 
-        api.MapPost("/{requestId:guid}/review", async (Guid dayId, Guid requestId, ReviewInput input, PortionAmendmentUseCases service) => (await service.ReviewAmendmentAsync(dayId, requestId, input)).ToHttpResult()).Produces<AmendmentReviewedResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
+        api.MapPost("/{requestId:guid}/review", async (Guid dayId, Guid requestId, ReviewInput input, PortionAmendmentService service) => (await service.ReviewAmendmentAsync(dayId, requestId, input)).ToHttpResult()).Produces<AmendmentReviewedResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
 
         return app;
     }

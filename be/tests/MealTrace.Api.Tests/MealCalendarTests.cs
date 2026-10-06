@@ -107,7 +107,7 @@ public sealed class MealCalendarTests
     {
         var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock); using var client = factory.CreateClient();
         var (_, monday) = await Setup(factory, clock, client); var preview = await Preview(client, monday, monday);
-        clock.Set(MealCalendarUseCases.Cutoff(monday));
+        clock.Set(MealCalendarService.Cutoff(monday));
         Assert.Equal(HttpStatusCode.Conflict, (await EditDay(client, monday, "CLOSED", 1)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await Generate(client, monday, monday, preview)).StatusCode);
         var now = await Preview(client, monday, monday); Assert.All(now.GetProperty("items").EnumerateArray(), x => Assert.Equal("LOCKED", x.GetProperty("action").GetString()));

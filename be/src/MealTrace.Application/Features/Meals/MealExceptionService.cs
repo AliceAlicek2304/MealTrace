@@ -5,7 +5,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Domain.Security;
 
 namespace MealTrace.Application.Features.Meals;
-public sealed class MealExceptionUseCases(IMealExceptionRepository repository, MealDecisionService decisionService, ICurrentActor currentActor, TimeProvider clock, IUnitOfWork unitOfWork)
+public sealed class MealExceptionService(IMealExceptionRepository repository, MealDecisionService decisionService, ICurrentActor currentActor, TimeProvider clock, IUnitOfWork unitOfWork)
 {
     // WillEat preserves the old payload for a first override. New clients use Action and ExpectedEventId.
     public async Task<Result<MealDecisionsResponse>> GetDecisionsAsync(Guid id, Guid? classId, string? search, int? page, int? pageSize, CancellationToken ct)

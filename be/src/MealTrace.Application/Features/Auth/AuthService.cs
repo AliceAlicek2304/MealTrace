@@ -4,7 +4,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Domain.Security;
 
 namespace MealTrace.Application.Features.Auth;
-public sealed class AuthUseCases(IAuthRepository repository, IIdentityService users, IAccessTokenService tokens, ICurrentActor currentActor)
+public sealed class AuthService(IAuthRepository repository, IIdentityService users, IAccessTokenService tokens, ICurrentActor currentActor)
 {
     public async Task<Result<LoginResponse>> LoginAsync(LoginRequest request)
     {

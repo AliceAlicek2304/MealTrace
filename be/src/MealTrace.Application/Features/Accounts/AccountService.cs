@@ -7,7 +7,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Domain.Security;
 
 namespace MealTrace.Application.Features.Accounts;
-public sealed class AccountUseCases(IAccountRepository repository, IIdentityService manager, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
+public sealed class AccountService(IAccountRepository repository, IIdentityService manager, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
 {
     public async Task<Result<AccountListResponse>> ListAccountsAsync(int? page, int? pageSize, Guid? classId)
     {

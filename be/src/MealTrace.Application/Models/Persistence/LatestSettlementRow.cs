@@ -8,5 +8,6 @@ public sealed record LatestSettlementRow
     public string SchoolYear { get; init; } = default!;
     public int Version { get; init; } = default!;
     public int Count { get; init; } = default!;
+    public int KitchenAdjustment { get; init; }
     public int OriginalCount { get; init; } = default!;
 }
