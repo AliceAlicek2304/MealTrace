@@ -74,9 +74,9 @@ Mỗi lần lưu cấu hình/chỉnh ngày/tạo phiên ghi lịch sử người
 
 Giờ chốt hiện tại cố định **07:30 UTC+7**. Từ giờ chốt trở đi, Admin thực hiện thao tác chốt; hệ thống lưu bản chốt theo **ngày, phiên ăn và lớp**, gồm danh sách trẻ đủ điều kiện, báo vắng đã nhận đúng hạn, tổng số suất và thời điểm chốt. Giáo viên/nhà trường kiểm tra ngoại lệ; bếp nhận cùng một phiên bản số liệu. Hệ thống ghi nhận người xác nhận và thời điểm nhận nếu quy trình trường yêu cầu.
 
-Điều chỉnh sau chốt đã triển khai theo từng trẻ: Teacher của lớp hoặc Admin gửi yêu cầu thêm/giảm một suất, ghi lý do và phiên bản nguồn; Admin xem và duyệt/từ chối bằng modal. Admin có thể xử lý yêu cầu tự gửi. Chỉ duyệt khi bản nguồn còn là bản hiện hành. Duyệt tạo bản suất mới, liên kết bản trước; từ chối giữ nguyên số suất. Bếp thấy bản gốc, bản hiện hành, chênh lệch và lịch sử người/thời điểm/lý do. Không ghi đè hoặc xóa bản chốt gốc. Một trẻ không có hai suất ở hai lớp trong cùng phiên; hai thao tác đồng thời không tạo hai bản áp dụng từ một nguồn.
+Điều chỉnh sau chốt hỗ trợ một phiếu cho nhiều trẻ hoặc số lượng bếp không gắn trẻ: Teacher của lớp hoặc Admin gửi yêu cầu thêm/giảm một suất, ghi lý do và phiên bản nguồn; Admin xem và duyệt/từ chối bằng modal. Admin có thể xử lý yêu cầu tự gửi. Chỉ duyệt khi bản nguồn còn là bản hiện hành. Duyệt tạo bản suất mới, liên kết bản trước; từ chối giữ nguyên số suất. Bếp thấy bản gốc, bản hiện hành, chênh lệch và lịch sử người/thời điểm/lý do. Không ghi đè hoặc xóa bản chốt gốc. Một trẻ không có hai suất ở hai lớp trong cùng phiên; hai thao tác đồng thời không tạo hai bản áp dụng từ một nguồn.
 
-Bản chốt mới lưu danh sách cả trẻ có/không có suất và các tham chiếu ghi danh, báo vắng, ngoại lệ nguồn. Bản cũ thiếu nguồn được đánh dấu, không dựng lại lịch sử. Báo vắng muộn không tự tạo yêu cầu, tự hủy suất hoặc tự hoàn tiền. Điều chỉnh tổng tùy ý không gắn trẻ và gửi thông báo tự động chưa triển khai.
+Bản chốt mới lưu danh sách cả trẻ có/không có suất và các tham chiếu ghi danh, báo vắng, ngoại lệ nguồn. Bản cũ thiếu nguồn được đánh dấu, không dựng lại lịch sử. Báo vắng muộn không tự tạo yêu cầu, tự hủy suất hoặc tự hoàn tiền. Phiếu số lượng bếp giữ danh sách/trạng thái ăn từng trẻ, lưu chênh lệch riêng và không tự thay đổi tiền ăn. Không cho giảm vượt tổng hiện hành. Gửi thông báo tự động chưa triển khai.
 
 ### 5.4. Lập, kiểm tra và công bố thực đơn
 
@@ -113,7 +113,7 @@ Nhà trường có thể xuất báo cáo/minh chứng để gửi cơ quan chuy
 
 **Mở rộng nếu còn thời gian sau khi MVP đạt tiêu chí:** gửi thông tin tài khoản qua SMS/email, quyền thanh tra chỉ đọc có thời hạn, thực đơn cá nhân theo xác nhận chuyên môn; nhập liệu offline và đồng bộ ảnh; quản lý phí/sổ cái/đối soát tháng; thông báo đa kênh; dashboard nâng cao; bộ báo cáo nhiều mẫu. Thống kê **chi phí nguyên liệu** có thể thực hiện trong MVP khi dữ liệu giá đủ tin cậy, nhưng không được đồng nhất với **mức phí nhà trường thu phụ huynh**.
 
-**Ngoài phạm vi:** thanh toán trực tuyến, quản lý nhà cung cấp và kho theo kiểu ERP, truy vết tới nông trại, IoT, AI sinh thực đơn/tính dinh dưỡng, ứng dụng iOS/Android native trong MVP (thư mục mobile hiện chỉ giữ chỗ), quyết định khẩu phần điều trị hoặc xác nhận an toàn dị ứng tự động. MVP dùng web responsive; Docker không phải điều kiện để chạy hay nghiệm thu trên máy phát triển.
+**Ngoài phạm vi:** thanh toán trực tuyến, quản lý nhà cung cấp và kho theo kiểu ERP, truy vết tới nông trại, IoT, AI sinh thực đơn/tính dinh dưỡng, ứng dụng mobile Android/iOS bằng Flutter trong MVP (đã chốt công nghệ, thư mục mobile hiện chỉ giữ chỗ), quyết định khẩu phần điều trị hoặc xác nhận an toàn dị ứng tự động. MVP dùng web responsive; Docker không phải điều kiện để chạy hay nghiệm thu trên máy phát triển.
 
 ## 7. Yêu cầu chất lượng và cách kiểm chứng
 
@@ -129,7 +129,7 @@ Nhà trường có thể xuất báo cáo/minh chứng để gửi cơ quan chuy
 
 ## 8. Hướng kỹ thuật và kế hoạch 14 tuần
 
-Repository gồm fe, be và mobile song song; mobile chỉ giữ chỗ. Frontend dùng React/TypeScript responsive với style claymorphism và Sonner toast; backend dùng ASP.NET Core; PostgreSQL lưu dữ liệu qua EF Core code-first migrations. API là nơi kiểm tra quyền; giao diện chỉ hiển thị hành động phù hợp. Những dữ liệu có ảnh hưởng đến bản chốt hoặc báo cáo đã duyệt được lưu phiên bản/điều chỉnh; không ghi đè vật lý bản đã phát hành. Ảnh được lưu ngoài bảng dữ liệu lớn, trong DB chỉ lưu metadata, quyền truy cập và liên kết hồ sơ.
+Repository gồm fe, be và mobile song song. Web dùng React + TypeScript + Vite, responsive với style claymorphism và Sonner toast. Mobile đã chốt Flutter (Dart), dùng chung REST API với web; thư mục mobile hiện chỉ giữ chỗ, triển khai ở giai đoạn sau. Backend dùng C# — ASP.NET Core 8, REST API; PostgreSQL lưu dữ liệu qua EF Core Code First/Migrations. Swagger mô tả API; xUnit và Vitest dùng cho kiểm thử BE/FE. API là nơi kiểm tra quyền; giao diện chỉ hiển thị hành động phù hợp. Những dữ liệu có ảnh hưởng đến bản chốt hoặc báo cáo đã duyệt được lưu phiên bản/điều chỉnh; không ghi đè vật lý bản đã phát hành. Ảnh được lưu ngoài bảng dữ liệu lớn, trong DB chỉ lưu metadata, quyền truy cập và liên kết hồ sơ.
 
 | Giai đoạn | Tuần | Sản phẩm kiểm chứng |
 | --- | --- | --- |
@@ -196,7 +196,7 @@ Nhà trường nhập hai lớp và danh sách trẻ; phụ huynh A báo vắng 
 | Điều chỉnh sau chốt | Đã triển khai theo trẻ: gửi, duyệt/từ chối, bản mới và nguồn, bếp xem chênh lệch. Cần nghiệm thu UI. |
 | Công thức/thực đơn, món thực tế/ảnh, báo cáo dinh dưỡng | Có model nền tảng; chưa có workflow hoàn chỉnh. |
 | Quyền thanh tra | Có grant có thời hạn; chưa có quyền đọc nghiệp vụ hoàn chỉnh. |
-| Mobile | Chỉ có thư mục giữ chỗ. |
+| Mobile | Đã chốt Flutter (Dart); chỉ có thư mục giữ chỗ, chưa khởi tạo ứng dụng. |
 
 Bản chốt lưu danh sách ID/tên trẻ nguồn theo lớp và không thay đổi khi hủy báo vắng hoặc thêm trẻ sau chốt. Đây là số suất dự kiến, không phải xác nhận có mặt thực tế. Bếp xem bản chốt trong hệ thống; chưa có thông báo gửi tự động.
 

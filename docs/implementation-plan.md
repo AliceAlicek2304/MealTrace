@@ -75,13 +75,13 @@ Không dùng lịch 14 tuần trong proposal để suy ra tiến độ đã hoà
 - Chuẩn bị test: lưu ngày năm học thực tế → lưu lịch tuần → xem trước một tuần → tạo → kiểm tra số suất → chỉnh ngày nghỉ/mở lại → đối chiếu lịch sử.
 ### Điều chỉnh sau chốt — nghiệm thu
 
-- Teacher/Admin đề nghị theo trẻ, lý do/bản nguồn bắt buộc; Admin duyệt/từ chối bằng modal. Kitchen chỉ đọc. Admin được duyệt yêu cầu tự gửi.
+- Teacher/Admin đề nghị theo nhiều trẻ trong một phiếu hoặc nhập số lượng bếp không gắn trẻ, lý do/bản nguồn bắt buộc; Admin duyệt/từ chối bằng modal. Kitchen chỉ đọc. Admin được duyệt yêu cầu tự gửi.
 - Duyệt tạo snapshot mới theo lớp và phiên bản, giữ bản gốc; từ chối không đổi suất. Yêu cầu lỗi thời cần từ chối/gửi lại, không tự rebase.
 - Đã có nguồn Enrollment/báo vắng/ngoại lệ trong bản chốt mới; snapshot legacy đánh dấu thiếu nguồn, không suy diễn.
 - Bếp thấy bản gốc, bản đang áp dụng, tên trẻ tăng/giảm và lịch sử/snapshot từng yêu cầu. Tổng ngày ăn chỉ tính bản mới nhất.
 - Kiểm thử nguyên bản, scope, stale, duplicate, sau chốt, ghi danh muộn, nguồn legacy và concurrent PostgreSQL. Chưa visual QA đầy đủ.
 - Chuẩn bị test: phiên đã chốt → Teacher gửi thêm/giảm → Admin xem nguồn/duyệt → Kitchen đối chiếu gốc/mới → gửi yêu cầu thứ hai từ nguồn cũ để kiểm tra conflict.
-- Báo vắng muộn không tự đổi suất/hoàn phí; chưa có gửi thông báo bếp hoặc điều chỉnh tổng không gắn trẻ.
+- Báo vắng muộn không tự đổi suất/hoàn phí; phiếu số lượng không thay đổi trạng thái ăn/tiền ăn từng trẻ. Chưa có gửi thông báo bếp tự động.
 ### Thực đơn và dinh dưỡng
 
 - Bổ sung nhóm tuổi và nguồn thành phần dinh dưỡng được trường chấp nhận; chốt đơn vị/định lượng, tỷ lệ ăn được/hao hụt và làm tròn.
@@ -104,7 +104,7 @@ Không dùng lịch 14 tuần trong proposal để suy ra tiến độ đã hoà
 | Import Excel lớp/trẻ/Parent | Có file mẫu: mã trẻ, lớp/niên khóa, SĐT và cách ghi nhiều người giám hộ; làm preview/lỗi từng dòng/nhập lại không trùng. |
 | SMS/email | Sau luồng tạo/import ổn định; chọn dịch vụ gửi và cấu hình riêng; không gửi tới số demo. |
 | Hủy/sửa lịch chuyển lớp tương lai | Chốt cách xử lý lịch đã xếp; giữ audit và không thay đổi dữ liệu đã chốt. |
-| Mobile, tài chính, offline, dashboard nâng cao | Sau khi luồng MVP chính đạt nghiệm thu. |
+| Mobile (Flutter/Dart), tài chính, offline, dashboard nâng cao | Sau khi luồng MVP chính đạt nghiệm thu; mobile dùng chung REST API với web. |
 
 ## 6. Quy tắc thực hiện mỗi chặng
 

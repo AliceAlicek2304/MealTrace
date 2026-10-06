@@ -22,6 +22,7 @@ internal sealed class PortionRepository(MealTraceDbContext db) : IPortionReposit
                 SchoolYear = x.Class != null ? x.Class.SchoolYear : day.SchoolYear ?? "",
                 Version = x.Version,
                 Count = x.Count,
+                KitchenAdjustment = x.KitchenAdjustment,
                 OriginalCount = source.Where(original => original.ClassId == x.ClassId).OrderBy(original => original.Version).Select(original => original.Count).First()
             }).ToListAsync(ct);
         });

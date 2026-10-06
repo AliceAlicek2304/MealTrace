@@ -10,6 +10,8 @@ public sealed class PortionSettlement
     public SchoolClass? Class { get; set; }
     public string? ClassName { get; set; }
     public int Count { get; set; }
+    // Cumulative kitchen-only adjustment; does not change individual meal eligibility.
+    public int KitchenAdjustment { get; set; }
     public DateTimeOffset CutoffAt { get; set; }
     public DateTimeOffset SettledAt { get; set; } = DateTimeOffset.UtcNow;
     public required string SettledBy { get; set; }

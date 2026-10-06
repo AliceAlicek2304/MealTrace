@@ -81,7 +81,7 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     private void PrepareEnrollments()
     {
         if (ChangeTracker.Entries().Any(x => (x.State is EntityState.Modified or EntityState.Deleted) &&
-            (x.Entity is PortionSettlement or SettlementStudent or SettlementDecision or PortionAmendment or PortionAmendmentResolution)))
+            (x.Entity is PortionSettlement or SettlementStudent or SettlementDecision or PortionAmendment or PortionAmendmentStudent or PortionAmendmentResolution)))
             throw new InvalidOperationException("Settlement snapshots and amendments are append-only.");
         if (ChangeTracker.Entries<MealCalendarAudit>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Calendar audit records are append-only.");

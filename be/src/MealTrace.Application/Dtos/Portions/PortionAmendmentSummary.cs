@@ -12,6 +12,9 @@ public sealed record PortionAmendmentSummary
     public Guid? EnrollmentId { get; init; }
     public bool WasEating { get; init; }
     public bool WillEat { get; init; }
+    public int Quantity { get; init; }
+    public bool IsQuantityOnly { get; init; }
+    public List<AmendmentStudentSummary> Students { get; init; } = [];
     public required string Reason { get; init; }
     public required string RequestedByName { get; init; }
     public DateTimeOffset RequestedAt { get; init; }

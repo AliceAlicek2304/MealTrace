@@ -10,7 +10,6 @@ public interface IPortionAmendmentRepository
     Task<bool> HasTeacherAssignmentAsync(Guid classId, Guid userId);
     Task<string> GetActorNameAsync(Guid userId);
     Task<PortionSettlement?> FindLatestSettlementAsync(Guid dayId, Guid classId);
-    Task<bool> HasPortionInAnotherClassAsync(Guid studentId, Guid dayId, Guid classId);
     Task<MealDay?> FindMealDayAsync(Guid dayId);
     Task<PortionSettlement> GetOriginalSettlementAsync(Guid dayId, Guid classId);
     Task<int> CountAmendmentCandidatesAsync(MealDay day, Guid classId, PortionSettlement current, string? term);
@@ -18,9 +17,10 @@ public interface IPortionAmendmentRepository
     Task<int> CountAmendmentsAsync(Guid dayId, Guid classId);
     Task<List<PortionAmendmentSummary>> ListAmendmentsAsync(Guid dayId, Guid classId, int number);
     Task<bool> TeacherCanRequestAmendmentAsync(RequestInput input, Guid userId);
-    Task<Enrollment?> FindCandidateEnrollmentAsync(MealDay day, RequestInput input);
-    Task<bool> HasPendingAmendmentAsync(PortionSettlement current, RequestInput input);
-    Task<string> GetStudentCodeAsync(RequestInput input);
+    Task<List<AmendmentCandidateRow>> FindStudentsAsync(Guid[] studentIds);
+    Task<List<Enrollment>> FindCandidateEnrollmentsAsync(MealDay day, Guid classId, Guid[] studentIds);
+    Task<bool> HasPendingStudentsAsync(Guid settlementId, Guid[] studentIds);
+    Task<bool> HasAnyPortionElsewhereAsync(Guid dayId, Guid classId, Guid[] studentIds);
     Task<PortionAmendment?> FindAmendmentDetailsAsync(Guid requestId, Guid dayId);
     Task<PortionAmendment?> FindTrackedAmendmentAsync(Guid requestId, Guid dayId);
 
