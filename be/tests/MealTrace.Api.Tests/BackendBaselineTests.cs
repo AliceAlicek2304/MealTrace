@@ -3,9 +3,12 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MealTrace.Api.Data;
-using MealTrace.Api.Features;
-using MealTrace.Api.Security;
+using MealTrace.Domain.Entities;
+using MealTrace.Infrastructure.Persistence;
+using MealTrace.Infrastructure.Identity;
+using MealTrace.Application.Abstractions;
+using MealTrace.Application.Features;
+using MealTrace.Domain.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -162,9 +165,9 @@ public sealed class BackendBaselineTests
             using var admin = factory.CreateClient(); using var teacher = factory.CreateClient();
             await Authorize(admin, users.AdminEmail, users.Password);
             await Authorize(teacher, users.TeacherEmail, users.Password);
-            var day = new MealDay { Date = date, MealType = "Lunch", SchoolYear = "2026-2027", CutoffAt = MealCalendarEndpoints.Cutoff(date) };
+            var day = new MealDay { Date = date, MealType = "Lunch", SchoolYear = "2026-2027", CutoffAt = MealCalendarUseCases.Cutoff(date) };
             var history = new MealDay { Date = date.AddDays(1), MealType = "Lunch", SchoolYear = day.SchoolYear,
-                CutoffAt = MealCalendarEndpoints.Cutoff(date.AddDays(1)), SettledAt = clock.GetUtcNow() };
+                CutoffAt = MealCalendarUseCases.Cutoff(date.AddDays(1)), SettledAt = clock.GetUtcNow() };
             int roomCount = count / 25;
             using (var scope = factory.Services.CreateScope())
             {
@@ -220,7 +223,7 @@ public sealed class BackendBaselineTests
                 // A realistic year of sessions exercises calendar and date pagination without writing through production APIs.
                 for (var offset = 2; offset < 300; offset++)
                     if (date.AddDays(offset).DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
-                        db.MealDays.Add(new() { Date = date.AddDays(offset), MealType = "Lunch", SchoolYear = day.SchoolYear, CutoffAt = MealCalendarEndpoints.Cutoff(date.AddDays(offset)) });
+                        db.MealDays.Add(new() { Date = date.AddDays(offset), MealType = "Lunch", SchoolYear = day.SchoolYear, CutoffAt = MealCalendarUseCases.Cutoff(date.AddDays(offset)) });
                 await db.SaveChangesAsync();
                 // Resolve only these existing tables in the isolated SearchPath; never ANALYZE the whole database.
                 await db.Database.ExecuteSqlRawAsync("ANALYZE \"Students\", \"Enrollments\", \"Classes\", \"MealDays\", \"MealAbsences\", \"MealRegistrations\", \"AcademicYears\", \"PortionSettlements\", \"SettlementStudents\", \"ParentStudents\", \"TeacherAssignments\"");

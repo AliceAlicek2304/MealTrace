@@ -1,6 +1,6 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 06/10/2026. Mốc main đã đối chiếu: `22b5fac` (đã merge PR #2 của Hùng). Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 06/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
@@ -34,14 +34,12 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. BE: ASP.NET Core 8
 
 ## 4. Đang làm và vấn đề còn lại
 
-- Cường đã tối ưu BE nền trên nhánh cá nhân: thống nhất thời gian UTC+7/giờ chốt, bảo vệ chuyển lớp khi chờ khóa; lọc phạm vi lớp và phân trang ngoại lệ tại DB, chỉ đọc bản suất hiện hành, tính quyết định một lần khi chốt. Giữ hợp đồng API cho FE; chi tiết kiểm chứng cá nhân được giữ local. Chưa merge main.
+- BE nền đã tối ưu: thống nhất thời gian UTC+7/giờ chốt, bảo vệ chuyển lớp khi chờ khóa; lọc phạm vi lớp và phân trang ngoại lệ tại DB, chỉ đọc bản suất hiện hành, tính quyết định một lần khi chốt. Giữ hợp đồng API cho FE; chi tiết kiểm chứng cá nhân được giữ local.
 - FE đã ghi rõ lịch tuần chưa cấu hình; BE vẫn cần phân biệt trạng thái này với ngày nghỉ, nhất là khi có phiên cũ đã chốt.
-- BE của Hùng còn policy `Kitchen`/`Admin` khác role thực tế; cần sửa để tài khoản đúng role gọi được API. Dinh dưỡng chưa đủ P-L-G và cần chốt nguồn/công thức tính.
+- API bếp đã dùng đúng role ADMIN/KITCHEN_STAFF. Dinh dưỡng chưa đủ P-L-G và cần chốt nguồn/công thức tính.
 - UI các luồng đã có cần người dùng nghiệm thu; chưa coi build thành công là tính năng hoàn chỉnh.
 
 ## 5. Chưa triển khai và hướng tiếp theo
-
-**Kiến trúc BE:** hiện vẫn một project `MealTrace.Api`, endpoint/service truy cập EF Core. Hướng tiếp theo là chuyển dần sang Clean Architecture với Api/Application/Domain/Infrastructure, bắt đầu luồng lớp/trẻ/ghi danh/lịch/suất. Giữ API, migration, khóa và transaction; phối hợp với Hùng ở phần dùng chung. Đây là kế hoạch, chưa triển khai.
 
 1. Hoàn thiện thực đơn theo nhóm tuổi, duyệt/công bố và dinh dưỡng đầy đủ với nguồn dữ liệu rõ ràng.
 2. Chế biến thực tế/đổi món, ảnh và hồ sơ minh chứng; Parent theo dõi bản công bố.
@@ -55,5 +53,5 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. BE: ASP.NET Core 8
 - Thay DbContext/entities/Program hoặc API dùng chung cần phối hợp; giữ tương thích FE.
 - Quy ước FE: trang quản lý mở bằng danh sách table; thanh tìm kiếm/lọc trên bảng, thao tác theo dòng mở modal. Giữ claymorphism cho màu sắc/nút; dùng hủy/ngừng học/khóa theo nghiệp vụ để bảo toàn lịch sử.
 - Không push secrets, cấu hình DB/JWT local, checklist thủ công hoặc continuity cá nhân. Chi tiết test tự động/đo hiệu năng của Cường chỉ ghi local.
-- Migration workflow hiện có đến `20261001122617_PortionAmendmentWorkflow`; đã áp dụng ở máy phát triển trước đó. Máy khác tự cấu hình DB và áp dụng migration phù hợp.
+- Migration workflow hiện có đến `20261001122617_PortionAmendmentWorkflow`; đã áp dụng ở máy phát triển trước đó. Máy khác tự cấu hình DB và áp dụng migration bằng `dotnet ef database update --project be/src/MealTrace.Infrastructure --startup-project be/src/MealTrace.Api`. Đợt thay đổi này không đổi schema.
 - Chạy local: BE `dotnet run --project be/src/MealTrace.Api --launch-profile http` (5184); FE `npm run dev` trong `fe/` (5173). Swagger bật ở Development. Cấu hình connection/JWT bằng scripts trong `be/scripts`; giữ ngoài Git.

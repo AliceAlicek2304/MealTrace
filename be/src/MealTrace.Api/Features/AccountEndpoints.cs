@@ -1,21 +1,14 @@
-using System.IdentityModel.Tokens.Jwt;
+using MealTrace.Application.Dtos.Responses;
 using System.Security.Claims;
-using System.Data;
-using MealTrace.Api.Data;
-using MealTrace.Api.Security;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+using MealTrace.Application.Abstractions;
+using MealTrace.Application.Features;
+using MealTrace.Domain.Security;
+using MealTrace.Application.Dtos.Accounts;
 
 namespace MealTrace.Api.Features;
 
 public static class AccountEndpoints
 {
-    public sealed record ResetPasswordInput(string Reason);
-    public sealed record AccountInput(string FullName, string? Email, string[] Roles, string Status,
-        Guid[] ClassIds, Guid[] StudentIds, DateOnly? InspectorAccessUntil, string? PhoneNumber = null);
-    public sealed record AccountView(Guid Id, string FullName, string Email, string[] Roles, string Status,
-        Guid[] ClassIds, Guid[] StudentIds, DateOnly? InspectorAccessUntil, string? PhoneNumber = null);
-
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/admin").WithTags("Account administration")
@@ -26,223 +19,21 @@ public static class AccountEndpoints
             return await next(context);
         });
 
-        group.MapGet("/users", async (int? page, int? pageSize, Guid? classId, MealTraceDbContext db) =>
-        {
-            var number = Math.Max(1, page ?? 1);
-            var size = Math.Clamp(pageSize ?? 25, 1, 100);
-            var query = db.Users.AsNoTracking().AsQueryable();
-            if (classId is not null)
-                query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == x.Id && a.ClassId == classId));
-            var total = await query.CountAsync();
-            var users = await query.OrderBy(x => x.Email)
-                .Skip((number - 1) * size).Take(size).ToListAsync();
-            var ids = users.Select(x => x.Id).ToArray();
-            var roleRows = await (from link in db.UserRoles.AsNoTracking()
-                join role in db.Roles.AsNoTracking() on link.RoleId equals role.Id
-                where ids.Contains(link.UserId)
-                select new { link.UserId, Role = role.Name! }).ToListAsync();
-            var teacherRows = await db.TeacherAssignments.AsNoTracking().Where(x => ids.Contains(x.UserId)).ToListAsync();
-            var parentRows = await db.ParentStudents.AsNoTracking().Where(x => ids.Contains(x.UserId)).ToListAsync();
-            var grants = await db.InspectorGrants.AsNoTracking().Where(x => ids.Contains(x.UserId)).ToListAsync();
-            var items = users.Select(user => new AccountView(user.Id, user.FullName, user.Email ?? "",
-                roleRows.Where(x => x.UserId == user.Id).Select(x => x.Role).ToArray(),
-                user.IsActive ? "ACTIVE" : "SUSPENDED",
-                teacherRows.Where(x => x.UserId == user.Id).Select(x => x.ClassId).ToArray(),
-                parentRows.Where(x => x.UserId == user.Id).Select(x => x.StudentId).ToArray(),
-                grants.FirstOrDefault(x => x.UserId == user.Id)?.ExpiresOn, user.PhoneNumber)).ToArray();
-            return Results.Ok(new { items, total, page = number, pageSize = size });
-        }).WithName("ListUsers");
+        group.MapGet("/users", async (int? page, int? pageSize, Guid? classId, IMealTraceData db) => (await AccountUseCases.ListAccountsAsync(page, pageSize, classId, db)).ToHttpResult()).Produces<AccountListResponse>(StatusCodes.Status200OK).WithName("ListUsers");
 
-        group.MapGet("/users/{id:guid}", async (Guid id, MealTraceDbContext db, UserManager<ApplicationUser> manager) =>
-        {
-            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-            if (user is null) return Results.NotFound();
-            var roles = (await manager.GetRolesAsync(user)).ToArray();
-            var classIds = await db.TeacherAssignments.AsNoTracking().Where(x => x.UserId == id).Select(x => x.ClassId).ToArrayAsync();
-            var studentIds = await db.ParentStudents.AsNoTracking().Where(x => x.UserId == id).Select(x => x.StudentId).ToArrayAsync();
-            var grant = await db.InspectorGrants.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == id);
-            return Results.Ok(new AccountView(user.Id, user.FullName, user.Email ?? "", roles,
-                user.IsActive ? "ACTIVE" : "SUSPENDED", classIds, studentIds, grant?.ExpiresOn, user.PhoneNumber));
-        }).WithName("GetUser");
+        group.MapGet("/users/{id:guid}", async (Guid id, IMealTraceData db, IIdentityService manager) => (await AccountUseCases.GetAccountAsync(id, db, manager)).ToHttpResult()).Produces<AccountView>().WithName("GetUser");
 
         group.MapGet("/scope-options", async (string? search, Guid? classId, int? classPage, int? studentPage,
-            string? selectedClassIds, string? selectedStudentIds, MealTraceDbContext db, TimeProvider clock) =>
-        {
-            var cp = Math.Clamp(classPage ?? 1, 1, 100000); var sp = Math.Clamp(studentPage ?? 1, 1, 100000); const int size = 25;
-            if (!TryIds(selectedClassIds, out var classIds) || !TryIds(selectedStudentIds, out var studentIds))
-                return Results.BadRequest(new { message = "Danh sách ID phạm vi không hợp lệ hoặc vượt quá 1000 mục." });
-            var classes = db.Classes.AsNoTracking(); var students = db.Students.AsNoTracking(); var date = MealTrace.Api.Time.SchoolTime.Today(clock.GetUtcNow());
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var term = search.Trim().ToLower();
-                classes = classes.Where(x => x.Name.ToLower().Contains(term) || x.SchoolYear.Contains(term));
-                students = students.Where(x => x.FullName.ToLower().Contains(term) || x.StudentCode.ToLower().Contains(term));
-            }
-            if (classId.HasValue) students = students.Where(x => db.Enrollments.Any(e => e.StudentId == x.Id && e.ClassId == classId && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
-            return Results.Ok(new
-            {
-                classes = await classes.OrderBy(x => x.SchoolYear).ThenBy(x => x.Name).ThenBy(x => x.Id).Skip((cp - 1) * size).Take(size)
-                    .Select(x => new { id = x.Id, name = x.Name + " · " + x.SchoolYear }).ToListAsync(),
-                students = await students.OrderBy(x => x.FullName).ThenBy(x => x.Id).Skip((sp - 1) * size).Take(size)
-                    .Select(x => new { id = x.Id, name = x.StudentCode + " · " + x.FullName, classId = x.ClassId }).ToListAsync(),
-                selectedClasses = await db.Classes.Where(x => classIds.Contains(x.Id)).Select(x => new { id = x.Id, name = x.Name + " · " + x.SchoolYear }).ToListAsync(),
-                selectedStudents = await db.Students.Where(x => studentIds.Contains(x.Id)).Select(x => new { id = x.Id, name = x.StudentCode + " · " + x.FullName, classId = x.ClassId }).ToListAsync(),
-                classTotal = await classes.CountAsync(), studentTotal = await students.CountAsync(), classPage = cp, studentPage = sp, pageSize = size,
-            });
-        }).WithName("GetScopeOptions");
+            string? selectedClassIds, string? selectedStudentIds, IMealTraceData db, TimeProvider clock) => (await AccountUseCases.GetScopeOptionsAsync(search, classId, classPage, studentPage, selectedClassIds, selectedStudentIds, db, clock)).ToHttpResult()).Produces<AccountScopeOptionsResponse>(StatusCodes.Status200OK).WithName("GetScopeOptions");
 
-        group.MapPost("/users", async (AccountInput input, ClaimsPrincipal principal, HttpContext http,
-            MealTraceDbContext db, UserManager<ApplicationUser> manager) =>
-        {
-            http.Response.Headers.CacheControl = "no-store";
-            var error = await ValidateAsync(input, db);
-            if (error is not null) return Results.BadRequest(new { message = error });
-            var email = string.IsNullOrWhiteSpace(input.Email) ? null : input.Email.Trim().ToLowerInvariant();
-            var phone = PhoneNumbers.Normalize(input.PhoneNumber);
-            if (email is not null && await manager.FindByEmailAsync(email) is not null)
-                return Results.Conflict(new { message = "Email đã được sử dụng." });
-
-            if (phone is not null && await db.Users.AnyAsync(x => x.PhoneNumber == phone))
-                return Results.Conflict(new { message = "SĐT đã được sử dụng." });
-            var user = new ApplicationUser
-            {
-                Id = Guid.NewGuid(), UserName = email ?? phone, Email = email, PhoneNumber = phone, EmailConfirmed = false,
-                FullName = input.FullName.Trim(), IsActive = input.Status == "ACTIVE",
-            };
-            var temporaryPassword = TemporaryPassword.Generate();
-            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var created = await manager.CreateAsync(user, temporaryPassword);
-            if (!created.Succeeded) return Results.BadRequest(new { message = string.Join("; ", created.Errors.Select(x => x.Description)) });
-            var roleResult = await manager.AddToRolesAsync(user, input.Roles);
-            if (!roleResult.Succeeded) return Results.BadRequest(new { message = string.Join("; ", roleResult.Errors.Select(x => x.Description)) });
-            await ReplaceScopesAsync(db, user.Id, input, Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!));
-            await transaction.CommitAsync();
-            return Results.Created($"/api/admin/users/{user.Id}", new
-            {
-                user = ToView(user, input), temporaryPassword,
-                message = "Mật khẩu tạm chỉ hiển thị một lần. Hãy chuyển cho người dùng qua kênh an toàn.",
-            });
-        }).WithName("CreateUser");
+        group.MapPost("/users", async (AccountInput input, ClaimsPrincipal principal, IMealTraceData db, IIdentityService manager) => (await AccountUseCases.CreateAccountAsync(input, principal, db, manager)).ToHttpResult()).Produces<AccountCreatedResponse>(StatusCodes.Status201Created).WithName("CreateUser");
 
         group.MapPut("/users/{id:guid}", async (Guid id, AccountInput input, ClaimsPrincipal principal,
-            MealTraceDbContext db, UserManager<ApplicationUser> manager) =>
-        {
-            var error = await ValidateAsync(input, db);
-            if (error is not null) return Results.BadRequest(new { message = error });
-            var user = await manager.FindByIdAsync(id.ToString());
-            if (user is null) return Results.NotFound();
-            var email = string.IsNullOrWhiteSpace(input.Email) ? null : input.Email.Trim().ToLowerInvariant();
-            var phone = PhoneNumbers.Normalize(input.PhoneNumber);
-            var other = email is null ? null : await manager.FindByEmailAsync(email);
-            if (other is not null && other.Id != id) return Results.Conflict(new { message = "Email đã được sử dụng." });
-
-            if (phone is not null && await db.Users.AnyAsync(x => x.PhoneNumber == phone && x.Id != id))
-                return Results.Conflict(new { message = "SĐT đã được sử dụng." });
-            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var oldRoles = await manager.GetRolesAsync(user);
-            if (user.IsActive && oldRoles.Contains(RoleNames.Admin) && (input.Status != "ACTIVE" || !input.Roles.Contains(RoleNames.Admin)))
-            {
-                var admins = await manager.GetUsersInRoleAsync(RoleNames.Admin);
-                if (!admins.Any(x => x.Id != id && x.IsActive))
-                    return Results.BadRequest(new { message = "Cần giữ ít nhất một Admin đang hoạt động." });
-            }
-
-            user.FullName = input.FullName.Trim();
-            user.IsActive = input.Status == "ACTIVE";
-            user.Email = email;
-            user.UserName = email ?? phone;
-            user.PhoneNumber = phone;
-            user.PhoneNumberConfirmed = false;
-            user.EmailConfirmed = false;
-            var updated = await manager.UpdateAsync(user);
-            if (!updated.Succeeded) return Results.BadRequest(new { message = string.Join("; ", updated.Errors.Select(x => x.Description)) });
-            var remove = await manager.RemoveFromRolesAsync(user, oldRoles.Except(input.Roles));
-            if (!remove.Succeeded) return Results.BadRequest(new { message = "Không thể gỡ vai trò." });
-            var add = await manager.AddToRolesAsync(user, input.Roles.Except(oldRoles));
-            if (!add.Succeeded) return Results.BadRequest(new { message = "Không thể gán vai trò." });
-            await ReplaceScopesAsync(db, user.Id, input, Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!));
-            var stampResult = await manager.UpdateSecurityStampAsync(user); // Revokes existing JWTs after role/status changes.
-            if (!stampResult.Succeeded) return Results.BadRequest(new { message = "Không thể thu hồi phiên đăng nhập cũ." });
-            await transaction.CommitAsync();
-            return Results.Ok(ToView(user, input));
-        }).WithName("UpdateUser");
+            IMealTraceData db, IIdentityService manager) => (await AccountUseCases.UpdateAccountAsync(id, input, principal, db, manager)).ToHttpResult()).Produces<AccountView>().WithName("UpdateUser");
 
         group.MapPost("/users/{id:guid}/reset-password", async (Guid id, ResetPasswordInput input,
-            ClaimsPrincipal principal, MealTraceDbContext db, UserManager<ApplicationUser> manager) =>
-        {
-            var actorId = Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
-            if (id == actorId)
-                return Results.BadRequest(new { message = "Đổi mật khẩu của chính bạn tại Hồ sơ của tôi." });
-            var reason = input.Reason?.Trim();
-            if (string.IsNullOrWhiteSpace(reason) || reason.Length > 500)
-                return Results.BadRequest(new { message = "Cần lý do đặt lại mật khẩu, tối đa 500 ký tự." });
-            await using var transaction = await db.Database.BeginTransactionAsync();
-            var user = await manager.FindByIdAsync(id.ToString());
-            if (user is null) return Results.NotFound(new { message = "Không tìm thấy tài khoản." });
-            var temporaryPassword = TemporaryPassword.Generate();
-            var token = await manager.GeneratePasswordResetTokenAsync(user);
-            // Identity hashes the password and changes SecurityStamp, revoking old JWTs.
-            var result = await manager.ResetPasswordAsync(user, token, temporaryPassword);
-            if (!result.Succeeded)
-                return Results.Conflict(new { message = "Không thể đặt lại mật khẩu. Hãy tải lại và thử lại." });
-            var unlock = await manager.SetLockoutEndDateAsync(user, null);
-            var clearFailures = await manager.ResetAccessFailedCountAsync(user);
-            if (!unlock.Succeeded || !clearFailures.Succeeded)
-                return Results.Conflict(new { message = "Không thể hoàn tất khôi phục tài khoản. Hãy thử lại." });
-            db.AccountPasswordResetAudits.Add(new AccountPasswordResetAudit
-            { UserId = user.Id, PerformedByUserId = actorId, Reason = reason });
-            await db.SaveChangesAsync();
-            await transaction.CommitAsync();
-            return Results.Ok(new { userId = user.Id, user.FullName, user.PhoneNumber, user.Email, temporaryPassword,
-                message = "Mật khẩu tạm chỉ hiển thị một lần. Các phiên đăng nhập cũ đã được thu hồi.",
-                isActive = user.IsActive });
-        }).WithName("AdminResetPassword");
+            ClaimsPrincipal principal, IMealTraceData db, IIdentityService manager) => (await AccountUseCases.ResetPasswordAsync(id, input, principal, db, manager)).ToHttpResult()).Produces<PasswordResetResponse>().WithName("AdminResetPassword");
 
         return app;
     }
-
-    private static async Task<string?> ValidateAsync(AccountInput input, MealTraceDbContext db)
-    {
-        if (string.IsNullOrWhiteSpace(input.FullName) || input.FullName.Length > 120) return "Họ tên không hợp lệ.";
-        if (string.IsNullOrWhiteSpace(input.Email) && string.IsNullOrWhiteSpace(input.PhoneNumber)) return "Cần SĐT hoặc email đăng nhập.";
-        if (!string.IsNullOrWhiteSpace(input.Email) && (input.Email.Length > 254 || !System.Net.Mail.MailAddress.TryCreate(input.Email.Trim(), out var parsed) || parsed.Address != input.Email.Trim())) return "Email không hợp lệ.";
-        if (!string.IsNullOrWhiteSpace(input.PhoneNumber) && PhoneNumbers.Normalize(input.PhoneNumber) is null) return "SĐT không hợp lệ (10 số, bắt đầu bằng 0 hoặc +84).";
-        if (input.Roles is null || input.ClassIds is null || input.StudentIds is null) return "Thiếu danh sách vai trò hoặc phạm vi.";
-        if (input.Roles.Distinct().Count() != input.Roles.Length || input.Roles.Any(x => !RoleNames.All.Contains(x))) return "Vai trò không hợp lệ.";
-        if (input.Status is not ("ACTIVE" or "SUSPENDED")) return "Trạng thái không hợp lệ.";
-        if (input.Roles.Length == 0 && input.InspectorAccessUntil is null) return "Cần vai trò hoặc grant thanh tra.";
-        if (input.InspectorAccessUntil is not null && input.InspectorAccessUntil < DateOnly.FromDateTime(DateTime.UtcNow)) return "Grant thanh tra đã hết hạn.";
-        if (input.Roles.Contains(RoleNames.Teacher) && input.ClassIds.Length == 0) return "Giáo viên cần được phân công lớp.";
-        if (input.Roles.Contains(RoleNames.Parent) && input.StudentIds.Length == 0) return "Phụ huynh cần được liên kết học sinh.";
-        if (input.ClassIds.Length > 0 && (!input.Roles.Contains(RoleNames.Teacher) || await db.Classes.CountAsync(x => input.ClassIds.Contains(x.Id)) != input.ClassIds.Distinct().Count())) return "Phạm vi lớp không hợp lệ.";
-        if (input.StudentIds.Length > 0 && (!input.Roles.Contains(RoleNames.Parent) || await db.Students.CountAsync(x => input.StudentIds.Contains(x.Id)) != input.StudentIds.Distinct().Count())) return "Phạm vi học sinh không hợp lệ.";
-        return null;
-    }
-
-    private static async Task ReplaceScopesAsync(MealTraceDbContext db, Guid userId, AccountInput input, Guid adminId)
-    {
-        await db.TeacherAssignments.Where(x => x.UserId == userId).ExecuteDeleteAsync();
-        await db.ParentStudents.Where(x => x.UserId == userId).ExecuteDeleteAsync();
-        db.TeacherAssignments.AddRange(input.ClassIds.Distinct().Select(classId => new TeacherAssignment { UserId = userId, ClassId = classId }));
-        db.ParentStudents.AddRange(input.StudentIds.Distinct().Select(studentId => new ParentStudent { UserId = userId, StudentId = studentId }));
-        var grant = await db.InspectorGrants.FindAsync(userId);
-        if (input.InspectorAccessUntil is null && grant is not null) db.InspectorGrants.Remove(grant);
-        else if (input.InspectorAccessUntil is not null)
-        {
-            if (grant is null) db.InspectorGrants.Add(new InspectorGrant { UserId = userId, ExpiresOn = input.InspectorAccessUntil.Value, GrantedById = adminId });
-            else { grant.ExpiresOn = input.InspectorAccessUntil.Value; grant.GrantedById = adminId; grant.GrantedAt = DateTimeOffset.UtcNow; }
-        }
-        await db.SaveChangesAsync();
-    }
-
-    private static bool TryIds(string? value, out Guid[] ids)
-    {
-        var parts = (value ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-        ids = [];
-        if (parts.Length > 1000 || parts.Any(x => !Guid.TryParse(x, out _))) return false;
-        ids = parts.Select(Guid.Parse).Distinct().ToArray(); return true;
-    }
-
-    private static AccountView ToView(ApplicationUser user, AccountInput input) =>
-        new(user.Id, user.FullName, user.Email ?? "", input.Roles, user.IsActive ? "ACTIVE" : "SUSPENDED", input.ClassIds, input.StudentIds, input.InspectorAccessUntil, user.PhoneNumber);
 }
