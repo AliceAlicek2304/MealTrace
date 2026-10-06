@@ -18,10 +18,10 @@ public sealed class VonageWhatsAppTests
             using var body = JsonDocument.Parse(json);
             Assert.Equal("whatsapp", body.RootElement.GetProperty("channel").GetString());
             Assert.Equal("84901234567", body.RootElement.GetProperty("to").GetString());
-            Assert.Equal("Child A; password: Fake!9", body.RootElement.GetProperty("text").GetString());
+            Assert.Equal("Đăng ký cho trẻ Nguyễn An\nMật khẩu tạm: Fake!9", body.RootElement.GetProperty("text").GetString());
             return Response(202, "{\"message_uuid\":\"6f0fbaaa-d839-4d11-9744-801ebfa2b82e\"}");
         });
-        Assert.Equal(NotificationOutcome.Accepted, (await Sender(handler).SendAsync("84901234567", default, "Child A; password: Fake!9")).Outcome);
+        Assert.Equal(NotificationOutcome.Accepted, (await Sender(handler).SendAsync("84901234567", default, "Đăng ký cho trẻ Nguyễn An\nMật khẩu tạm: Fake!9")).Outcome);
     }
 
     [Theory]

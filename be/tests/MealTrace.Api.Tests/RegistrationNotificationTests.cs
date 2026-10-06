@@ -49,7 +49,10 @@ public sealed class RegistrationNotificationTests
         Assert.Equal(failNotification ? "UNKNOWN" : "ACCEPTED", result.GetProperty("notification").GetProperty("status").GetString());
         Assert.Equal(1, sender.Calls);
         Assert.Equal("84901234567", sender.Number);
-        Assert.Contains("Child Notification", sender.Text);
+        Assert.Contains("MEALTRACE | THÔNG BÁO ĐĂNG KÝ\n\nKính gửi Quý phụ huynh,", sender.Text);
+        Assert.Contains("Hồ sơ của Child Notification đã được đăng ký", sender.Text);
+        Assert.Contains("THÔNG TIN ĐĂNG NHẬP\nTài khoản (SĐT): 0901234567\n", sender.Text);
+        Assert.Contains("Mật khẩu tạm:", sender.Text);
         Assert.Contains(password, sender.Text);
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/admin/students/{childId}/parents", new { phoneNumber = "0901234567", fullName = "Guardian", sendRegistrationNotification = true })).StatusCode);
         Assert.Equal(1, sender.Calls);
@@ -99,8 +102,9 @@ public sealed class RegistrationNotificationTests
         Assert.Equal(0, sender.Calls);
         Assert.Equal("ACCEPTED", (await service.SendAsync("0901234567")).Status);
         Assert.Equal(1, sender.Calls);
-        Assert.Contains("mat khau hien tai", sender.Text);
-        Assert.DoesNotContain("Mat khau tam:", sender.Text);
+        Assert.Contains("mật khẩu hiện tại", sender.Text);
+        Assert.Contains("Nếu quên mật khẩu, vui lòng liên hệ quản trị viên", sender.Text);
+        Assert.DoesNotContain("Mật khẩu tạm:", sender.Text);
     }
 
     private sealed class RecordingSender(bool fail) : INotificationSender
