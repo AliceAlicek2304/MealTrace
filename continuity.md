@@ -63,6 +63,7 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 ## 6. Làm việc chung
 
 - Làm trên nhánh cá nhân, bàn giao phần BE hoàn chỉnh theo luồng và review trước merge main; tránh làm gián đoạn các bạn khác.
+- Quy ước Application: class xử lý nghiệp vụ dùng hậu tố `Service` (AuthService, WorkflowService, MealCalendarService…). Endpoint gọi Service; Service gọi repository qua interface; giữ phân tầng Clean Architecture.
 - Thay DbContext/entities/Program hoặc API dùng chung cần phối hợp; giữ tương thích FE.
 - Quy ước FE: trang quản lý mở bằng danh sách table; thanh tìm kiếm/lọc trên bảng, thao tác theo dòng mở modal. Giữ claymorphism cho màu sắc/nút; dùng hủy/ngừng học/khóa theo nghiệp vụ để bảo toàn lịch sử.
 - Không push secrets, cấu hình DB/JWT local, checklist thủ công hoặc continuity cá nhân. Chi tiết test tự động/đo hiệu năng của Cường chỉ ghi local.

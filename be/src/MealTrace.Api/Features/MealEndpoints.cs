@@ -9,11 +9,11 @@ public static class MealEndpoints
     {
         var api = app.MapGroup("/api").WithTags("Meals").RequireAuthorization();
 
-        api.MapGet("/meal-days", async (DateOnly? from, DateOnly? to, MealUseCases service) => (await service.ListMealDaysAsync(from, to)).ToHttpResult()).Produces<MealDaySummary[]>(StatusCodes.Status200OK).RequireAuthorization(policy => policy.RequireRole(RoleNames.MealStaff)).WithName("ListMealDays");
+        api.MapGet("/meal-days", async (DateOnly? from, DateOnly? to, MealService service) => (await service.ListMealDaysAsync(from, to)).ToHttpResult()).Produces<MealDaySummary[]>(StatusCodes.Status200OK).RequireAuthorization(policy => policy.RequireRole(RoleNames.MealStaff)).WithName("ListMealDays");
 
-        api.MapGet("/meal-days/{id:guid}", async (Guid id, MealUseCases service) => (await service.GetMealDayAsync(id)).ToHttpResult()).Produces<MealDayDetail>(StatusCodes.Status200OK).RequireAuthorization(policy => policy.RequireRole(RoleNames.MealStaff)).WithName("GetMealDay");
+        api.MapGet("/meal-days/{id:guid}", async (Guid id, MealService service) => (await service.GetMealDayAsync(id)).ToHttpResult()).Produces<MealDayDetail>(StatusCodes.Status200OK).RequireAuthorization(policy => policy.RequireRole(RoleNames.MealStaff)).WithName("GetMealDay");
 
-        api.MapGet("/reports/{id:guid}/lineage", async (Guid id, MealUseCases service) => (await service.GetReportLineageAsync(id)).ToHttpResult()).Produces<ReportLineageResponse>(StatusCodes.Status200OK).RequireAuthorization(policy => policy.RequireRole(RoleNames.ReportReaders)).WithName("GetReportLineage");
+        api.MapGet("/reports/{id:guid}/lineage", async (Guid id, MealService service) => (await service.GetReportLineageAsync(id)).ToHttpResult()).Produces<ReportLineageResponse>(StatusCodes.Status200OK).RequireAuthorization(policy => policy.RequireRole(RoleNames.ReportReaders)).WithName("GetReportLineage");
 
         return app;
     }

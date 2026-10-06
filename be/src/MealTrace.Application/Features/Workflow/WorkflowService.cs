@@ -13,7 +13,7 @@ using MealTrace.Domain.Time;
 using MealTrace.Application.Dtos.Students;
 
 namespace MealTrace.Application.Features.Workflow;
-public sealed class WorkflowUseCases(IWorkflowRepository repository, MealCalendarUseCases calendar, MealDecisionService decisionService, PortionService portions, ICurrentActor currentActor, TimeProvider clock, IIdentityService users, IUnitOfWork unitOfWork)
+public sealed class WorkflowService(IWorkflowRepository repository, MealCalendarService calendar, MealDecisionService decisionService, PortionService portions, ICurrentActor currentActor, TimeProvider clock, IIdentityService users, IUnitOfWork unitOfWork)
 {
     public async Task<Result<List<AcademicYearResponse>>> ListAcademicYearsAsync()
     {
@@ -395,7 +395,7 @@ public sealed class WorkflowUseCases(IWorkflowRepository repository, MealCalenda
         await calendar.LockYear(schoolYear);
         if (!await calendar.Allows(schoolYear, input.Date, mealType))
             return Result.Invalid("Ngày/phiên không có trong lịch bữa ăn. Thiết lập lịch tuần hoặc ngày đặc biệt trước.");
-        if (MealCalendarUseCases.Cutoff(input.Date) <= clock.GetUtcNow())
+        if (MealCalendarService.Cutoff(input.Date) <= clock.GetUtcNow())
             return Result.Conflict("Đã qua giờ chốt; không tạo phiên mới cho ngày này.");
         if (await repository.MealSessionExistsAsync(input, mealType))
             return Result.Conflict("Phiên ăn này đã tồn tại.");

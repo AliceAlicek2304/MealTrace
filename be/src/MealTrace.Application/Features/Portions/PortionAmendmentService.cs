@@ -5,7 +5,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Domain.Security;
 
 namespace MealTrace.Application.Features.Portions;
-public sealed class PortionAmendmentUseCases(IPortionAmendmentRepository repository, ICurrentActor currentActor, TimeProvider clock, IUnitOfWork unitOfWork)
+public sealed class PortionAmendmentService(IPortionAmendmentRepository repository, ICurrentActor currentActor, TimeProvider clock, IUnitOfWork unitOfWork)
 {
     private Guid Actor() => currentActor.UserId ?? throw new InvalidOperationException("An authenticated actor is required.");
     private static bool ValidReason(string? reason) => !string.IsNullOrWhiteSpace(reason) && reason.Trim().Length <= 500;

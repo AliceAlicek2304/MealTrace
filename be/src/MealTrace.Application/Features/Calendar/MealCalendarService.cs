@@ -10,7 +10,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Domain.Time;
 
 namespace MealTrace.Application.Features.Calendar;
-public sealed class MealCalendarUseCases(IMealCalendarRepository repository, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
+public sealed class MealCalendarService(IMealCalendarRepository repository, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
 {
     public static DateTimeOffset Cutoff(DateOnly date) => SchoolTime.Cutoff(date);
     private DateOnly Today() => SchoolTime.Today(clock.GetUtcNow());

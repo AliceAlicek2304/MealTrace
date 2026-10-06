@@ -18,7 +18,7 @@ public sealed class ApiContractTests
     [Fact]
     public void DtoPropertiesCannotExposeDomainEntitiesOrUntypedObjects()
     {
-        var contracts = typeof(WorkflowUseCases).Assembly.GetExportedTypes()
+        var contracts = typeof(WorkflowService).Assembly.GetExportedTypes()
             .Where(type => type.Namespace?.StartsWith("MealTrace.Application.Dtos.") == true);
         foreach (var contract in contracts)
             foreach (var property in contract.GetProperties(BindingFlags.Public | BindingFlags.Instance))

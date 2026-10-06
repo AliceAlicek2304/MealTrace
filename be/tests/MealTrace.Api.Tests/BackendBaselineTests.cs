@@ -165,9 +165,9 @@ public sealed class BackendBaselineTests
             using var admin = factory.CreateClient(); using var teacher = factory.CreateClient();
             await Authorize(admin, users.AdminEmail, users.Password);
             await Authorize(teacher, users.TeacherEmail, users.Password);
-            var day = new MealDay { Date = date, MealType = "Lunch", SchoolYear = "2026-2027", CutoffAt = MealCalendarUseCases.Cutoff(date) };
+            var day = new MealDay { Date = date, MealType = "Lunch", SchoolYear = "2026-2027", CutoffAt = MealCalendarService.Cutoff(date) };
             var history = new MealDay { Date = date.AddDays(1), MealType = "Lunch", SchoolYear = day.SchoolYear,
-                CutoffAt = MealCalendarUseCases.Cutoff(date.AddDays(1)), SettledAt = clock.GetUtcNow() };
+                CutoffAt = MealCalendarService.Cutoff(date.AddDays(1)), SettledAt = clock.GetUtcNow() };
             int roomCount = count / 25;
             using (var scope = factory.Services.CreateScope())
             {
@@ -223,7 +223,7 @@ public sealed class BackendBaselineTests
                 // A realistic year of sessions exercises calendar and date pagination without writing through production APIs.
                 for (var offset = 2; offset < 300; offset++)
                     if (date.AddDays(offset).DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
-                        db.MealDays.Add(new() { Date = date.AddDays(offset), MealType = "Lunch", SchoolYear = day.SchoolYear, CutoffAt = MealCalendarUseCases.Cutoff(date.AddDays(offset)) });
+                        db.MealDays.Add(new() { Date = date.AddDays(offset), MealType = "Lunch", SchoolYear = day.SchoolYear, CutoffAt = MealCalendarService.Cutoff(date.AddDays(offset)) });
                 await db.SaveChangesAsync();
                 // Resolve only these existing tables in the isolated SearchPath; never ANALYZE the whole database.
                 await db.Database.ExecuteSqlRawAsync("ANALYZE \"Students\", \"Enrollments\", \"Classes\", \"MealDays\", \"MealAbsences\", \"MealRegistrations\", \"AcademicYears\", \"PortionSettlements\", \"SettlementStudents\", \"ParentStudents\", \"TeacherAssignments\"");
