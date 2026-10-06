@@ -8,8 +8,8 @@ namespace MealTrace.Application.Abstractions.Repositories;
 /// <summary>Typed data operations for this module. Mutation methods do not commit; the use case owns the unit of work.</summary>
 public interface IAccountRepository
 {
-    Task<int> CountAccountsAsync(Guid? classId);
-    Task<List<IdentityAccount>> ListAccountsAsync(Guid? classId, int number, int size);
+    Task<int> CountAccountsAsync(Guid? classId, string? search, string? role);
+    Task<List<IdentityAccount>> ListAccountsAsync(Guid? classId, int number, int size, string? search, string? role);
     Task<List<AccountRoleRow>> ListAccountRolesAsync(Guid[] ids);
     Task<List<TeacherAssignment>> ListTeacherAssignmentsAsync(Guid[] ids);
     Task<List<ParentStudent>> ListParentLinksAsync(Guid[] ids);

@@ -215,6 +215,51 @@ internal sealed class WorkflowRepository(MealTraceDbContext db) : IWorkflowRepos
             return await db.MealAbsences.AnyAsync(x => x.Id != id && x.StudentId == absence.StudentId && x.CancelledAt == null && x.FromDate <= input.ToDate && x.ToDate >= input.FromDate);
         });
     }
+    public Task<List<AbsenceStudentOption>> ListAbsenceStudentOptionsAsync(Guid userId, CancellationToken ct) =>
+        PersistenceErrors.ExecuteAsync(() => db.Students.AsNoTracking()
+            .Where(x => db.ParentStudents.Any(p => p.UserId == userId && p.StudentId == x.Id)
+                && db.MealAbsences.Any(a => a.ReportedByUserId == userId && a.StudentId == x.Id))
+            .OrderBy(x => x.FullName).ThenBy(x => x.Id).Select(x => new AbsenceStudentOption(x.Id, x.FullName)).ToListAsync(ct));
+
+    private IQueryable<MealAbsence> FilterReportedAbsences(AbsenceListFilter filter)
+    {
+        var query = db.MealAbsences.AsNoTracking().Where(x => x.ReportedByUserId == filter.UserId
+            && db.ParentStudents.Any(p => p.UserId == filter.UserId && p.StudentId == x.StudentId));
+        if (filter.StudentId is not null) query = query.Where(x => x.StudentId == filter.StudentId);
+        if (!string.IsNullOrEmpty(filter.Search))
+        {
+            var term = filter.Search.ToLower();
+            query = query.Where(x => x.Student.FullName.ToLower().Contains(term) || x.Reason.ToLower().Contains(term));
+        }
+        query = filter.Status switch
+        {
+            "CANCELLED" => query.Where(x => x.CancelledAt != null),
+            "EXPIRED" => query.Where(x => x.CancelledAt == null && x.ToDate < filter.Today),
+            "UPCOMING" => query.Where(x => x.CancelledAt == null && x.FromDate > filter.Today),
+            "ACTIVE" => query.Where(x => x.CancelledAt == null && x.FromDate <= filter.Today && x.ToDate >= filter.Today),
+            _ => query
+        };
+        return query;
+    }
+
+    public Task<int> CountReportedAbsencesAsync(AbsenceListFilter filter, CancellationToken ct) =>
+        PersistenceErrors.ExecuteAsync(() => FilterReportedAbsences(filter).CountAsync(ct));
+
+    public Task<List<AbsenceSummary>> SearchReportedAbsencesAsync(AbsenceListFilter filter, int page, int size, CancellationToken ct) =>
+        PersistenceErrors.ExecuteAsync(() => FilterReportedAbsences(filter).OrderByDescending(x => x.ReportedAt).ThenBy(x => x.Id)
+            .Skip((page - 1) * size).Take(size).Select(x => new AbsenceSummary
+            {
+                Id = x.Id,
+                StudentId = x.StudentId,
+                StudentName = x.Student.FullName,
+                FromDate = x.FromDate,
+                ToDate = x.ToDate,
+                Reason = x.Reason,
+                ReportedAt = x.ReportedAt,
+                CancelledAt = x.CancelledAt,
+                SchoolYear = x.SchoolYear ?? db.Enrollments.Where(e => e.StudentId == x.StudentId && e.StartDate <= x.FromDate && (e.EndDate == null || e.EndDate > x.FromDate)).Select(e => e.Class.SchoolYear).FirstOrDefault()
+            }).ToListAsync(ct));
+
     public async Task<List<AbsenceSummary>> ListReportedAbsencesAsync(Guid reportedByUserId, Guid guardianUserId)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>

@@ -11,24 +11,37 @@ namespace MealTrace.Infrastructure.Persistence.Repositories;
 
 internal sealed class AccountRepository(MealTraceDbContext db) : IAccountRepository
 {
-    public async Task<int> CountAccountsAsync(Guid? classId)
+    private IQueryable<IdentityAccount> FilterAccounts(Guid? classId, string? search, string? role)
+    {
+        var query = db.Users.Select(IdentityService.AccountProjection).AsNoTracking();
+        if (classId is not null)
+            query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == x.Id && a.ClassId == classId));
+        if (!string.IsNullOrEmpty(search))
+        {
+            var term = search.ToLower();
+            query = query.Where(x => x.FullName.ToLower().Contains(term)
+                || (x.Email != null && x.Email.ToLower().Contains(term))
+                || (x.PhoneNumber != null && x.PhoneNumber.Contains(term)));
+        }
+        if (!string.IsNullOrEmpty(role))
+            query = query.Where(x => db.UserRoles.Any(link => link.UserId == x.Id && db.Roles.Any(r => r.Id == link.RoleId && r.Name == role)));
+        return query;
+    }
+
+    public async Task<int> CountAccountsAsync(Guid? classId, string? search, string? role)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            var query = db.Users.Select(IdentityService.AccountProjection).AsNoTracking().AsQueryable();
-            if (classId is not null)
-                query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == x.Id && a.ClassId == classId));
+            var query = FilterAccounts(classId, search, role);
             return await query.CountAsync();
         });
     }
-    public async Task<List<IdentityAccount>> ListAccountsAsync(Guid? classId, int number, int size)
+    public async Task<List<IdentityAccount>> ListAccountsAsync(Guid? classId, int number, int size, string? search, string? role)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            var query = db.Users.Select(IdentityService.AccountProjection).AsNoTracking().AsQueryable();
-            if (classId is not null)
-                query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == x.Id && a.ClassId == classId));
-            return await query.OrderBy(x => x.Email).Skip((number - 1) * size).Take(size).ToListAsync();
+            var query = FilterAccounts(classId, search, role);
+            return await query.OrderBy(x => x.Email).ThenBy(x => x.Id).Skip((number - 1) * size).Take(size).ToListAsync();
         });
     }
     public async Task<List<AccountRoleRow>> ListAccountRolesAsync(Guid[] ids)

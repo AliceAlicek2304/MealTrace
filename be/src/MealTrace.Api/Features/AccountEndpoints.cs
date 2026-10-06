@@ -19,7 +19,7 @@ public static class AccountEndpoints
             catch (PersistenceConflictException) { return Results.Conflict(new MessageResponse("Dữ liệu tài khoản vừa thay đổi hoặc bị trùng. Hãy tải lại và thử lại.")); }
         });
 
-        group.MapGet("/users", async (int? page, int? pageSize, Guid? classId, AccountService service) => (await service.ListAccountsAsync(page, pageSize, classId)).ToHttpResult()).Produces<AccountListResponse>(StatusCodes.Status200OK).WithName("ListUsers");
+        group.MapGet("/users", async (int? page, int? pageSize, Guid? classId, string? search, string? role, AccountService service) => (await service.ListAccountsAsync(page, pageSize, classId, search, role)).ToHttpResult()).Produces<AccountListResponse>(StatusCodes.Status200OK).WithName("ListUsers");
 
         group.MapGet("/users/{id:guid}", async (Guid id, AccountService service) => (await service.GetAccountAsync(id)).ToHttpResult()).Produces<AccountView>().WithName("GetUser");
 

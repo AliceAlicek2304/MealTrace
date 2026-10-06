@@ -17,8 +17,8 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return (await api.post<LoginResponse>('/auth/login', { identifier: email, password })).data
 }
 export type UserPage = { items: SchoolUser[]; total: number; page: number; pageSize: number }
-export async function listUsers(page: number, classId: string): Promise<UserPage> {
-  return (await api.get<UserPage>('/admin/users', { params: { page, pageSize: 25, classId: classId || undefined } })).data
+export async function listUsers(page: number, classId: string, search = '', role = 'ALL'): Promise<UserPage> {
+  return (await api.get<UserPage>('/admin/users', { params: { page, pageSize: 25, classId: classId || undefined, search: search.trim() || undefined, role: role === 'ALL' ? undefined : role } })).data
 }
 export async function getScopeOptions(params: { search?: string; classId?: string; classPage?: number; studentPage?: number; selectedClassIds?: string; selectedStudentIds?: string } = {}): Promise<ScopeOptions> {
   return (await api.get<ScopeOptions>('/admin/scope-options', { params })).data

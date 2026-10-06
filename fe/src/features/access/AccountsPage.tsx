@@ -1,5 +1,7 @@
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
+import { SearchFeedback } from '../../components/SearchFeedback'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { KeyRound, Pencil, Plus, Search, Users } from 'lucide-react'
 import { apiErrorMessage } from '../../lib/api'
 import { createUser, getScopeOptions, listUsers, resetUserPassword, updateUser } from './authApi'
@@ -15,6 +17,8 @@ export function AccountsPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const searchTerm = useDebouncedValue(search.trim())
+  const searchWaiting = search.trim() !== searchTerm
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL')
   const [classFilter, setClassFilter] = useState('')
   const [current, setCurrent] = useState<SchoolUser | null>(null)
@@ -25,16 +29,16 @@ export function AccountsPage() {
   const [resetPending, setResetPending] = useState(false)
   const [credentialLabel, setCredentialLabel] = useState('')
   const [temporaryPassword, setTemporaryPassword] = useState('')
-  const userQuery = useQuery({ queryKey: ['admin-users', page, classFilter], queryFn: () => listUsers(page, classFilter) })
+  const userQuery = useQuery({ queryKey: ['admin-users', page, classFilter, searchTerm, roleFilter], enabled: !searchWaiting, queryFn: () => listUsers(page, classFilter, searchTerm, roleFilter) })
+  useEffect(() => {
+    if (userQuery.data) setPage(previous => Math.min(previous, Math.max(1, Math.ceil(userQuery.data.total / 25))))
+  }, [userQuery.data])
   const selectedClassIds = (userQuery.data?.items ?? []).flatMap(user => user.classIds).join(',')
   const selectedStudentIds = (userQuery.data?.items ?? []).flatMap(user => user.studentIds).join(',')
   const scopeQuery = useQuery({ queryKey: ['scope-options', selectedClassIds, selectedStudentIds], queryFn: () => getScopeOptions({ selectedClassIds, selectedStudentIds }) })
   const users = userQuery.data?.items ?? []
   const scopes = scopeQuery.data ?? { classes: [], students: [] }
-  const filtered = useMemo(() => users.filter(user => {
-    const matchesText = `${user.fullName} ${user.email} ${user.phoneNumber ?? ''}`.toLocaleLowerCase('vi-VN').includes(search.toLocaleLowerCase('vi-VN').trim())
-    return matchesText && (roleFilter === 'ALL' || user.roles.includes(roleFilter))
-  }), [users, search, roleFilter])
+
 
   async function save(draft: UserDraft) {
     const cleaned = {
@@ -86,8 +90,9 @@ export function AccountsPage() {
     {formOpen && <Modal title={current ? `Chỉnh sửa ${current.fullName}` : 'Thêm tài khoản mới'} description="Vai trò và phạm vi được kiểm tra trước khi lưu." wide busy={editSaving} onClose={() => { setFormOpen(false); setCurrent(null) }}>
       {scopeQuery.isPending ? <div className="empty compact">Đang tải lớp và học sinh…</div> : scopeQuery.isError ? <div className="empty compact error">Không tải được danh mục phạm vi.</div> : <UserForm key={current?.id ?? 'new'} current={current} users={users} onSave={save} onSavingChange={setEditSaving} onCancel={() => { setFormOpen(false); setCurrent(null) }} />}
     </Modal>}
-    <section className="panel"><div className="panel-head"><div><h2>Danh sách tài khoản</h2><p>{total} tài khoản · trang {page}</p></div><Users size={20} /></div><div className="toolbar"><label className="search"><Search size={17} /><input aria-label="Tìm tài khoản trong trang" placeholder="Tìm trong trang hiện tại" value={search} onChange={event => setSearch(event.target.value)} /></label><select aria-label="Lọc theo vai trò trong trang" value={roleFilter} onChange={event => setRoleFilter(event.target.value as Role | 'ALL')}><option value="ALL">Tất cả vai trò</option>{roles.map(role => <option key={role.id} value={role.id}>{role.label}</option>)}</select><ClassPicker compact value={classFilter} label="Lớp giáo viên phụ trách" onChange={id => { setClassFilter(id); setPage(1) }} /></div>
-      {userQuery.isPending ? <div className="empty compact">Đang tải tài khoản…</div> : userQuery.isError ? <div className="empty compact error">{apiErrorMessage(userQuery.error)}</div> : <div className="table-wrap"><table><thead><tr><th>Tài khoản</th><th>Vai trò</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr></thead><tbody>{filtered.map(user => <tr key={user.id}><td><strong>{user.fullName}</strong><small>{[user.phoneNumber, user.email].filter(Boolean).join(' · ')}</small></td><td><div className="chips">{user.roles.map(role => <span key={role}>{roleName(role)}</span>)}{user.inspectorAccessUntil && <span className="inspector-chip">Thanh tra đến {user.inspectorAccessUntil}</span>}</div></td><td className="scope-cell">{user.roles.includes('TEACHER') && <span>Lớp: {user.classIds.map(id => (scopes.selectedClasses ?? scopes.classes).find(item => item.id === id)?.name ?? id).join(', ') || 'Chưa gán'}</span>}{user.roles.includes('PARENT') && <span>Con: {user.studentIds.map(id => (scopes.selectedStudents ?? scopes.students).find(item => item.id === id)?.name ?? id).join(', ') || 'Chưa liên kết'}</span>}{!user.roles.includes('TEACHER') && !user.roles.includes('PARENT') && <span>{user.inspectorAccessUntil && !user.roles.length ? 'Chỉ đọc có hạn' : 'Phạm vi trường'}</span>}</td><td><span className={user.status === 'ACTIVE' ? 'status active' : 'status suspended'}>{user.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}</span></td><td><button type="button" className="icon-button" title={`Sửa ${user.fullName}`} aria-label={`Sửa ${user.fullName}`} onClick={() => { setResetTarget(null); setCurrent(user); setFormOpen(true); setTemporaryPassword('') }}><Pencil size={17} /></button><button type="button" className="icon-button" disabled={resetPending} title={`Đặt lại mật khẩu ${user.fullName}`} aria-label={`Đặt lại mật khẩu ${user.fullName}`} onClick={() => { setResetTarget(user); setResetReason(''); setFormOpen(false); setCurrent(null); setTemporaryPassword('') }}><KeyRound size={17} /></button></td></tr>)}</tbody></table>{!filtered.length && <div className="empty compact">Không có tài khoản phù hợp bộ lọc.</div>}</div>}
-      <div className="pagination"><button type="button" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Trang trước</button><span>{page} / {Math.max(1, Math.ceil(total / 25))}</span><button type="button" disabled={page * 25 >= total} onClick={() => setPage(value => value + 1)}>Trang sau</button></div></section>
+    <section className="panel"><div className="panel-head"><div><h2>Danh sách tài khoản</h2><p>{total} tài khoản · trang {page}</p></div><Users size={20} /></div><div className="toolbar"><label className="search"><Search size={17} /><input aria-label="Tìm tài khoản" placeholder="Tên, email hoặc số điện thoại" value={search} onChange={event => { setSearch(event.target.value); setPage(1) }} /></label><select aria-label="Lọc theo vai trò" value={roleFilter} onChange={event => { setRoleFilter(event.target.value as Role | 'ALL'); setPage(1) }}><option value="ALL">Tất cả vai trò</option>{roles.map(role => <option key={role.id} value={role.id}>{role.label}</option>)}</select><ClassPicker compact value={classFilter} label="Lớp giáo viên phụ trách" onChange={id => { setClassFilter(id); setPage(1) }} /></div>
+      <SearchFeedback waiting={searchWaiting} fetching={userQuery.isFetching} />
+    {userQuery.isPending ? <div className="empty compact">Đang tải tài khoản…</div> : userQuery.isError ? <div className="empty compact error">{apiErrorMessage(userQuery.error)}</div> : <div className="table-wrap"><table><thead><tr><th>Tài khoản</th><th>Vai trò</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr></thead><tbody>{users.map(user => <tr key={user.id}><td><strong>{user.fullName}</strong><small>{[user.phoneNumber, user.email].filter(Boolean).join(' · ')}</small></td><td><div className="chips">{user.roles.map(role => <span key={role}>{roleName(role)}</span>)}{user.inspectorAccessUntil && <span className="inspector-chip">Thanh tra đến {user.inspectorAccessUntil}</span>}</div></td><td className="scope-cell">{user.roles.includes('TEACHER') && <span>Lớp: {user.classIds.map(id => (scopes.selectedClasses ?? scopes.classes).find(item => item.id === id)?.name ?? id).join(', ') || 'Chưa gán'}</span>}{user.roles.includes('PARENT') && <span>Con: {user.studentIds.map(id => (scopes.selectedStudents ?? scopes.students).find(item => item.id === id)?.name ?? id).join(', ') || 'Chưa liên kết'}</span>}{!user.roles.includes('TEACHER') && !user.roles.includes('PARENT') && <span>{user.inspectorAccessUntil && !user.roles.length ? 'Chỉ đọc có hạn' : 'Phạm vi trường'}</span>}</td><td><span className={user.status === 'ACTIVE' ? 'status active' : 'status suspended'}>{user.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}</span></td><td><button type="button" className="icon-button" title={`Sửa ${user.fullName}`} aria-label={`Sửa ${user.fullName}`} onClick={() => { setResetTarget(null); setCurrent(user); setFormOpen(true); setTemporaryPassword('') }}><Pencil size={17} /></button><button type="button" className="icon-button" disabled={resetPending} title={`Đặt lại mật khẩu ${user.fullName}`} aria-label={`Đặt lại mật khẩu ${user.fullName}`} onClick={() => { setResetTarget(user); setResetReason(''); setFormOpen(false); setCurrent(null); setTemporaryPassword('') }}><KeyRound size={17} /></button></td></tr>)}</tbody></table>{!users.length && <div className="empty compact">{searchTerm || roleFilter !== 'ALL' || classFilter ? 'Không có tài khoản phù hợp bộ lọc.' : 'Chưa có tài khoản.'}</div>}</div>}
+      <div className="pagination"><button type="button" disabled={searchWaiting || userQuery.isFetching || page <= 1} onClick={() => setPage(value => value - 1)}>Trang trước</button><span>{page} / {Math.max(1, Math.ceil(total / 25))}</span><button type="button" disabled={searchWaiting || userQuery.isFetching || page * 25 >= total} onClick={() => setPage(value => value + 1)}>Trang sau</button></div></section>
   </>
 }

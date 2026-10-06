@@ -1,3 +1,5 @@
+using MealTrace.Application.Dtos.Common;
+using MealTrace.Application.Models.Persistence;
 using MealTrace.Application.Features.Portions;
 using MealTrace.Application.Features.Meals;
 using MealTrace.Application.Features.Calendar;
@@ -360,6 +362,20 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
             Id = replacement.Id,
             ReplacedId = id
         });
+    }
+
+    public async Task<Result<AbsenceListResponse>> SearchAbsencesAsync(Guid? studentId, string? status, string? search, int? page, int? pageSize, CancellationToken ct)
+    {
+        status = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToUpperInvariant();
+        search = search?.Trim();
+        if (search?.Length > 200 || (status is not null && status is not ("ACTIVE" or "EXPIRED" or "UPCOMING" or "CANCELLED")))
+            return Result.Invalid("Bộ lọc không hợp lệ; từ khóa tối đa 200 ký tự.");
+        var number = Math.Clamp(page ?? 1, 1, 100000);
+        var size = Math.Clamp(pageSize ?? 25, 1, 100);
+        var filter = new AbsenceListFilter(CurrentUserId(), studentId, status, search, SchoolTime.Today(clock.GetUtcNow()));
+        var total = await repository.CountReportedAbsencesAsync(filter, ct);
+        var items = await repository.SearchReportedAbsencesAsync(filter, number, size, ct);
+        return Result.Success(new AbsenceListResponse(items, total, number, size, await repository.ListAbsenceStudentOptionsAsync(filter.UserId, ct)));
     }
 
     public async Task<Result<List<AbsenceSummary>>> ListAbsencesAsync()

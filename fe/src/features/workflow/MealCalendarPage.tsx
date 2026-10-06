@@ -1,3 +1,4 @@
+import { schoolDateTime } from '../../lib/schoolTime'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -112,7 +113,7 @@ export function MealCalendarPage() {
         <div className="form-actions"><button type="button" className="button secondary" disabled={generate.isPending} onClick={() => setPreviewDialog(null)}>Đóng</button><button type="button" className="button primary" disabled={generate.isPending || !(previewDialog.data.createCount + previewDialog.data.restoreCount)} onClick={() => generate.mutate()}>Xác nhận tạo lịch</button></div>
       </div></Modal>}
     {historyOpen && <Modal title="Lịch sử thay đổi lịch bữa ăn" description="50 thay đổi gần nhất của năm học." onClose={() => setHistoryOpen(false)}><div className="workflow-form">
-      {history.isPending ? <p>Đang tải…</p> : history.isError ? <p className="error">{apiErrorMessage(history.error)}</p> : !history.data?.length ? <p>Chưa có thay đổi.</p> : history.data.map(item => <div className="entry" key={item.id}><strong>{auditLabel[item.kind]} {item.date}</strong><small>{item.actorName} · {new Date(item.recordedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</small><p>{item.reason}</p></div>)}
+      {history.isPending ? <p>Đang tải…</p> : history.isError ? <p className="error">{apiErrorMessage(history.error)}</p> : !history.data?.length ? <p>Chưa có thay đổi.</p> : history.data.map(item => <div className="entry" key={item.id}><strong>{auditLabel[item.kind]} {item.date}</strong><small>{item.actorName} · {schoolDateTime(item.recordedAt)}</small><p>{item.reason}</p></div>)}
     </div></Modal>}
   </>
 }

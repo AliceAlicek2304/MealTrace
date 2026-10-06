@@ -1,3 +1,5 @@
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
+import { SearchFeedback } from '../../components/SearchFeedback'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -20,8 +22,12 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
 }) {
   const cache = useQueryClient()
   const [classSearch, setClassSearch] = useState('')
+  const classSearchTerm = useDebouncedValue(classSearch.trim())
+  const classSearchWaiting = classSearch.trim() !== classSearchTerm
   const [classPage, setClassPage] = useState(1)
   const [search, setSearch] = useState('')
+  const searchTerm = useDebouncedValue(search.trim())
+  const searchWaiting = search.trim() !== searchTerm
   const [page, setPage] = useState(1)
   const [classId, setClassId] = useState(initialClassId)
   const [status, setStatus] = useState('')
@@ -32,10 +38,10 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
   const [reason, setReason] = useState('')
   const [withdraw, setWithdraw] = useState(false)
   const [historyTarget, setHistoryTarget] = useState<Student | null>(null)
-  const classes = useQuery({ queryKey: ['classes', 'admin', classSearch, classPage], enabled: view === 'classes',
-    queryFn: async () => (await api.get<Page<Room>>('/admin/classes', { params: { search: classSearch, page: classPage } })).data })
-  const students = useQuery({ queryKey: ['students', 'admin', search, page, classId, status], enabled: view === 'students',
-    queryFn: async () => (await api.get<Page<Student>>('/admin/students', { params: { search, page, classId: classId || undefined, status } })).data })
+  const classes = useQuery({ queryKey: ['classes', 'admin', classSearchTerm, classPage], enabled: !classSearchWaiting && view === 'classes',
+    queryFn: async () => (await api.get<Page<Room>>('/admin/classes', { params: { search: classSearchTerm, page: classPage } })).data })
+  const students = useQuery({ queryKey: ['students', 'admin', searchTerm, page, classId, status], enabled: !searchWaiting && view === 'students',
+    queryFn: async () => (await api.get<Page<Student>>('/admin/students', { params: { search: searchTerm, page, classId: classId || undefined, status } })).data })
   const history = useQuery({ queryKey: ['enrollments', historyTarget?.id], enabled: !!historyTarget,
     queryFn: async () => (await api.get<Enrollment[]>(`/admin/students/${historyTarget!.id}/enrollments`)).data })
   const save = useMutation({ mutationFn: async () => {
@@ -53,21 +59,23 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
   return <>
     {view === 'classes' && <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách lớp</h2><button type="button" className="button primary" onClick={onCreate}>Tạo lớp</button></div>
       <div className="list-toolbar"><label className="field">Tìm lớp<input placeholder="Tên lớp hoặc niên khóa" value={classSearch} onChange={e => { setClassSearch(e.target.value); setClassPage(1) }} /></label></div>
+      <SearchFeedback waiting={classSearchWaiting} fetching={classes.isFetching} />
       {classes.isPending ? <p className="empty compact">Đang tải…</p> : classes.isError ? <p className="empty compact error">{apiErrorMessage(classes.error)}</p> : <>
-        {!classes.data?.items.length && <p className="empty compact">Không có lớp phù hợp.</p>}
+        {!classes.data?.items.length && <p className="empty compact">{classSearchTerm ? 'Không có lớp phù hợp tìm kiếm.' : 'Chưa có lớp.'}</p>}
         <div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Trẻ đang học</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {classes.data?.items.map(room => <tr key={room.id}><td><strong>{room.name}</strong></td><td>{room.schoolYear}</td><td>{room.studentCount}</td>
           <td><div className="table-actions"><button type="button" className="button secondary" onClick={() => { setClassId(room.id); setPage(1); onViewStudents(room.id) }}>Xem trẻ</button>
             <button type="button" className="button secondary" onClick={() => open({ kind: 'class', room })}>Sửa lớp</button></div></td></tr>)}
         </tbody></table></div>
       </>}
-      <Pagination page={classPage} total={classes.data?.total ?? 0} pageSize={20} busy={classes.isFetching} onChange={setClassPage} />
+      <Pagination page={classPage} total={classes.data?.total ?? 0} pageSize={20} busy={classSearchWaiting || classes.isFetching} onChange={setClassPage} />
     </section>}
     {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách trẻ</h2><button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div><div className="list-toolbar"><ClassPicker compact value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
       <label className="field">Tìm trẻ<input placeholder="Mã trẻ hoặc họ tên" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
         <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label></div>
+      <SearchFeedback waiting={searchWaiting} fetching={students.isFetching} />
       {students.isPending ? <p className="empty compact">Đang tải…</p> : students.isError ? <p className="empty compact error">{apiErrorMessage(students.error)}</p> : <>
-        {!students.data?.items.length && <p className="empty compact">Không có trẻ phù hợp.</p>}
+        {!students.data?.items.length && <p className="empty compact">{searchTerm || classId || status ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ.'}</p>}
         <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {students.data?.items.map(student => <tr key={student.id}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
           <td>{student.parents.length ? student.parents.map(p => <div key={p.id}>{p.fullName}<small>{p.phoneNumber || p.email || 'Chưa có liên hệ'}</small></div>) : <span className="muted">Chưa liên kết</span>}</td>
@@ -78,7 +86,7 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
             <button type="button" className="icon-button" title="Liên kết phụ huynh" aria-label={`Liên kết phụ huynh ${student.fullName}`} onClick={() => onLink(student)}><UserRoundPlus size={17} /></button></div></td></tr>)}
         </tbody></table></div>
       </>}
-      <Pagination page={page} total={students.data?.total ?? 0} pageSize={20} busy={students.isFetching} onChange={setPage} />
+      <Pagination page={page} total={students.data?.total ?? 0} pageSize={20} busy={searchWaiting || students.isFetching} onChange={setPage} />
     </section>}
     {editor && <Modal title={editor.kind === 'class' ? 'Sửa lớp' : editor.kind === 'student' ? 'Sửa hồ sơ trẻ' : `Ghi danh: ${editor.student.fullName}`} busy={save.isPending} onClose={() => setEditor(null)}>
       <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!save.isPending) save.mutate() }}>

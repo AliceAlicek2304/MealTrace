@@ -1,3 +1,5 @@
+import { useDeadline } from '../../lib/useDeadline'
+import { schoolDateTime, schoolTime } from '../../lib/schoolTime'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../../lib/api'
@@ -40,6 +42,7 @@ export function PortionsPage({ roles }: { roles: string[] }) {
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   function submitDay(event: FormEvent) { event.preventDefault(); createDay.mutate() }
   const current = days.data?.items.find(day => day.id === selected) ?? picked
+  const cutoffPassed = useDeadline(portions.data?.cutoffAt ?? current?.cutoffAt)
   const cancelled = portions.data?.isCancelled ?? current?.isCancelled
   const settled = portions.data?.isSettled ?? current?.isSettled
   const total = portions.data?.classes.reduce((sum, room) => sum + (room.count ?? room.studentIds.length), 0) ?? 0
@@ -56,7 +59,7 @@ export function PortionsPage({ roles }: { roles: string[] }) {
       <label className="field">Lọc ngày ăn<input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setDayPage(1) }} /></label>
       <button type="button" className="button secondary" onClick={() => { setFilterDate(''); setDayPage(1) }}>Bỏ lọc</button></div>
       {days.isPending ? <p className="empty compact">Đang tải phiên ăn…</p> : days.isError ? <p className="empty compact error">Không tải được phiên ăn.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Ngày ăn</th><th scope="col">Bữa ăn</th><th scope="col">Năm học</th><th scope="col">Giờ chốt</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>
-        {days.data?.items.map(day => <tr key={day.id}><td>{day.date}</td><td><strong>{day.mealType}</strong></td><td>{day.schoolYear ?? 'Chưa gắn năm học'}</td><td>{new Date(day.cutoffAt).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })}</td><td><span className={`status ${day.isCancelled ? 'suspended' : day.isSettled ? 'active' : ''}`}>{day.isCancelled ? 'Đã hủy' : day.isSettled ? 'Đã chốt' : 'Chưa chốt'}</span></td><td><button type="button" className="button secondary" onClick={() => { setSelected(day.id); setPicked(day); setDetailTab('portions') }}>Xem / Quản lý</button></td></tr>)}
+        {days.data?.items.map(day => <tr key={day.id}><td>{day.date}</td><td><strong>{day.mealType}</strong></td><td>{day.schoolYear ?? 'Chưa gắn năm học'}</td><td>{schoolTime(day.cutoffAt)}</td><td><span className={`status ${day.isCancelled ? 'suspended' : day.isSettled ? 'active' : ''}`}>{day.isCancelled ? 'Đã hủy' : day.isSettled ? 'Đã chốt' : 'Chưa chốt'}</span></td><td><button type="button" className="button secondary" onClick={() => { setSelected(day.id); setPicked(day); setDetailTab('portions') }}>Xem / Quản lý</button></td></tr>)}
         {!days.data?.items.length && <tr><td colSpan={6} className="empty compact">Không có phiên ăn phù hợp.</td></tr>}
       </tbody></table></div>}
       <Pagination page={dayPage} total={days.data?.total ?? 0} pageSize={25} busy={days.isFetching} onChange={setDayPage} />
@@ -66,8 +69,8 @@ export function PortionsPage({ roles }: { roles: string[] }) {
         {(isAdmin || isTeacher) && <button type="button" aria-pressed={detailTab === 'exceptions'} onClick={() => setDetailTab('exceptions')}>{settled ? 'Nguồn trước điều chỉnh' : 'Nguồn / Ngoại lệ'}</button>}
         {settled && !cancelled && <button type="button" aria-pressed={detailTab === 'amendments'} onClick={() => setDetailTab('amendments')}>Điều chỉnh sau chốt</button>}</div>
     {detailTab === 'portions' && <section className="workflow-lists"><div className="panel-head"><div><h2>Suất ăn theo lớp</h2>
-      <p>Giờ chốt: {current ? new Date(current.cutoffAt).toLocaleString('vi-VN') : '—'} · {total} suất</p>{cancelled && <p className="error">Đã hủy: {portions.data?.cancellationReason ?? current?.cancellationReason}</p>}</div>
-      {isAdmin && current && !settled && !cancelled && <button type="button" className="button primary" disabled={settle.isPending || new Date() < new Date(current.cutoffAt)} onClick={() => setConfirmSettle(true)}>Chốt và gửi bếp</button>}</div>
+      <p>Giờ chốt: {current ? schoolDateTime(current.cutoffAt) : '—'} · {total} suất</p>{cancelled && <p className="error">Đã hủy: {portions.data?.cancellationReason ?? current?.cancellationReason}</p>}</div>
+      {isAdmin && current && !settled && !cancelled && <button type="button" className="button primary" disabled={settle.isPending || !cutoffPassed} onClick={() => setConfirmSettle(true)}>Chốt và gửi bếp</button>}</div>
       {portions.isPending ? <p className="empty compact">Đang tính số suất…</p> : portions.isError ? <p className="empty compact error">Không tải được danh sách.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Số suất</th><th scope="col">Trạng thái / phiên bản</th><th scope="col">Thao tác</th></tr></thead><tbody>{portions.data?.classes.map(room =>
         <tr key={room.classId}><td><strong>{room.className}</strong></td><td>{room.schoolYear}</td><td>{room.count ?? room.studentIds.length}{room.kitchenAdjustment !== 0 && <small>{room.studentIds.length} trẻ · bếp {room.kitchenAdjustment > 0 ? "+" : ""}{room.kitchenAdjustment}</small>}</td><td>{room.isSettled ? `Bản ${room.version} · gốc ${room.originalCount} suất` : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</td>
           <td><button type="button" className="button secondary" onClick={() => setRoster(room)}>Danh sách trẻ</button></td></tr>)}
@@ -76,6 +79,6 @@ export function PortionsPage({ roles }: { roles: string[] }) {
     {detailTab === 'amendments' && settled && !cancelled && portions.data && <PortionAmendments key={selected} mealId={selected} rooms={portions.data.classes} roles={roles} />}
     </Modal>}
     {roster && <Modal title={`Trẻ có suất · ${roster.className}`} onClose={() => setRoster(null)}><p className="workflow-form">{roster.studentIds.length} trẻ có suất · gửi bếp {roster.count ?? roster.studentIds.length} suất · điều chỉnh số lượng bếp {roster.kitchenAdjustment > 0 ? "+" : ""}{roster.kitchenAdjustment}</p><div className="table-wrap"><table><thead><tr><th scope="col">STT</th><th scope="col">Họ tên trẻ</th></tr></thead><tbody>{roster.studentNames.map((name, index) => <tr key={roster.studentIds[index]}><td>{index + 1}</td><td>{name}</td></tr>)}{!roster.studentNames.length && <tr><td colSpan={2} className="empty compact">Không có trẻ có suất.</td></tr>}</tbody></table></div></Modal>}
-    {confirmSettle && <Modal title="Xác nhận chốt suất" busy={settle.isPending} onClose={() => setConfirmSettle(false)}><div className="workflow-form"><p>Chốt {total} suất của {current?.mealType} ngày {current?.date} và gửi bếp? Bản chốt giữ nguyên; thay đổi sau đó cần gửi yêu cầu điều chỉnh.</p><div className="form-actions"><button type="button" className="button secondary" disabled={settle.isPending} onClick={() => setConfirmSettle(false)}>Quay lại</button><button type="button" className="button primary" disabled={settle.isPending || portions.isPending || portions.isError} onClick={() => settle.mutate()}>Xác nhận chốt</button></div></div></Modal>}
+    {confirmSettle && <Modal title="Xác nhận chốt suất" busy={settle.isPending} onClose={() => setConfirmSettle(false)}><div className="workflow-form"><p>Chốt {total} suất của {current?.mealType} ngày {current?.date} và gửi bếp? Bản chốt giữ nguyên; thay đổi sau đó cần gửi yêu cầu điều chỉnh.</p><div className="form-actions"><button type="button" className="button secondary" disabled={settle.isPending} onClick={() => setConfirmSettle(false)}>Quay lại</button><button type="button" className="button primary" disabled={settle.isPending || !cutoffPassed || cancelled || settled || portions.isPending || portions.isError} onClick={() => settle.mutate()}>Xác nhận chốt</button></div></div></Modal>}
   </>
 }

@@ -1,4 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { schoolToday } from '../../lib/schoolTime'
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
+import { SearchFeedback } from '../../components/SearchFeedback'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../../lib/api'
 import { toast } from 'sonner'
@@ -8,7 +11,7 @@ import { Pagination } from '../../components/Pagination'
 type Child = { studentId: string; fullName: string; className: string; schoolYear: string; yearStartDate: string | null; yearEndDate: string | null }
 type Year = { code: string; startDate: string; endDate: string }
 type Absence = { id: string; studentId: string; studentName: string; fromDate: string; toDate: string; reason: string; reportedAt: string; cancelledAt: string | null; schoolYear: string | null }
-const localToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+const localToday = schoolToday
 function periodEnd(start: string, period: 'week' | 'month') {
   const date = new Date(`${start}T00:00:00Z`)
   if (!Number.isFinite(date.getTime())) return ''
@@ -28,6 +31,8 @@ export function AbsencesPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<Absence | null>(null)
   const [search, setSearch] = useState('')
+  const searchTerm = useDebouncedValue(search.trim())
+  const searchWaiting = search.trim() !== searchTerm
   const [filterStudent, setFilterStudent] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [page, setPage] = useState(1)
@@ -43,7 +48,10 @@ export function AbsencesPage() {
   const years = useQuery({ queryKey: ['academic-years'], queryFn: async () => (await api.get<Year[]>('/academic-years')).data })
   const child = children.data?.find(x => x.studentId === studentId)
   const editYear = years.data?.find(x => x.code === editing?.schoolYear)
-  const absences = useQuery({ queryKey: ['parent-absences'], queryFn: async () => (await api.get<Absence[]>('/parent/absences')).data })
+  const absences = useQuery({ queryKey: ['parent-absences', page, filterStudent, filterStatus, searchTerm], enabled: !searchWaiting, queryFn: async () => (await api.get<{items: Absence[]; total: number; students: {studentId: string; name: string}[]}>('/parent/absences/search', { params: { page, studentId: filterStudent || undefined, status: filterStatus || undefined, search: searchTerm || undefined } })).data })
+  useEffect(() => {
+    if (absences.data) setPage(previous => Math.min(previous, Math.max(1, Math.ceil(absences.data.total / 25))))
+  }, [absences.data])
   const report = useMutation({ mutationFn: () => api.post('/parent/absences', { studentId, fromDate, toDate, reason }),
     onSuccess: async () => { setCreateOpen(false); setReason(''); toast.success('Đã đăng ký không ăn. Thay đổi sau giờ chốt không đổi số suất đã gửi bếp.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
@@ -57,9 +65,8 @@ export function AbsencesPage() {
   function openEdit(item: Absence) { setEditing(item); setEditFrom(item.fromDate); setEditTo(item.toDate); setEditReason(item.reason) }
   const statusOf = (item: Absence) => item.cancelledAt ? 'CANCELLED' : item.toDate < localToday() ? 'EXPIRED' : item.fromDate > localToday() ? 'UPCOMING' : 'ACTIVE'
   const statusLabels: Record<string, string> = { CANCELLED: 'Đã hủy / thay thế', EXPIRED: 'Đã hết hạn', UPCOMING: 'Sắp áp dụng', ACTIVE: 'Đang hiệu lực' }
-  const rows = absences.data?.filter(item => (!filterStudent || item.studentId === filterStudent) && (!filterStatus || statusOf(item) === filterStatus) && `${item.studentName} ${item.reason}`.toLocaleLowerCase('vi-VN').includes(search.trim().toLocaleLowerCase('vi-VN'))) ?? []
+  const rows = absences.data?.items ?? []
 
-  const visiblePage = Math.min(page, Math.max(1, Math.ceil(rows.length / 25)))
 
   return <><div className="eyebrow">PHỤ HUYNH</div><h1>Báo vắng / Không ăn tại trường</h1>
     <p className="lead">Trẻ vẫn đi học có thể đăng ký không ăn tại trường theo tuần, tháng hoặc đến hết năm học. Khoảng ngày nằm trong niên khóa của trẻ; không tự kéo dài sang năm học mới. Việc đăng ký không thay đổi ghi danh học.</p>
@@ -78,13 +85,14 @@ export function AbsencesPage() {
     </form></Modal>}
     <section className="panel workflow-lists"><div className="panel-head"><h2>Đăng ký đã gửi</h2><button type="button" className="button primary" onClick={() => setCreateOpen(true)}>Đăng ký không ăn</button></div>
       <div className="list-toolbar"><label className="field">Tìm kiếm<input placeholder="Tên trẻ hoặc lý do" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
-        <label className="field">Trẻ<select value={filterStudent} onChange={e => { setFilterStudent(e.target.value); setPage(1) }}><option value="">Tất cả trẻ</option>{Array.from(new Map(absences.data?.map(item => [item.studentId, item.studentName])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+        <label className="field">Trẻ<select value={filterStudent} onChange={e => { setFilterStudent(e.target.value); setPage(1) }}><option value="">Tất cả trẻ</option>{absences.data?.students.map(child => <option key={child.studentId} value={child.studentId}>{child.name}</option>)}</select></label>
         <label className="field">Trạng thái<select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option>{Object.entries(statusLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label></div>
-      {absences.isPending ? <p className="empty compact">Đang tải…</p> : absences.isError ? <p className="empty compact error">Không tải được đăng ký.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ</th><th scope="col">Từ ngày</th><th scope="col">Đến ngày</th><th scope="col">Lý do</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>{rows.slice((visiblePage - 1) * 25, visiblePage * 25).map(item =>
+      <SearchFeedback waiting={searchWaiting} fetching={absences.isFetching} />
+    {absences.isPending ? <p className="empty compact">Đang tải…</p> : absences.isError ? <p className="empty compact error">Không tải được đăng ký.</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ</th><th scope="col">Từ ngày</th><th scope="col">Đến ngày</th><th scope="col">Lý do</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>{rows.map(item =>
       <tr key={item.id}><td><strong>{item.studentName}</strong></td><td>{item.fromDate}</td><td>{item.toDate}</td><td>{item.reason}</td><td>{statusLabels[statusOf(item)]}</td>
         <td>{!item.cancelledAt && item.toDate >= localToday() ? <div className="table-actions"><button type="button" className="button secondary" onClick={() => openEdit(item)} disabled={cancel.isPending}>Sửa</button><button type="button" className="button danger" onClick={() => setCancelTarget(item)} disabled={cancel.isPending}>Hủy / Ăn lại</button></div> : '—'}</td></tr>)}
-      {!rows.length && <tr><td colSpan={6} className="empty compact">Không có đăng ký phù hợp.</td></tr>}</tbody></table></div>}
-      <Pagination page={visiblePage} total={rows.length} pageSize={25} busy={absences.isFetching} onChange={setPage} /></section>
+      {!rows.length && <tr><td colSpan={6} className="empty compact">{searchTerm || filterStudent || filterStatus ? 'Không có đăng ký phù hợp bộ lọc.' : 'Chưa có đăng ký không ăn.'}</td></tr>}</tbody></table></div>}
+      <Pagination page={page} total={absences.data?.total ?? 0} pageSize={25} busy={searchWaiting || absences.isFetching} onChange={setPage} /></section>
     {cancelTarget && <Modal title={`Hủy đăng ký: ${cancelTarget.studentName}`} busy={cancel.isPending} onClose={() => setCancelTarget(null)}><div className="workflow-form"><p>Hủy khoảng không ăn từ {cancelTarget.fromDate} đến {cancelTarget.toDate}? Số suất đã qua giờ chốt giữ nguyên; lịch sử đăng ký vẫn được lưu.</p><div className="form-actions"><button type="button" className="button secondary" disabled={cancel.isPending} onClick={() => setCancelTarget(null)}>Quay lại</button><button type="button" className="button danger" disabled={cancel.isPending} onClick={() => cancel.mutate(cancelTarget.id)}>Xác nhận hủy</button></div></div></Modal>}
     {editing && <Modal title={`Cập nhật: ${editing.studentName}`} description="Bản cũ được giữ trong lịch sử. Số suất đã qua giờ chốt không thay đổi." busy={update.isPending} onClose={() => setEditing(null)}>
       <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!update.isPending) update.mutate() }}>

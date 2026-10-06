@@ -1,6 +1,6 @@
+using MealTrace.Application.Dtos.Common;
 using MealTrace.Application.Features.Workflow;
 using MealTrace.Application.Exceptions;
-using MealTrace.Application.Dtos.Common;
 using MealTrace.Domain.Security;
 using MealTrace.Application.Dtos.Workflow;
 using MealTrace.Application.Dtos.Students;
@@ -38,6 +38,8 @@ public static class WorkflowEndpoints
 
         // Cancel the original and append a replacement so decisions at an earlier cutoff keep their original dates.
         api.MapPost("/parent/absences/{id:guid}/replace", async (Guid id, ReportAbsence input, WorkflowService service) => (await service.ReplaceAbsenceAsync(id, input)).ToHttpResult()).Produces<AbsenceReplacedResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Parent)).WithName("UpdateMealAbsencePeriod");
+
+        api.MapGet("/parent/absences/search", async (Guid? studentId, string? status, string? search, int? page, int? pageSize, CancellationToken ct, WorkflowService service) => (await service.SearchAbsencesAsync(studentId, status, search, page, pageSize, ct)).ToHttpResult()).Produces<AbsenceListResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 
         api.MapGet("/parent/absences", async (WorkflowService service) => (await service.ListAbsencesAsync()).ToHttpResult()).Produces<AbsenceSummary[]>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 

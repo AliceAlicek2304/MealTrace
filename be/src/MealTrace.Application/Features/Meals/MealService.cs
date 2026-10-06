@@ -1,3 +1,5 @@
+using MealTrace.Application.Dtos.Common;
+using MealTrace.Application.Models.Persistence;
 using MealTrace.Application.Abstractions.Repositories;
 using MealTrace.Application.Abstractions;
 using MealTrace.Application.Dtos.Meals;
@@ -5,6 +7,20 @@ using MealTrace.Application.Dtos.Meals;
 namespace MealTrace.Application.Features.Meals;
 public sealed class MealService(IMealRepository repository)
 {
+    public async Task<Result<PageResponse<MealDaySummary>>> SearchMealDaysAsync(DateOnly? date, string? status, string? search, int? page, int? pageSize, CancellationToken ct)
+    {
+        status = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToUpperInvariant();
+        search = search?.Trim();
+        if (search?.Length > 200 || (status is not null && status is not ("SETTLED" or "PENDING" or "CANCELLED")))
+            return Result.Invalid("Bộ lọc không hợp lệ; từ khóa tối đa 200 ký tự.");
+        var number = Math.Clamp(page ?? 1, 1, 100000);
+        var size = Math.Clamp(pageSize ?? 25, 1, 100);
+        var filter = new MealDayListFilter(date, status, search);
+        var total = await repository.CountMealDaysAsync(filter, ct);
+        var items = await repository.SearchMealDaysAsync(filter, number, size, ct);
+        return Result.Success(new PageResponse<MealDaySummary>(items, total, number, size));
+    }
+
     public async Task<Result<List<MealDaySummary>>> ListMealDaysAsync(DateOnly? from, DateOnly? to)
     {
         var days = await repository.ListMealDaysAsync(from, to);
