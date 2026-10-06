@@ -135,6 +135,8 @@ internal sealed class WorkflowRepository(MealTraceDbContext db) : IWorkflowRepos
             return await db.Students.AnyAsync(x => x.Id == studentId);
         });
     }
+    public Task<Student?> FindStudentForParentLinkAsync(Guid studentId) =>
+        PersistenceErrors.ExecuteAsync(() => db.Students.AsNoTracking().SingleOrDefaultAsync(x => x.Id == studentId));
     public async Task<IdentityAccount?> FindParentByPhoneAsync(string? phone)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>

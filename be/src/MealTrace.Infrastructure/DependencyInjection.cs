@@ -11,6 +11,16 @@ namespace MealTrace.Infrastructure;
 
 public static class DependencyInjection
 {
+    public static IServiceCollection AddNotifications(this IServiceCollection services, Microsoft.Extensions.Configuration.IConfiguration config)
+    {
+        var enabled = bool.TryParse(config["Notifications:Messaging:Enabled"], out var value) && value;
+        services.AddSingleton(new MealTrace.Application.Features.Notifications.NotificationPolicy(enabled, config["Notifications:Messaging:TestNumber"]));
+        services.AddSingleton(new Notifications.TwilioWhatsAppSettings(config["Notifications:Twilio:AccountSid"], config["Notifications:Twilio:AuthToken"], config["Notifications:Twilio:From"], config["Notifications:Twilio:ContentSid"]));
+        services.AddHttpClient<MealTrace.Application.Abstractions.Notifications.INotificationSender, Notifications.TwilioWhatsAppSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+            .RedactLoggedHeaders(["Authorization"]);
+        return services;
+    }
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString, bool development)
     {
         services.AddDbContext<MealTraceDbContext>(options => options.UseNpgsql(connectionString));

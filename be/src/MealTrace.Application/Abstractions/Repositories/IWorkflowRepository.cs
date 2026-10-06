@@ -23,6 +23,7 @@ public interface IWorkflowRepository
     Task<bool> ClassExistsAsync(CreateStudent input);
     Task<bool> StudentCodeExistsAsync(Student student);
     Task<bool> StudentExistsAsync(Guid studentId);
+    Task<Student?> FindStudentForParentLinkAsync(Guid studentId);
     Task<IdentityAccount?> FindParentByPhoneAsync(string? phone);
     Task<bool> ParentLinkExistsAsync(IdentityAccount parent, Guid studentId);
     Task<List<ParentChildSummary>> ListParentChildrenAsync(DateTimeOffset now, Guid userId);

@@ -22,6 +22,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('profile')
   const [showLogin, setShowLogin] = useState(false)
   const isAdmin = user?.roles.includes('ADMIN') ?? false
+  const canRegisterStudents = isAdmin || (user?.roles.includes('TEACHER') ?? false)
   const isMealStaff = user?.roles.some(role => mealRoles.includes(role)) ?? false
   const canSeePortions = user?.roles.some(role => ['ADMIN', 'TEACHER', 'KITCHEN_STAFF'].includes(role)) ?? false
   const isParent = user?.roles.includes('PARENT') ?? false
@@ -66,7 +67,7 @@ export default function App() {
       <p className="side-label">KHÔNG GIAN LÀM VIỆC</p>
       <nav aria-label="Điều hướng chính">
         {isAdmin && <button type="button" className={`nav ${page === 'accounts' ? 'active' : ''}`} onClick={() => setPage('accounts')}><Users size={18} /> Tài khoản</button>}
-        {isAdmin && <button type="button" className={`nav ${page === 'classes' ? 'active' : ''}`} onClick={() => setPage('classes')}><School size={18} /> Lớp và trẻ</button>}
+        {canRegisterStudents && <button type="button" className={`nav ${page === 'classes' ? 'active' : ''}`} onClick={() => setPage('classes')}><School size={18} /> Lớp và trẻ</button>}
         {isAdmin && <button type="button" className={`nav ${page === 'calendar' ? 'active' : ''}`} onClick={() => setPage('calendar')}><CalendarDays size={18} /> Lịch bữa ăn</button>}
         {canSeePortions && <button type="button" className={`nav ${page === 'portions' ? 'active' : ''}`} onClick={() => setPage('portions')}><ClipboardList size={18} /> Số suất</button>}
         {isParent && <button type="button" className={`nav ${page === 'absences' ? 'active' : ''}`} onClick={() => setPage('absences')}><CalendarOff size={18} /> Báo vắng</button>}
@@ -78,7 +79,7 @@ export default function App() {
     <div className="content">
       <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
       <main>{page === 'accounts' && isAdmin ? <AccountsPage />
-        : page === 'classes' && isAdmin ? <ClassesPage />
+        : page === 'classes' && canRegisterStudents ? <ClassesPage isAdmin={isAdmin} />
         : page === 'calendar' && isAdmin ? <MealCalendarPage />
         : page === 'portions' && canSeePortions ? <PortionsPage roles={user.roles} />
         : page === 'absences' && isParent ? <AbsencesPage />

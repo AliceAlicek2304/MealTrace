@@ -24,8 +24,9 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 | Nhóm | Trạng thái |
 | --- | --- |
 | Tài khoản | Đăng nhập email/SĐT, 4 role ADMIN/TEACHER/KITCHEN_STAFF/PARENT; quản lý tài khoản/phạm vi lớp, tìm tên/email/SĐT và lọc role tại DB với phân trang, hồ sơ và Admin đặt lại mật khẩu có lịch sử. Mật khẩu hash/salt qua ASP.NET Identity; không có OTP. |
-| Năm học, lớp, trẻ | Thiết lập năm học dùng chung, gợi ý năm tiếp theo; tạo/sửa lớp và trẻ, mã trẻ duy nhất, ghi danh/chuyển lớp/ngừng học/ghi danh lại theo ngày, tìm kiếm và phân trang. |
-| Phụ huynh | Admin liên kết trẻ bằng SĐT: dùng tài khoản đã có hoặc tạo Parent mới; một Parent có nhiều con, một trẻ có nhiều người giám hộ. Mật khẩu tạm chỉ hiển thị một lần, chưa tự gửi SMS/email. |
+| Năm học, lớp, trẻ | Thiết lập năm học dùng chung, gợi ý năm tiếp theo; Admin tạo/sửa lớp và trẻ, ghi danh/chuyển lớp/ngừng học theo ngày. Teacher được thêm trẻ và liên kết Parent trong lớp được phân công; không được sửa tài khoản hoặc cấp Parent cho tài khoản nhân viên đã có. |
+| Phụ huynh | Admin/Teacher liên kết trẻ bằng SĐT: dùng Parent đã có hoặc tạo mới; một Parent có nhiều con, một trẻ có nhiều người giám hộ. Admin sửa SĐT tại Tài khoản, chặn số trùng, giữ liên kết trẻ và thu hồi phiên cũ. Mật khẩu tạm chỉ hiển thị một lần. |
+| Thông báo WhatsApp | Dùng Twilio qua `INotificationSender`; Admin/Teacher tùy chọn gửi sau khi liên kết Parent. Người dùng đã nhận tin từ luồng MealTrace. Trial chỉ gửi mẫu có sẵn, chưa chứa tên trẻ/tài khoản/mật khẩu; mật khẩu tài khoản mới hiển thị một lần trên FE. Chỉ gửi tới tester đã kết nối WhatsApp trial; giới hạn một lần/60 giây/instance, không retry. Gửi lỗi vẫn giữ hồ sơ và trả trạng thái riêng. Secret ngoài Git; chưa có outbox, webhook, email hoặc gửi hàng loạt. |
 | Không ăn/báo vắng | Parent đăng ký theo khoảng ngày, chọn nhanh tuần/tháng/đến cuối năm học; sửa/hủy giữ lịch sử; tìm/lọc trẻ và trạng thái tại DB, phân trang cả lịch sử cũ. |
 | Lịch bữa ăn | Admin thiết lập thứ và bữa phục vụ; xem trước/tạo hàng loạt tuần/tháng/năm học; sửa ngày nghỉ/học bù, giữ lịch sử. |
 | Ngoại lệ trước chốt | Teacher/Admin ghi có suất/không có suất/khôi phục mặc định, kèm lý do và nguồn; Teacher chỉ lớp được giao. |
@@ -52,7 +53,7 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 - API bếp đã dùng đúng role ADMIN/KITCHEN_STAFF. Dinh dưỡng chưa đủ P-L-G và cần chốt nguồn/công thức tính.
 - FE báo vắng và tổng quan ngày ăn đã dùng API phân trang/lọc tại DB; tài khoản tìm/lọc toàn DB, không giới hạn tìm trong trang hiện tại. Hai API danh sách mảng cũ vẫn giữ tương thích, FE dùng endpoint search mới.
 - Hồ sơ ngày ăn tách tab suất hiện hành (bản mới nhất theo lớp) và lịch sử bản chốt, có phiên bản/trạng thái/lý do; không cộng các bản cũ vào suất hiện hành.
-- SMS/email đang có kế hoạch POC ưu tiên email free và SMS trial; chưa tích hợp hoặc gửi thật.
+- SMS thử với cả Infobip và Vonage: nhà cung cấp báo Delivered nhưng người dùng xác nhận không nhận trên điện thoại; chưa nghiệm thu giao tin thực tế. Không suy ra đã nhận hoặc đã xác minh SĐT từ delivery report. Twilio SMS thất bại mã 21612; WhatsApp đã được người dùng xác nhận nhận tin từ luồng liên kết Parent. Adapter Infobip/Vonage đã bỏ; hiện dùng Twilio WhatsApp. Trial yêu cầu phụ huynh dùng WhatsApp gửi `join twilio-trial` tới sender cấu hình trước; mẫu cảnh báo số dư là demo, không phản ánh số dư thật. Chưa có template đăng ký tùy chỉnh; email và OTP chưa triển khai.
 - UI các luồng đã có cần người dùng nghiệm thu; chưa coi build thành công là tính năng hoàn chỉnh.
 
 ## 5. Chưa triển khai và hướng tiếp theo
@@ -61,7 +62,7 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 2. Chế biến thực tế/đổi món, ảnh và hồ sơ minh chứng; Parent theo dõi bản công bố.
 3. Báo cáo, truy vết nguồn, bản đã duyệt và bản tính lại; thống nhất mẫu báo cáo và người duyệt.
 4. Import Excel lớp/trẻ và tạo/ghép Parent theo SĐT khi có mẫu file. Không mặc định 100 trẻ = 100 Parent; anh chị em dùng chung tài khoản.
-5. SMS/email, phí/sổ cái, offline ảnh, mobile và dashboard nâng cao làm sau.
+5. Đăng ký mẫu WhatsApp chứa thông tin đăng ký khi thoát trial; xử lý SMS với Twilio. Email, phí/sổ cái, offline ảnh, mobile và dashboard nâng cao làm sau.
 
 ## 6. Làm việc chung
 
@@ -71,4 +72,4 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 - Quy ước FE: trang quản lý mở bằng danh sách table; thanh tìm kiếm/lọc trên bảng, thao tác theo dòng mở modal. Giữ claymorphism cho màu sắc/nút; dùng hủy/ngừng học/khóa theo nghiệp vụ để bảo toàn lịch sử. Giờ thao tác hiển thị UTC+7; nút phụ thuộc giờ chốt tự cập nhật. Tìm kiếm chờ 300 ms sau khi ngừng gõ, phân biệt đang tải/chưa có dữ liệu/không khớp bộ lọc.
 - Không push secrets, cấu hình DB/JWT local, checklist thủ công hoặc continuity cá nhân. Chi tiết test tự động/đo hiệu năng của Cường chỉ ghi local.
 - Migration mới `20261006054822_BatchPortionAmendments` bổ sung phiếu nhiều trẻ và số lượng bếp. Máy khác áp dụng bằng `dotnet ef database update --project be/src/MealTrace.Infrastructure --startup-project be/src/MealTrace.Api`.
-- Chạy local: BE `dotnet run --project be/src/MealTrace.Api --launch-profile http` (5184); FE `npm run dev` trong `fe/` (5173). Swagger bật ở Development. Cấu hình connection/JWT bằng scripts trong `be/scripts`; giữ ngoài Git.
+- Chạy local: BE `dotnet run --project be/src/MealTrace.Api --launch-profile http` (5184); FE `npm run dev` trong `fe/` (5173). Swagger bật ở Development. Cấu hình connection/JWT bằng scripts trong `be/scripts`; WhatsApp dùng `be/scripts/set-twilio-local.ps1` (Notifications:Messaging và Notifications:Twilio), mặc định tắt nếu thiếu cấu hình; giữ ngoài Git.

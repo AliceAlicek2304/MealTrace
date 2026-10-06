@@ -28,9 +28,10 @@ public static class WorkflowEndpoints
 
         api.MapGet("/classes/{classId:guid}/students", async (Guid classId, WorkflowService service) => (await service.ListClassStudentsAsync(classId)).ToHttpResult()).Produces<ClassStudentSummary[]>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher));
 
-        api.MapPost("/students", async (CreateStudent input, WorkflowService service) => (await service.CreateStudentAsync(input)).ToCreatedHttpResult(value => $"/api/students/{value.Id}")).Produces<StudentCreatedResponse>(StatusCodes.Status201Created).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
+        api.MapPost("/students", async (CreateStudent input, WorkflowService service) => (await service.CreateStudentAsync(input)).ToCreatedHttpResult(value => $"/api/students/{value.Id}")).Produces<StudentCreatedResponse>(StatusCodes.Status201Created).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher));
 
-        api.MapPost("/admin/students/{studentId:guid}/parents", async (Guid studentId, LinkParent input, WorkflowService service) => (await service.LinkParentAsync(studentId, input)).ToHttpResult()).Produces<ParentLinkedResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
+        api.MapPost("/admin/students/{studentId:guid}/parents", async (Guid studentId, LinkParent input, WorkflowService service) => (await service.LinkParentAsync(studentId, input)).ToHttpResult()).Produces<ParentLinkedResponse>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher))
+            .AddEndpointFilter(async (context, next) => { context.HttpContext.Response.Headers.CacheControl = "no-store"; return await next(context); });
 
         api.MapGet("/parent/students", async (WorkflowService service) => (await service.ListParentStudentsAsync()).ToHttpResult()).Produces<ParentChildSummary[]>(StatusCodes.Status200OK).RequireAuthorization(p => p.RequireRole(RoleNames.Parent));
 

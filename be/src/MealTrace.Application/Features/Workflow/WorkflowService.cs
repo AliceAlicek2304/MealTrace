@@ -15,7 +15,7 @@ using MealTrace.Domain.Time;
 using MealTrace.Application.Dtos.Students;
 
 namespace MealTrace.Application.Features.Workflow;
-public sealed class WorkflowService(IWorkflowRepository repository, MealCalendarService calendar, MealDecisionService decisionService, PortionService portions, ICurrentActor currentActor, TimeProvider clock, IIdentityService users, IUnitOfWork unitOfWork)
+public sealed class WorkflowService(IWorkflowRepository repository, MealCalendarService calendar, MealDecisionService decisionService, PortionService portions, ICurrentActor currentActor, TimeProvider clock, IIdentityService users, IUnitOfWork unitOfWork, MealTrace.Application.Features.Notifications.ParentRegistrationNotificationService registrationNotifications)
 {
     public async Task<Result<List<AcademicYearResponse>>> ListAcademicYearsAsync()
     {
@@ -127,6 +127,7 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
 
     public async Task<Result<StudentCreatedResponse>> CreateStudentAsync(CreateStudent input)
     {
+        if (!currentActor.IsInRole(RoleNames.Admin) && (!currentActor.IsInRole(RoleNames.Teacher) || !await CanReadClass(input.ClassId))) return Result.Forbidden();
         var name = input.FullName?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 150 || !await repository.ClassExistsAsync(input))
             return Result.Invalid("Tên trẻ hoặc lớp không hợp lệ.");
@@ -182,8 +183,11 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
 
     public async Task<Result<ParentLinkedResponse>> LinkParentAsync(Guid studentId, LinkParent input)
     {
-        if (!await repository.StudentExistsAsync(studentId))
+        if (!currentActor.IsInRole(RoleNames.Admin) && !currentActor.IsInRole(RoleNames.Teacher)) return Result.Forbidden();
+        var student = await repository.FindStudentForParentLinkAsync(studentId);
+        if (student is null)
             return Result.NotFound();
+        if (!await CanReadClass(student.ClassId)) return Result.Forbidden();
         var email = input.Email?.Trim().ToLowerInvariant();
         var phone = PhoneNumbers.Normalize(input.PhoneNumber);
         if (!string.IsNullOrWhiteSpace(input.PhoneNumber) && phone is null)
@@ -227,6 +231,8 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
             return Result.Conflict("Phụ huynh đã được liên kết với trẻ này.");
         if (!await users.IsInRoleAsync(parent, RoleNames.Parent))
         {
+            if (!created && !currentActor.IsInRole(RoleNames.Admin))
+                return Result.Conflict("Tài khoản hiện có chưa phải phụ huynh. Cần Admin đối chiếu và cấp quyền.");
             var roleResult = await users.AddToRoleAsync(parent, RoleNames.Parent);
             if (!roleResult.Succeeded)
                 return Result.Invalid("Không thể cấp vai trò phụ huynh.");
@@ -253,7 +259,8 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
             PhoneNumber = parent.PhoneNumber,
             StudentId = studentId,
             Created = created,
-            TemporaryPassword = temporaryPassword
+            TemporaryPassword = temporaryPassword,
+            Notification = input.SendRegistrationNotification ? await registrationNotifications.SendAsync(parent.PhoneNumber) : null
         });
     }
 

@@ -2,14 +2,20 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getScopeOptions } from '../features/access/authApi'
 import { Pagination } from './Pagination'
+import { api } from '../lib/api'
 
-export function ClassPicker({ value, onChange, label = 'Lớp', required = false, disabled = false, compact = false }: {
-  value: string; onChange: (id: string) => void; label?: string; required?: boolean; disabled?: boolean; compact?: boolean
+export function ClassPicker({ value, onChange, label = 'Lớp', required = false, disabled = false, compact = false, assignedOnly = false }: {
+  value: string; onChange: (id: string) => void; label?: string; required?: boolean; disabled?: boolean; compact?: boolean; assignedOnly?: boolean
 }) {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const query = useQuery({ queryKey: ['scope-options', 'classes', search, page, value],
-    queryFn: () => getScopeOptions({ search, classPage: page, selectedClassIds: value }) })
+  const query = useQuery({ queryKey: ['scope-options', assignedOnly ? 'assigned-classes' : 'classes', search, page, value],
+    queryFn: async () => {
+      if (!assignedOnly) return getScopeOptions({ search, classPage: page, selectedClassIds: value })
+      const rooms = (await api.get<{ id: string; name: string; schoolYear: string }[]>('/classes')).data
+      return { classes: rooms.filter(room => `${room.name} ${room.schoolYear}`.toLocaleLowerCase('vi').includes(search.toLocaleLowerCase('vi'))),
+        selectedClasses: rooms.filter(room => room.id === value), students: [] }
+    } })
   const options = [...new Map([...(query.data?.selectedClasses ?? []), ...(query.data?.classes ?? [])].map(x => [x.id, x])).values()]
   const searchControls = <><label className="field">Tìm lớp<input disabled={disabled} value={search} placeholder="Tên lớp hoặc niên khóa" onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
     {(page > 1 || (query.data?.classTotal ?? 0) > 25) && <Pagination page={page} total={query.data?.classTotal ?? 0} pageSize={25} busy={query.isFetching || disabled} onChange={setPage} />}</>

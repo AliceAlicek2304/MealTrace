@@ -24,6 +24,7 @@ if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt:Key must contai
 builder.Services.AddApplication();
 builder.Services.AddScoped<MealTrace.Application.Abstractions.ICurrentActor, MealTrace.Api.Authentication.HttpCurrentActor>();
 builder.Services.AddInfrastructure(connectionString, builder.Environment.IsDevelopment());
+builder.Services.AddNotifications(builder.Configuration);
 builder.Services.AddMealTraceAuthentication(builder.Configuration, jwtKey);
 builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
@@ -95,6 +96,7 @@ app.UseAuthorization();
 app.MapGet("/api/health", () => Results.Ok(new MealTrace.Application.Dtos.Common.HealthResponse("ok", "MealTrace API"))).Produces<MealTrace.Application.Dtos.Common.HealthResponse>();
 app.MapAuthEndpoints();
 app.MapAccountEndpoints();
+app.MapNotificationEndpoints();
 app.MapMealEndpoints();
 app.MapWorkflowEndpoints();
 app.MapMealExceptionEndpoints();

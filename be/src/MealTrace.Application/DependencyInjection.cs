@@ -22,6 +22,9 @@ public static class DependencyInjection
         services.AddScoped<INutritionService, NutritionService>();
         services.AddScoped<AuthService>();
         services.AddScoped<AccountService>();
+        services.AddScoped<Features.Notifications.NotificationService>();
+        services.AddScoped<Features.Notifications.ParentRegistrationNotificationService>();
+        services.AddSingleton<Features.Notifications.NotificationSendGate>();
         services.AddScoped<WorkflowService>();
         services.AddScoped<StudentAdministrationService>();
         services.AddScoped<MealCalendarService>();
