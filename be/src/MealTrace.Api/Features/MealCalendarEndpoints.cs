@@ -1,9 +1,6 @@
-using MealTrace.Application.Dtos.Responses;
+using MealTrace.Application.Features.Calendar;
 using MealTrace.Application.Dtos.Common;
 using MealTrace.Application.Exceptions;
-using System.Security.Claims;
-using MealTrace.Application.Abstractions;
-using MealTrace.Application.Features;
 using MealTrace.Domain.Security;
 using MealTrace.Application.Dtos.Calendar;
 
@@ -19,21 +16,21 @@ public static class MealCalendarEndpoints
             context.HttpContext.Response.Headers.CacheControl = "no-store";
             try { return await next(context); }
             catch (CalendarConflict ex) { return Results.Conflict(new MessageResponse(ex.Message)); }
-            catch (Exception ex) when (context.HttpContext.RequestServices.GetRequiredService<IMealTraceData>().IsConcurrencyConflict(ex)) { return Results.Conflict(new MessageResponse("Lịch vừa thay đổi. Tải lại và mở lại form.")); }
-            catch (Exception ex) when (context.HttpContext.RequestServices.GetRequiredService<IMealTraceData>().IsConflict(ex)) { return Results.Conflict(new MessageResponse("Dữ liệu vừa thay đổi. Tải lại và xem trước lại.")); }
+            catch (Exception ex) when (ex is PersistenceConflictException { Kind: PersistenceConflictKind.StaleWrite }) { return Results.Conflict(new MessageResponse("Lịch vừa thay đổi. Tải lại và mở lại form.")); }
+            catch (Exception ex) when (ex is PersistenceConflictException) { return Results.Conflict(new MessageResponse("Dữ liệu vừa thay đổi. Tải lại và xem trước lại.")); }
         });
 
-        group.MapGet("/{code}", async (string code, DateOnly? from, DateOnly? to, IMealTraceData db, TimeProvider clock) => (await MealCalendarUseCases.GetCalendarAsync(code, from, to, db, clock)).ToHttpResult()).Produces<MealCalendarResponse>(StatusCodes.Status200OK).WithName("ReadMealCalendar");
+        group.MapGet("/{code}", async (string code, DateOnly? from, DateOnly? to, MealCalendarUseCases service) => (await service.GetCalendarAsync(code, from, to)).ToHttpResult()).Produces<MealCalendarResponse>(StatusCodes.Status200OK).WithName("ReadMealCalendar");
 
-        group.MapPut("/{code}/schedule", async (string code, ScheduleInput input, ClaimsPrincipal principal, IMealTraceData db, TimeProvider clock) => (await MealCalendarUseCases.SaveScheduleAsync(code, input, principal, db, clock)).ToHttpResult()).Produces<CalendarRevisionResponse>(StatusCodes.Status200OK).WithName("SaveMealSchedule");
+        group.MapPut("/{code}/schedule", async (string code, ScheduleInput input, MealCalendarUseCases service) => (await service.SaveScheduleAsync(code, input)).ToHttpResult()).Produces<CalendarRevisionResponse>(StatusCodes.Status200OK).WithName("SaveMealSchedule");
 
-        group.MapPut("/{code}/days/{date}", async (string code, DateOnly date, DayInput input, ClaimsPrincipal principal, IMealTraceData db, TimeProvider clock) => (await MealCalendarUseCases.EditDayAsync(code, date, input, principal, db, clock)).ToHttpResult()).Produces<CalendarRevisionResponse>(StatusCodes.Status200OK).WithName("EditMealCalendarDay");
+        group.MapPut("/{code}/days/{date}", async (string code, DateOnly date, DayInput input, MealCalendarUseCases service) => (await service.EditDayAsync(code, date, input)).ToHttpResult()).Produces<CalendarRevisionResponse>(StatusCodes.Status200OK).WithName("EditMealCalendarDay");
 
-        group.MapPost("/{code}/preview", async (string code, GenerateInput input, IMealTraceData db, TimeProvider clock) => (await MealCalendarUseCases.PreviewGenerationAsync(code, input, db, clock)).ToHttpResult()).Produces<CalendarGenerationPreview>(StatusCodes.Status200OK).WithName("PreviewMealGeneration");
+        group.MapPost("/{code}/preview", async (string code, GenerateInput input, MealCalendarUseCases service) => (await service.PreviewGenerationAsync(code, input)).ToHttpResult()).Produces<CalendarGenerationPreview>(StatusCodes.Status200OK).WithName("PreviewMealGeneration");
 
-        group.MapPost("/{code}/generate", async (string code, GenerateInput input, ClaimsPrincipal principal, IMealTraceData db, TimeProvider clock) => (await MealCalendarUseCases.GenerateSessionsAsync(code, input, principal, db, clock)).ToHttpResult()).Produces<CalendarGenerationResponse>(StatusCodes.Status200OK).WithName("GenerateMealSessions");
+        group.MapPost("/{code}/generate", async (string code, GenerateInput input, MealCalendarUseCases service) => (await service.GenerateSessionsAsync(code, input)).ToHttpResult()).Produces<CalendarGenerationResponse>(StatusCodes.Status200OK).WithName("GenerateMealSessions");
 
-        group.MapGet("/{code}/history", async (string code, IMealTraceData db) => (await MealCalendarUseCases.GetHistoryAsync(code, db)).ToHttpResult()).Produces<CalendarHistoryItem[]>(StatusCodes.Status200OK).WithName("MealCalendarHistory");
+        group.MapGet("/{code}/history", async (string code, MealCalendarUseCases service) => (await service.GetHistoryAsync(code)).ToHttpResult()).Produces<CalendarHistoryItem[]>(StatusCodes.Status200OK).WithName("MealCalendarHistory");
         return app;
     }
 }

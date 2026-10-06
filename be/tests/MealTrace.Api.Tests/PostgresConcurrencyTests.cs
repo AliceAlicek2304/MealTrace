@@ -6,7 +6,7 @@ using MealTrace.Domain.Entities;
 using MealTrace.Infrastructure.Persistence;
 using MealTrace.Infrastructure.Identity;
 using MealTrace.Application.Abstractions;
-using MealTrace.Application.Features;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using static MealTrace.Api.Tests.AuthenticationTests;
