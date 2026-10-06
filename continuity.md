@@ -51,6 +51,8 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 - FE đã ghi rõ lịch tuần chưa cấu hình; BE vẫn cần phân biệt trạng thái này với ngày nghỉ, nhất là khi có phiên cũ đã chốt.
 - API bếp đã dùng đúng role ADMIN/KITCHEN_STAFF. Dinh dưỡng chưa đủ P-L-G và cần chốt nguồn/công thức tính.
 - FE báo vắng và tổng quan ngày ăn đã dùng API phân trang/lọc tại DB; tài khoản tìm/lọc toàn DB, không giới hạn tìm trong trang hiện tại. Hai API danh sách mảng cũ vẫn giữ tương thích, FE dùng endpoint search mới.
+- Hồ sơ ngày ăn tách tab suất hiện hành (bản mới nhất theo lớp) và lịch sử bản chốt, có phiên bản/trạng thái/lý do; không cộng các bản cũ vào suất hiện hành.
+- SMS/email đang có kế hoạch POC ưu tiên email free và SMS trial; chưa tích hợp hoặc gửi thật.
 - UI các luồng đã có cần người dùng nghiệm thu; chưa coi build thành công là tính năng hoàn chỉnh.
 
 ## 5. Chưa triển khai và hướng tiếp theo

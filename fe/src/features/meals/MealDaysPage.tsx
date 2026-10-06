@@ -1,3 +1,4 @@
+import { MealSettlementTables, type MealSettlement } from './MealSettlementTables'
 import { schoolDateTime } from '../../lib/schoolTime'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { SearchFeedback } from '../../components/SearchFeedback'
@@ -8,7 +9,7 @@ import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 
 type MealDay = { id: string; date: string; mealType: string; publishedAt: string | null; isCancelled: boolean; cancellationReason: string | null; settledPortions: number | null; dishes: { id: string; name: string; recipeVersionId: string }[] }
-type Detail = MealDay & { cutoffAt: string; settlements: { id: string; classId: string | null; className: string | null; count: number; settledAt: string }[]; evidence: { id: string; kind: string; description: string; capturedAt: string; syncedAt: string; photoUrl: string | null }[] }
+type Detail = MealDay & { cutoffAt: string; settlements: MealSettlement[]; evidence: { id: string; kind: string; description: string; capturedAt: string; syncedAt: string; photoUrl: string | null }[] }
 const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' }).format(new Date(`${value}T00:00:00`))
 
 export function MealDaysPage() {
@@ -45,7 +46,7 @@ export function MealDaysPage() {
         {record.isCancelled && <p className="error">Phiên đã hủy: {record.cancellationReason}</p>}
         <p><strong>{record.settledPortions ?? 'Chưa chốt'} suất</strong> · Giờ chốt: {schoolDateTime(record.cutoffAt)}</p>
         <h3>Thực đơn dự kiến</h3><div className="table-wrap"><table><thead><tr><th scope="col">Món ăn</th></tr></thead><tbody>{record.dishes.map(d => <tr key={d.id}><td>{d.name}</td></tr>)}{!record.dishes.length && <tr><td>Chưa có món ăn.</td></tr>}</tbody></table></div>
-        <h3>Số suất theo lớp</h3><div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Số suất</th><th scope="col">Thời điểm chốt</th></tr></thead><tbody>{record.settlements.map(row => <tr key={row.id}><td>{row.className ?? 'Chưa có lớp'}</td><td>{row.count}</td><td>{schoolDateTime(row.settledAt)}</td></tr>)}{!record.settlements.length && <tr><td colSpan={3}>Chưa có bản chốt.</td></tr>}</tbody></table></div>
+        <MealSettlementTables key={record.id} rows={record.settlements} />
         <h3>Minh chứng bữa ăn</h3><div className="table-wrap"><table><thead><tr><th scope="col">Loại / mô tả</th><th scope="col">Chụp / đồng bộ</th><th scope="col">Ảnh</th></tr></thead><tbody>{record.evidence.map(e => <tr key={e.id}><td><strong>{e.kind}</strong><small>{e.description}</small></td><td>{schoolDateTime(e.capturedAt)}<small>{schoolDateTime(e.syncedAt)}</small></td><td>{e.photoUrl ? <a href={e.photoUrl} target="_blank" rel="noreferrer">Xem ảnh</a> : '—'}</td></tr>)}{!record.evidence.length && <tr><td colSpan={3}>Chưa có minh chứng.</td></tr>}</tbody></table></div>
       </div>}
     </Modal>}
