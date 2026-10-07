@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users, School, ClipboardList, CalendarOff } from 'lucide-react'
-import { api, setAccessToken } from './lib/api'
+import { api, apiErrorMessage, getAccessToken, setAccessToken } from './lib/api'
+import { canOpenPage, defaultPage, pageFromHash, usePageNavigation } from './lib/navigation'
 import { AccountsPage } from './features/access/AccountsPage'
 import type { CurrentUser, LoginResponse } from './features/access/authApi'
 import { LoginPage } from './features/access/LoginPage'
@@ -13,14 +14,16 @@ import { PortionsPage } from './features/workflow/PortionsPage'
 import { MealCalendarPage } from './features/workflow/MealCalendarPage'
 import { LandingPage } from './features/landing/LandingPage'
 
-type Page = 'accounts' | 'classes' | 'calendar' | 'portions' | 'absences' | 'meals' | 'profile'
 const mealRoles = ['ADMIN', 'KITCHEN_STAFF']
 
 export default function App() {
   const queryClient = useQueryClient()
   const [user, setUser] = useState<CurrentUser | null>(null)
-  const [page, setPage] = useState<Page>('profile')
-  const [showLogin, setShowLogin] = useState(false)
+  const [page, setPage] = usePageNavigation()
+  const [restoring, setRestoring] = useState(!!getAccessToken())
+  const [restoreError, setRestoreError] = useState('')
+  const [restoreAttempt, setRestoreAttempt] = useState(0)
+  const [showLogin, setShowLogin] = useState(() => !!pageFromHash())
   const isAdmin = user?.roles.includes('ADMIN') ?? false
   const canRegisterStudents = isAdmin || (user?.roles.includes('TEACHER') ?? false)
   const isMealStaff = user?.roles.some(role => mealRoles.includes(role)) ?? false
@@ -30,7 +33,8 @@ export default function App() {
   function clearSession() {
     setAccessToken(null)
     setUser(null)
-    setPage('profile')
+    setPage('profile', true)
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
     setShowLogin(false)
     queryClient.clear()
   }
@@ -40,6 +44,25 @@ export default function App() {
     catch { /* Clear the local session even when the API is unreachable. */ }
     finally { clearSession() }
   }
+
+  useEffect(() => {
+    let active = true
+    if (!getAccessToken()) { setRestoring(false); return }
+    setRestoring(true)
+    setRestoreError('')
+    api.get<CurrentUser>('/auth/me').then(response => {
+      if (active) setUser(response.data)
+    }).catch(error => {
+      if (!active) return
+      if (error.response?.status === 401) setAccessToken(null)
+      else setRestoreError(apiErrorMessage(error))
+    }).finally(() => { if (active) setRestoring(false) })
+    return () => { active = false }
+  }, [restoreAttempt])
+
+  useEffect(() => {
+    if (user && (!page || !canOpenPage(page, user.roles))) setPage(defaultPage(user.roles), true)
+  }, [user, page])
 
   useEffect(() => {
     const interceptor = api.interceptors.response.use(undefined, error => {
@@ -52,12 +75,12 @@ export default function App() {
   function onLogin(result: LoginResponse) {
     setAccessToken(result.accessToken)
     setUser(result.user)
-    setPage(result.user.roles.includes('ADMIN') ? 'portions'
-      : result.user.roles.includes('PARENT') ? 'absences'
-      : result.user.roles.some(role => ['TEACHER', 'KITCHEN_STAFF'].includes(role)) ? 'portions'
-      : result.user.roles.some(role => mealRoles.includes(role)) ? 'meals' : 'profile')
+    const requested = pageFromHash()
+    setPage(requested && canOpenPage(requested, result.user.roles) ? requested : defaultPage(result.user.roles), true)
   }
 
+  if (restoring) return <main className="session-status" role="status">Đang khôi phục phiên đăng nhập…</main>
+  if (restoreError) return <main className="session-status"><h1>Chưa kết nối được máy chủ</h1><p role="alert">{restoreError}</p><button className="button primary" onClick={() => setRestoreAttempt(value => value + 1)}>Thử lại</button><button className="button secondary" onClick={() => { setRestoreError(''); clearSession() }}>Đăng nhập lại</button></main>
   if (!user) return showLogin ? <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} /> : <LandingPage onLogin={() => setShowLogin(true)} />
   const pageName = page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'calendar' ? 'Lịch bữa ăn' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
 

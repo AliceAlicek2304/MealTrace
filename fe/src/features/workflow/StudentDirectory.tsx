@@ -16,9 +16,9 @@ type Student = { id: string; studentCode: string; fullName: string; revision: nu
 type Enrollment = { id: string; className: string; schoolYear: string; startDate: string; endDate: string | null; reason: string; endReason: string | null }
 type Editor = { kind: 'class'; room: Room } | { kind: 'student' | 'enrollment'; student: Student }
 
-export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initialClassId }: {
+export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initialClassId, isAdmin = true }: {
   onLink: (student: { id: string; fullName: string }) => void; view: 'classes' | 'students'; onCreate: () => void;
-  onViewStudents: (classId: string) => void; initialClassId: string
+  onViewStudents: (classId: string) => void; initialClassId: string; isAdmin?: boolean
 }) {
   const cache = useQueryClient()
   const [classSearch, setClassSearch] = useState('')
@@ -31,6 +31,7 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
   const [page, setPage] = useState(1)
   const [classId, setClassId] = useState(initialClassId)
   const [status, setStatus] = useState('')
+  const [parentStatus, setParentStatus] = useState('')
   const [editor, setEditor] = useState<Editor | null>(null)
   const [name, setName] = useState('')
   const [targetClass, setTargetClass] = useState('')
@@ -41,8 +42,8 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
   const [parentsTarget, setParentsTarget] = useState<Student | null>(null)
   const classes = useQuery({ queryKey: ['classes', 'admin', classSearchTerm, classPage], enabled: !classSearchWaiting && view === 'classes',
     queryFn: async () => (await api.get<Page<Room>>('/admin/classes', { params: { search: classSearchTerm, page: classPage } })).data })
-  const students = useQuery({ queryKey: ['students', 'admin', searchTerm, page, classId, status], enabled: !searchWaiting && view === 'students',
-    queryFn: async () => (await api.get<Page<Student>>('/admin/students', { params: { search: searchTerm, page, classId: classId || undefined, status } })).data })
+  const students = useQuery({ queryKey: ['students', isAdmin ? 'admin' : 'teacher', searchTerm, page, classId, status, parentStatus], enabled: !searchWaiting && view === 'students',
+    queryFn: async () => (await api.get<Page<Student>>(isAdmin ? '/admin/students' : '/students/search', { params: { search: searchTerm, page, classId: classId || undefined, status, parentStatus } })).data })
   const history = useQuery({ queryKey: ['enrollments', historyTarget?.id], enabled: !!historyTarget,
     queryFn: async () => (await api.get<Enrollment[]>(`/admin/students/${historyTarget!.id}/enrollments`)).data })
   const save = useMutation({ mutationFn: async () => {
@@ -71,21 +72,22 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
       </>}
       <Pagination page={classPage} total={classes.data?.total ?? 0} pageSize={20} busy={classSearchWaiting || classes.isFetching} onChange={setClassPage} />
     </section>}
-    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách trẻ</h2><button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div><div className="list-toolbar"><ClassPicker compact value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
+    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>{isAdmin ? 'Danh sách trẻ' : 'Trẻ trong lớp phụ trách'}</h2><button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div><div className="list-toolbar"><ClassPicker compact assignedOnly={!isAdmin} value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
       <label className="field">Tìm trẻ<input placeholder="Mã trẻ hoặc họ tên" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
-        <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label></div>
+        <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label>
+        <label className="field">Liên kết phụ huynh<select value={parentStatus} onChange={e => { setParentStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="UNLINKED">Chưa liên kết</option><option value="LINKED">Đã liên kết</option></select></label></div>
       <SearchFeedback waiting={searchWaiting} fetching={students.isFetching} />
       {students.isPending ? <p className="empty compact">Đang tải…</p> : students.isError ? <p className="empty compact error">{apiErrorMessage(students.error)}</p> : <>
-        {!students.data?.items.length && <p className="empty compact">{searchTerm || classId || status ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ.'}</p>}
+        {!students.data?.items.length && <p className="empty compact">{searchTerm || classId || status || parentStatus ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ.'}</p>}
         <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {students.data?.items.map(student => <tr key={student.id}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
           <td>{student.parents.length ? <button type="button" className="parent-summary" aria-label={`Xem ${student.parents.length} phụ huynh của ${student.fullName}`} onClick={() => setParentsTarget(student)}>
             {student.parents[0].fullName}{student.parents.length > 1 && <span aria-hidden="true"> …</span>}
           </button> : <span className="muted">Chưa liên kết</span>}</td>
-          <td><div className="table-actions"><button type="button" className="icon-button" title="Sửa hồ sơ" aria-label={`Sửa hồ sơ ${student.fullName}`} onClick={() => open({ kind: 'student', student })}><Pencil size={17} /></button>
+          <td><div className="table-actions">{isAdmin && <><button type="button" className="icon-button" title="Sửa hồ sơ" aria-label={`Sửa hồ sơ ${student.fullName}`} onClick={() => open({ kind: 'student', student })}><Pencil size={17} /></button>
             <button type="button" className="icon-button" title="Ghi danh / chuyển lớp" aria-label={`Ghi danh / chuyển lớp ${student.fullName}`} onClick={() => open({ kind: 'enrollment', student })}><ArrowRightLeft size={17} /></button>
             {student.isActive && <button type="button" className="icon-button action-danger" title="Ngừng học" aria-label={`Ngừng học ${student.fullName}`} onClick={() => { open({ kind: 'enrollment', student }); setWithdraw(true) }}><UserRoundMinus size={17} /></button>}
-            <button type="button" className="icon-button" title="Lịch sử ghi danh" aria-label={`Lịch sử ${student.fullName}`} onClick={() => setHistoryTarget(student)}><History size={17} /></button>
+            <button type="button" className="icon-button" title="Lịch sử ghi danh" aria-label={`Lịch sử ${student.fullName}`} onClick={() => setHistoryTarget(student)}><History size={17} /></button></>}
             <button type="button" className="icon-button" title="Liên kết phụ huynh" aria-label={`Liên kết phụ huynh ${student.fullName}`} onClick={() => onLink(student)}><UserRoundPlus size={17} /></button></div></td></tr>)}
         </tbody></table></div>
       </>}
@@ -105,9 +107,9 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
       </form>
     </Modal>}
     {parentsTarget && <Modal title={`Phụ huynh: ${parentsTarget.fullName}`} description={parentsTarget.studentCode} onClose={() => setParentsTarget(null)}>
-      <div className="table-wrap"><table><thead><tr><th scope="col">Họ tên</th><th scope="col">SĐT</th><th scope="col">Email</th></tr></thead>
-        <tbody>{parentsTarget.parents.map(parent => <tr key={parent.id}><td>{parent.fullName}</td><td>{parent.phoneNumber || 'Chưa có'}</td><td>{parent.email || 'Chưa có'}</td></tr>)}</tbody>
-      </table></div>
+      <div className="parent-contact-list">{parentsTarget.parents.map(parent => <article className="parent-contact" key={parent.id}>
+        <h3>{parent.fullName}</h3><dl><dt>SĐT</dt><dd>{parent.phoneNumber || 'Chưa có'}</dd><dt>Email</dt><dd>{parent.email || 'Chưa có'}</dd></dl>
+      </article>)}</div>
     </Modal>}
     {historyTarget && <Modal title={`Lịch sử: ${historyTarget.fullName}`} description={historyTarget.studentCode} onClose={() => setHistoryTarget(null)}>
       <div className="workflow-form">{history.isPending ? <p>Đang tải…</p> : history.isError ? <p className="error">{apiErrorMessage(history.error)}</p> : !history.data?.length ? <p>Chưa có lịch sử ghi danh.</p> : history.data.map(item =>

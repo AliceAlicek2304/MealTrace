@@ -1,6 +1,10 @@
 import axios from 'axios'
 
-let accessToken: string | null = null
+const sessionKey = 'mealtrace.session'
+function storedToken(): string | null {
+  try { return sessionStorage.getItem(sessionKey) } catch { return null }
+}
+let accessToken: string | null = storedToken()
 
 export const api = axios.create({ baseURL: import.meta.env.VITE_API_URL ?? '/api' })
 api.interceptors.request.use(config => {
@@ -8,7 +12,14 @@ api.interceptors.request.use(config => {
   return config
 })
 
-export function setAccessToken(token: string | null) { accessToken = token }
+export function getAccessToken() { return accessToken }
+export function setAccessToken(token: string | null) {
+  accessToken = token
+  try {
+    if (token) sessionStorage.setItem(sessionKey, token)
+    else sessionStorage.removeItem(sessionKey)
+  } catch { /* Memory-only sessions remain available when browser storage is blocked. */ }
+}
 
 export function apiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {

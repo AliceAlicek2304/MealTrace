@@ -7,6 +7,7 @@ using MealTrace.Application.Features.Notifications;
 using MealTrace.Domain.Entities;
 using MealTrace.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using static MealTrace.Api.Tests.AuthenticationTests;
@@ -38,9 +39,20 @@ public sealed class RegistrationNotificationTests
         }));
         using var client = configured.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         client.DefaultRequestHeaders.Authorization = new("Bearer", await LoginAsync(client, seeded.TeacherEmail, seeded.Password));
+        int accountsBefore;
+        using (var scope = configured.Services.CreateScope())
+            accountsBefore = await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().Users.CountAsync();
         var child = await client.PostAsJsonAsync("/api/students", new { fullName = "Child Notification", classId = seeded.ClassId });
         Assert.Equal(HttpStatusCode.Created, child.StatusCode);
         var childId = (await child.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        using (var scope = configured.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            Assert.Equal(accountsBefore, await db.Users.CountAsync());
+            Assert.False(await db.ParentStudents.AnyAsync(x => x.StudentId == childId));
+            Assert.True(await db.Enrollments.AnyAsync(x => x.StudentId == childId && x.ClassId == seeded.ClassId));
+        }
+        Assert.Equal(0, sender.Calls);
         var linked = await client.PostAsJsonAsync($"/api/admin/students/{childId}/parents", new { phoneNumber = "0901234567", fullName = "Guardian", sendRegistrationNotification = true });
         Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
         Assert.Equal("no-store", linked.Headers.CacheControl!.ToString());

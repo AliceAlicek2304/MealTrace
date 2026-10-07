@@ -55,41 +55,19 @@ internal sealed class StudentAdministrationRepository(MealTraceDbContext db) : I
             return await db.Classes.AnyAsync(x => x.Id != id && x.SchoolYear == room.SchoolYear && x.Name == name);
         });
     }
-    public async Task<int> CountStudentsAsync(Guid? classId, DateOnly date, string? status, string? search)
+    public async Task<int> CountStudentsAsync(Guid? classId, DateOnly date, string? status, string? search, Guid? teacherId = null, string? parentStatus = null)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            var query = db.Students.AsNoTracking();
-            if (classId.HasValue)
-                query = query.Where(x => db.Enrollments.Any(e => e.StudentId == x.Id && e.ClassId == classId && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)) || (!db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)) && x.ClassId == classId));
-            if (status == "ACTIVE")
-                query = query.Where(x => db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
-            else if (status == "INACTIVE")
-                query = query.Where(x => !db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var term = search.Trim().ToLower();
-                query = query.Where(x => x.FullName.ToLower().Contains(term) || x.StudentCode.ToLower().Contains(term));
-            }
+            var query = StudentQuery(classId, date, status, search, teacherId, parentStatus);
             return await query.CountAsync();
         });
     }
-    public async Task<List<StudentSummaryRow>> SearchStudentsAsync(Guid? classId, DateOnly date, string? status, string? search, int number, int size)
+    public async Task<List<StudentSummaryRow>> SearchStudentsAsync(Guid? classId, DateOnly date, string? status, string? search, int number, int size, Guid? teacherId = null, string? parentStatus = null)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            var query = db.Students.AsNoTracking();
-            if (classId.HasValue)
-                query = query.Where(x => db.Enrollments.Any(e => e.StudentId == x.Id && e.ClassId == classId && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)) || (!db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)) && x.ClassId == classId));
-            if (status == "ACTIVE")
-                query = query.Where(x => db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
-            else if (status == "INACTIVE")
-                query = query.Where(x => !db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var term = search.Trim().ToLower();
-                query = query.Where(x => x.FullName.ToLower().Contains(term) || x.StudentCode.ToLower().Contains(term));
-            }
+            var query = StudentQuery(classId, date, status, search, teacherId, parentStatus);
             return await query.OrderBy(x => x.FullName).ThenBy(x => x.Id).Skip((number - 1) * size).Take(size).Select(x => new StudentSummaryRow
             {
                 Id = x.Id,
@@ -101,6 +79,29 @@ internal sealed class StudentAdministrationRepository(MealTraceDbContext db) : I
                 ClassName = db.Enrollments.Where(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)).Select(e => e.Class.Name).FirstOrDefault() ?? x.Class.Name
             }).ToListAsync();
         });
+    }
+    private IQueryable<Student> StudentQuery(Guid? classId, DateOnly date, string? status, string? search, Guid? teacherId, string? parentStatus)
+    {
+        var query = db.Students.AsNoTracking();
+        if (classId.HasValue)
+            query = query.Where(x => (db.Enrollments.Where(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date))
+                .Select(e => (Guid?)e.ClassId).FirstOrDefault() ?? x.ClassId) == classId);
+        if (teacherId.HasValue)
+            query = query.Where(x => db.TeacherAssignments.Any(a => a.UserId == teacherId
+                && a.ClassId == (db.Enrollments.Where(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date))
+                    .Select(e => (Guid?)e.ClassId).FirstOrDefault() ?? x.ClassId)));
+        if (status == "ACTIVE")
+            query = query.Where(x => db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
+        else if (status == "INACTIVE")
+            query = query.Where(x => !db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)));
+        if (parentStatus == "LINKED") query = query.Where(x => db.ParentStudents.Any(p => p.StudentId == x.Id));
+        else if (parentStatus == "UNLINKED") query = query.Where(x => !db.ParentStudents.Any(p => p.StudentId == x.Id));
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(x => x.FullName.ToLower().Contains(term) || x.StudentCode.ToLower().Contains(term));
+        }
+        return query;
     }
     public async Task<List<ParentStudentRow>> ListStudentParentsAsync(Guid[] ids)
     {

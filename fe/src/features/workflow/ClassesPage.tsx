@@ -12,6 +12,13 @@ type Student = { id: string; fullName: string; classId: string }
 type NotificationResult = { status: string; message: string; providerMessageId: string | null }
 type LinkResult = { parentId: string; fullName: string; email: string | null; phoneNumber: string | null; created: boolean; temporaryPassword: string | null; notification: NotificationResult | null }
 
+function notificationMessage(result: NotificationResult) {
+  if (result.status === 'ACCEPTED') return 'Yêu cầu gửi tin đã được tiếp nhận. Hãy kiểm tra nội dung trên WhatsApp của phụ huynh.'
+  if (result.status === 'UNKNOWN') return 'Hồ sơ đã lưu; chưa xác định được kết quả gửi tin. Hãy nhờ quản trị viên kiểm tra trước khi gửi lại.'
+  if (result.status === 'RATE_LIMITED') return 'Hồ sơ đã lưu; vui lòng đợi ít nhất 60 giây trước lần gửi tiếp theo.'
+  return 'Hồ sơ đã lưu nhưng chưa gửi được tin. Hãy liên hệ quản trị viên để được hỗ trợ.'
+}
+
 export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
   const queryClient = useQueryClient()
   const notifications = useQuery({ queryKey: ['notification-settings'], queryFn: async () =>
@@ -35,13 +42,11 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
   const [temporaryPassword, setTemporaryPassword] = useState('')
   const [sendRegistrationNotification, setSendRegistrationNotification] = useState(false)
   const [notificationResult, setNotificationResult] = useState<NotificationResult | null>(null)
-  const teacherStudents = useQuery({ queryKey: ['students', 'teacher-registration', classId], enabled: !isAdmin && !!classId,
-    queryFn: async () => (await api.get<Student[]>(`/classes/${classId}/students`)).data })
   const addClass = useMutation({ mutationFn: () => api.post('/classes', { name, schoolYear }),
     onSuccess: async () => { setCreating(null); setName(''); toast.success('Đã tạo lớp.'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['classes'] }), queryClient.invalidateQueries({ queryKey: ['scope-options'] }), queryClient.invalidateQueries({ queryKey: ['admin-academic-years'] })]) },
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   const addStudent = useMutation({ mutationFn: () => api.post<Student>('/students', { fullName: studentName, classId, studentCode: studentCode || null, startDate }),
-    onSuccess: async response => { setCreating(null); setStudentName(''); setStudentCode(''); setParentPhone(''); setParentName(''); setTemporaryPassword(''); setNotificationResult(null); setSendRegistrationNotification(false); setSelectedStudentName(response.data.fullName); setSelectedStudentId(response.data.id); toast.success('Đã thêm trẻ. Bạn có thể liên kết phụ huynh trong cửa sổ đang mở.'); await Promise.all([
+    onSuccess: async () => { setCreating(null); setStudentName(''); setStudentCode(''); toast.success('Đã thêm trẻ và ghi danh vào lớp. Có thể liên kết phụ huynh sau khi có SĐT.'); await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['students'] }), queryClient.invalidateQueries({ queryKey: ['classes'] }),
       queryClient.invalidateQueries({ queryKey: ['scope-options'] })]) },
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
@@ -66,22 +71,20 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
 
   return <>
     <div className="eyebrow">DỮ LIỆU NỀN</div><h1>Lớp và trẻ</h1>
-    <p className="lead">Tạo lớp, thêm trẻ và liên kết phụ huynh bằng SĐT. Một trẻ có thể có nhiều người giám hộ.</p>
+    <p className="lead">Thêm trẻ vào lớp ngay cả khi chưa có SĐT phụ huynh. Liên kết phụ huynh sau khi có thông tin; một trẻ có thể có nhiều người giám hộ.</p>
     {isAdmin && <div className="list-tabs" aria-label="Danh mục quản lý">
       <button type="button" aria-pressed={tab === 'students'} onClick={() => setTab('students')}>Trẻ</button>
       <button type="button" aria-pressed={tab === 'classes'} onClick={() => setTab('classes')}>Lớp</button>
       <button type="button" aria-pressed={tab === 'years'} onClick={() => setTab('years')}>Năm học</button>
     </div>}
-    {!isAdmin ? <section className="panel"><div className="panel-head"><h2>Trẻ trong lớp phụ trách</h2><button type="button" className="button primary" onClick={() => { setCreating('student'); setStudentName(''); setStudentCode(''); setStartDate(today) }}>Thêm trẻ</button></div>
-      <div className="list-toolbar"><ClassPicker assignedOnly value={classId} onChange={setClassId} /></div>
-      {!classId ? <p className="workflow-form">Chọn lớp để xem trẻ.</p> : teacherStudents.isPending ? <p className="workflow-form">Đang tải…</p> : teacherStudents.isError ? <p className="error workflow-form">{apiErrorMessage(teacherStudents.error)}</p> : <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ</th><th scope="col">Thao tác</th></tr></thead><tbody>{teacherStudents.data?.map(student => <tr key={student.id}><td>{student.fullName}</td><td><button type="button" className="button secondary" onClick={() => openParent(student)}>Liên kết phụ huynh</button></td></tr>)}</tbody></table>{!teacherStudents.data?.length && <p className="workflow-form">Chưa có trẻ đang học trong lớp.</p>}</div>}
-    </section> : tab === 'years' ? <AcademicYears /> : <StudentDirectory view={tab} onCreate={() => { setCreating(tab === 'classes' ? 'class' : 'student'); setName(''); setStudentName(''); setStudentCode(''); setStartDate(today) }} onViewStudents={id => { setClassId(id); setTab('students') }} initialClassId={classId} onLink={openParent} />}
+    {isAdmin && tab === 'years' ? <AcademicYears /> : <StudentDirectory isAdmin={isAdmin} view={isAdmin ? tab as 'classes' | 'students' : 'students'} onCreate={() => { setCreating(isAdmin && tab === 'classes' ? 'class' : 'student'); setName(''); setStudentName(''); setStudentCode(''); setStartDate(today) }} onViewStudents={id => { setClassId(id); setTab('students') }} initialClassId={classId} onLink={openParent} />}
     {creating === 'class' && <Modal title="Tạo lớp" busy={addClass.isPending} onClose={() => setCreating(null)}><form className="workflow-form" onSubmit={submitClass}>
         <label className="field">Tên lớp<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
         <SchoolYearPicker value={schoolYear} onChange={setSchoolYear} />
         <button type="submit" className="button primary" disabled={addClass.isPending}>Lưu lớp</button>
       </form></Modal>}
     {creating === 'student' && <Modal title="Thêm trẻ" busy={addStudent.isPending} onClose={() => setCreating(null)}><form className="workflow-form" onSubmit={submitStudent}>
+        <p className="form-help">Chưa cần SĐT hoặc tài khoản phụ huynh. Trẻ vẫn được ghi danh vào lớp; bạn có thể dùng “Liên kết phụ huynh” khi đã có thông tin.</p>
         <ClassPicker assignedOnly={!isAdmin} required value={classId} onChange={setClassId} />
         <label className="field">Họ tên trẻ<input required maxLength={150} value={studentName} onChange={e => setStudentName(e.target.value)} /></label>
         <label className="field">Mã trẻ (bỏ trống để tự tạo)<input maxLength={40} value={studentCode} onChange={e => setStudentCode(e.target.value)} placeholder="HS-2026-0012" /></label>
@@ -92,10 +95,11 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
       <form className="workflow-form" onSubmit={submitLink}><p className="form-help">Nhập SĐT đã có tài khoản để liên kết ngay. Nếu SĐT chưa tồn tại, nhập thêm họ tên để tạo tài khoản phụ huynh mới; mật khẩu tạm chỉ hiển thị một lần.</p>
         <div className="workflow-fields"><label className="field">SĐT phụ huynh<input required type="tel" maxLength={30} value={parentPhone} onChange={e => setParentPhone(e.target.value)} /></label>
           <label className="field">Họ tên nếu tạo mới<input maxLength={120} value={parentName} onChange={e => setParentName(e.target.value)} /></label>
-          <label className="switch-line"><input type="checkbox" disabled={!notifications.data?.enabled} checked={sendRegistrationNotification} onChange={e => setSendRegistrationNotification(e.target.checked)} /> Gửi {channel} khi liên kết (dùng hạn mức thử)</label>
+          <label className="switch-line"><input type="checkbox" disabled={!notifications.data?.enabled} checked={sendRegistrationNotification} onChange={e => setSendRegistrationNotification(e.target.checked)} /> Gửi hướng dẫn đăng nhập qua {channel}</label>
           <button type="submit" className="button primary" disabled={linkParent.isPending}>Liên kết</button></div></form>
-      <p className="form-help">{notifications.data?.templateOnly ? 'WhatsApp trial gửi mẫu cảnh báo số dư demo, không chứa thông tin trẻ hay tài khoản/mật khẩu và không phản ánh số dư thật. Phụ huynh phải kết nối WhatsApp trial trước.' : 'Ưu tiên Vonage: tin gồm tên trẻ, tài khoản và mật khẩu tạm nếu tạo mới. Cần tham gia sandbox và mở hội thoại trong 24 giờ. Khi Vonage từ chối, Twilio dự phòng chỉ gửi mẫu demo, chưa chứa thông tin đăng nhập.'} Chỉ gửi tới tester cấu hình; đợi 60 giây giữa các lần gửi. Gửi tin không xác minh quyền sở hữu SĐT.</p>
-      {notificationResult && <p className={notificationResult.status === 'ACCEPTED' ? 'form-help' : 'error'} role="status">{channel} {notificationResult.status}: {notificationResult.message}</p>}
+      <p className="form-help">Hồ sơ và tài khoản vẫn được lưu nếu gửi tin không thành công. Phụ huynh cần dùng WhatsApp để nhận tin.</p>
+      {isAdmin && <details className="notification-details"><summary>Thông tin cấu hình gửi thử</summary><p>{notifications.data?.templateOnly ? 'Twilio dùng mẫu demo cố định, chưa chứa thông tin đăng nhập.' : 'Ưu tiên Vonage gửi tên trẻ và thông tin đăng nhập; Twilio dự phòng dùng mẫu demo cố định.'} Chỉ gửi tới số thử đã cấu hình; cần kết nối môi trường thử và mở hội thoại trước. Đợi 60 giây giữa các lần gửi. Gửi tin không xác minh quyền sở hữu SĐT.</p></details>}
+      {notificationResult && <p className={notificationResult.status === 'ACCEPTED' ? 'form-help' : 'error'} role="status">{isAdmin ? `${channel} ${notificationResult.status}: ${notificationResult.message}` : notificationMessage(notificationResult)}</p>}
       {temporaryPassword && <div className="credential-once"><strong>Đăng nhập: {credentialPhone} · Mật khẩu tạm:</strong> <code>{temporaryPassword}</code><button type="button" onClick={() => setTemporaryPassword('')}>Đã lưu, ẩn mật khẩu</button><small>Chỉ hiển thị một lần. Chuyển riêng cho phụ huynh qua kênh an toàn.</small></div>}
     </Modal>}
   </>

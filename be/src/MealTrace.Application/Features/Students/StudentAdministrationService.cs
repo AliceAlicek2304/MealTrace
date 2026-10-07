@@ -3,6 +3,7 @@ using MealTrace.Application.Dtos.Students;
 using MealTrace.Domain.Entities;
 using MealTrace.Application.Abstractions;
 using MealTrace.Domain.Time;
+using MealTrace.Domain.Security;
 
 namespace MealTrace.Application.Features.Students;
 public sealed class StudentAdministrationService(IStudentAdministrationRepository repository, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
@@ -39,15 +40,18 @@ public sealed class StudentAdministrationService(IStudentAdministrationRepositor
         return Result.Success(Unit.Value);
     }
 
-    public async Task<Result<StudentListResponse>> SearchStudentsAsync(Guid? classId, string? search, string? status, int? page, int? pageSize)
+    public async Task<Result<StudentListResponse>> SearchStudentsAsync(Guid? classId, string? search, string? status, int? page, int? pageSize, string? parentStatus = null)
     {
+        if (!currentActor.IsInRole(RoleNames.Admin) && (!currentActor.IsInRole(RoleNames.Teacher) || currentActor.UserId is null))
+            return Result.Forbidden();
+        var teacherId = currentActor.IsInRole(RoleNames.Admin) ? null : currentActor.UserId;
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 20, 1, 100);
         var now = clock.GetUtcNow();
         var date = SchoolTime.Today(clock.GetUtcNow());
 
-        var total = await repository.CountStudentsAsync(classId, date, status, search);
-        var rows = await repository.SearchStudentsAsync(classId, date, status, search, number, size);
+        var total = await repository.CountStudentsAsync(classId, date, status, search, teacherId, parentStatus);
+        var rows = await repository.SearchStudentsAsync(classId, date, status, search, number, size, teacherId, parentStatus);
         var ids = rows.Select(x => x.Id).ToArray();
         var parents = await repository.ListStudentParentsAsync(ids);
         return Result.Success(new StudentListResponse
