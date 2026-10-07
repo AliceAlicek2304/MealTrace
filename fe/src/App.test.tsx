@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getAccessToken, setAccessToken } from './lib/api'
 import App from './App'
 
@@ -16,7 +16,10 @@ function mount() {
   cache = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(<QueryClientProvider client={cache}><App /></QueryClientProvider>)
 }
-afterEach(() => { cleanup(); cache.clear(); setAccessToken(null); window.history.replaceState(null, '', '/'); vi.restoreAllMocks() })
+beforeEach(() => {
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })))
+})
+afterEach(() => { cleanup(); cache.clear(); setAccessToken(null); window.history.replaceState(null, '', '/'); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('Session restoration and navigation', () => {
   it('validates the saved session and opens the linked page after reload', async () => {

@@ -74,14 +74,14 @@ td small { color: #8c9a90; margin-top: 4px; font-size: 11px; }
 .icon-button:hover { background: #eaf3eb; }
 .form-panel { margin-bottom: 25px; }
 .user-form { padding: 22px 25px; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr 180px; gap: 16px; }
-.field { display: flex; flex-direction: column; gap: 7px; color: #3a5444; font-weight: 700; font-size: 12px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
+.field { display: flex; flex-direction: column; min-width: 0; gap: 7px; color: #3a5444; font-weight: 700; font-size: 12px; }
 .field input, .field select, .field textarea { width: 100%; font-weight: 400; font-size: 13px; }
 .field textarea { min-height: 90px; resize: vertical; }
 .workflow-form { padding: 22px 25px; display: grid; gap: 15px; }
 .workflow-form > .button { justify-self: start; }
 .workflow-form > select, .workflow-exception select, .workflow-exception input { border: 1px solid #dce7de; border-radius: 9px; padding: 10px 12px; background: white; color: #264238; }
-.workflow-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: end; gap: 15px; }
+.workflow-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); align-items: end; gap: 15px; }
 .workflow-lists { margin-top: 22px; }
 .workflow-entry { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
 .workflow-names { color: #66766a; font-size: 12px; margin-top: 9px; line-height: 1.6; }

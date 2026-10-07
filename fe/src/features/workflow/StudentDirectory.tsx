@@ -1,3 +1,6 @@
+import { FilterPanel } from '../../components/FilterPanel'
+import { RecordActions } from '../../components/RecordActions'
+import { ResponsiveTable } from '../../components/ResponsiveTable'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { SearchFeedback } from '../../components/SearchFeedback'
 import { useState } from 'react'
@@ -60,36 +63,36 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
   }
   return <>
     {view === 'classes' && <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách lớp</h2><button type="button" className="button primary" onClick={onCreate}>Tạo lớp</button></div>
-      <div className="list-toolbar"><label className="field">Tìm lớp<input placeholder="Tên lớp hoặc niên khóa" value={classSearch} onChange={e => { setClassSearch(e.target.value); setClassPage(1) }} /></label></div>
+      <FilterPanel activeCount={[classSearchTerm].filter(Boolean).length}><div className="list-toolbar"><label className="field">Tìm lớp<input placeholder="Tên lớp hoặc niên khóa" value={classSearch} onChange={e => { setClassSearch(e.target.value); setClassPage(1) }} /></label></div></FilterPanel>
       <SearchFeedback waiting={classSearchWaiting} fetching={classes.isFetching} />
       {classes.isPending ? <p className="empty compact">Đang tải…</p> : classes.isError ? <p className="empty compact error">{apiErrorMessage(classes.error)}</p> : <>
         {!classes.data?.items.length && <p className="empty compact">{classSearchTerm ? 'Không có lớp phù hợp tìm kiếm.' : 'Chưa có lớp.'}</p>}
-        <div className="table-wrap"><table><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Trẻ đang học</th><th scope="col">Thao tác</th></tr></thead><tbody>
+        <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Trẻ đang học</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {classes.data?.items.map(room => <tr key={room.id}><td><strong>{room.name}</strong></td><td>{room.schoolYear}</td><td>{room.studentCount}</td>
-          <td><div className="table-actions"><button type="button" className="button secondary" onClick={() => { setClassId(room.id); setPage(1); onViewStudents(room.id) }}>Xem trẻ</button>
-            <button type="button" className="button secondary" onClick={() => open({ kind: 'class', room })}>Sửa lớp</button></div></td></tr>)}
-        </tbody></table></div>
+          <td><RecordActions label={room.name}><button type="button" className="button secondary" onClick={() => { setClassId(room.id); setPage(1); onViewStudents(room.id) }}>Xem trẻ</button>
+            <button type="button" className="button secondary" onClick={() => open({ kind: 'class', room })}>Sửa lớp</button></RecordActions></td></tr>)}
+        </tbody></ResponsiveTable></div>
       </>}
       <Pagination page={classPage} total={classes.data?.total ?? 0} pageSize={20} busy={classSearchWaiting || classes.isFetching} onChange={setClassPage} />
     </section>}
-    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>{isAdmin ? 'Danh sách trẻ' : 'Trẻ trong lớp phụ trách'}</h2><button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div><div className="list-toolbar"><ClassPicker compact assignedOnly={!isAdmin} value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
+    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>{isAdmin ? 'Danh sách trẻ' : 'Trẻ trong lớp phụ trách'}</h2><button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div><FilterPanel activeCount={[searchTerm, classId, status, parentStatus].filter(Boolean).length}><div className="list-toolbar"><ClassPicker compact assignedOnly={!isAdmin} value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
       <label className="field">Tìm trẻ<input placeholder="Mã trẻ hoặc họ tên" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
         <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label>
-        <label className="field">Liên kết phụ huynh<select value={parentStatus} onChange={e => { setParentStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="UNLINKED">Chưa liên kết</option><option value="LINKED">Đã liên kết</option></select></label></div>
+        <label className="field">Liên kết phụ huynh<select value={parentStatus} onChange={e => { setParentStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="UNLINKED">Chưa liên kết</option><option value="LINKED">Đã liên kết</option></select></label></div></FilterPanel>
       <SearchFeedback waiting={searchWaiting} fetching={students.isFetching} />
       {students.isPending ? <p className="empty compact">Đang tải…</p> : students.isError ? <p className="empty compact error">{apiErrorMessage(students.error)}</p> : <>
         {!students.data?.items.length && <p className="empty compact">{searchTerm || classId || status || parentStatus ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ.'}</p>}
-        <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
+        <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {students.data?.items.map(student => <tr key={student.id}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
           <td>{student.parents.length ? <button type="button" className="parent-summary" aria-label={`Xem ${student.parents.length} phụ huynh của ${student.fullName}`} onClick={() => setParentsTarget(student)}>
             {student.parents[0].fullName}{student.parents.length > 1 && <span aria-hidden="true"> …</span>}
           </button> : <span className="muted">Chưa liên kết</span>}</td>
-          <td><div className="table-actions">{isAdmin && <><button type="button" className="icon-button" title="Sửa hồ sơ" aria-label={`Sửa hồ sơ ${student.fullName}`} onClick={() => open({ kind: 'student', student })}><Pencil size={17} /></button>
-            <button type="button" className="icon-button" title="Ghi danh / chuyển lớp" aria-label={`Ghi danh / chuyển lớp ${student.fullName}`} onClick={() => open({ kind: 'enrollment', student })}><ArrowRightLeft size={17} /></button>
-            {student.isActive && <button type="button" className="icon-button action-danger" title="Ngừng học" aria-label={`Ngừng học ${student.fullName}`} onClick={() => { open({ kind: 'enrollment', student }); setWithdraw(true) }}><UserRoundMinus size={17} /></button>}
-            <button type="button" className="icon-button" title="Lịch sử ghi danh" aria-label={`Lịch sử ${student.fullName}`} onClick={() => setHistoryTarget(student)}><History size={17} /></button></>}
-            <button type="button" className="icon-button" title="Liên kết phụ huynh" aria-label={`Liên kết phụ huynh ${student.fullName}`} onClick={() => onLink(student)}><UserRoundPlus size={17} /></button></div></td></tr>)}
-        </tbody></table></div>
+          <td><RecordActions label={student.fullName}>{isAdmin && <><button type="button" className="icon-button" title="Sửa hồ sơ" aria-label={`Sửa hồ sơ ${student.fullName}`} onClick={() => open({ kind: 'student', student })}><Pencil size={17} /><span>Sửa hồ sơ</span></button>
+            <button type="button" className="icon-button" title="Ghi danh / chuyển lớp" aria-label={`Ghi danh / chuyển lớp ${student.fullName}`} onClick={() => open({ kind: 'enrollment', student })}><ArrowRightLeft size={17} /><span>Ghi danh / chuyển lớp</span></button>
+            {student.isActive && <button type="button" className="icon-button action-danger" title="Ngừng học" aria-label={`Ngừng học ${student.fullName}`} onClick={() => { open({ kind: 'enrollment', student }); setWithdraw(true) }}><UserRoundMinus size={17} /><span>Ngừng học</span></button>}
+            <button type="button" className="icon-button" title="Lịch sử ghi danh" aria-label={`Lịch sử ${student.fullName}`} onClick={() => setHistoryTarget(student)}><History size={17} /><span>Lịch sử ghi danh</span></button></>}
+            <button type="button" className="icon-button" title="Liên kết phụ huynh" aria-label={`Liên kết phụ huynh ${student.fullName}`} onClick={() => onLink(student)}><UserRoundPlus size={17} /><span>Liên kết phụ huynh</span></button></RecordActions></td></tr>)}
+        </tbody></ResponsiveTable></div>
       </>}
       <Pagination page={page} total={students.data?.total ?? 0} pageSize={20} busy={searchWaiting || students.isFetching} onChange={setPage} />
     </section>}

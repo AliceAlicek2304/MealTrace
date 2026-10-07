@@ -1,3 +1,4 @@
+import { ResponsiveTable } from '../../components/ResponsiveTable'
 import { schoolDateTime } from '../../lib/schoolTime'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { SearchFeedback } from '../../components/SearchFeedback'
@@ -25,8 +26,8 @@ const time = (value: string) => schoolDateTime(value)
 function SnapshotView({ title, snapshot }: { title: string; snapshot: Snapshot }) {
   return <details className="entry"><summary>{title} · bản {snapshot.version} · {snapshot.count} suất</summary>
     <p>Số trẻ có suất: {snapshot.students.length} · Điều chỉnh riêng cho bếp: {snapshot.kitchenAdjustment > 0 ? "+" : ""}{snapshot.kitchenAdjustment}</p><p className="workflow-names">{snapshot.students.map(x => x.studentName).join(', ') || 'Không có trẻ ăn'}</p>
-    {snapshot.decisions.length > 0 && <div className="table-wrap"><table><thead><tr><th>Trẻ</th><th>Suất</th><th>Nguồn đã lưu</th></tr></thead>
-      <tbody>{snapshot.decisions.map(x => <tr key={x.studentId}><td>{x.studentCode} · {x.studentName}</td><td>{x.willEat ? 'Có' : 'Không'}</td><td>{sources[x.source] ?? x.source}</td></tr>)}</tbody></table></div>}
+    {snapshot.decisions.length > 0 && <div className="table-wrap"><ResponsiveTable><thead><tr><th>Trẻ</th><th>Suất</th><th>Nguồn đã lưu</th></tr></thead>
+      <tbody>{snapshot.decisions.map(x => <tr key={x.studentId}><td>{x.studentCode} · {x.studentName}</td><td>{x.willEat ? 'Có' : 'Không'}</td><td>{sources[x.source] ?? x.source}</td></tr>)}</tbody></ResponsiveTable></div>}
   </details>
 }
 
@@ -83,19 +84,26 @@ export function PortionAmendments({ mealId, rooms, roles }: { mealId: string; ro
 
   if (!rooms.length) return <section className="panel"><p className="empty">Bản chốt cũ chưa có danh sách theo lớp; cần đối chiếu hồ sơ trước khi điều chỉnh.</p></section>
 
-  return <section className="panel workflow-lists amendment-panel"><h2>Điều chỉnh sau chốt</h2>
-    <p>Bản gốc giữ nguyên. Một phiếu chọn nhiều trẻ hoặc điều chỉnh số lượng bếp; chỉ bản được Admin duyệt mới áp dụng cho bếp.</p>
+  return <section className="panel workflow-lists amendment-panel">
+    <div className="amendment-intro"><h2>Đối chiếu suất ăn</h2><p>Thay đổi chỉ áp dụng sau khi Admin duyệt.</p>
+      <details><summary>Hướng dẫn điều chỉnh</summary><p>Bản gốc luôn được giữ lại. Chọn nhiều trẻ trong một phiếu hoặc điều chỉnh riêng số lượng gửi bếp. Phiếu đang chờ duyệt chưa thay đổi suất hiện hành.</p></details></div>
     <div className="list-toolbar"><label className="field">Lớp<select value={classId} onChange={event => { setPickedClass(event.target.value); setSelected([]); setSelectedBase(''); setSearch(''); setCandidatePage(1); setPage(1) }}>
       {rooms.map(room => <option key={room.classId} value={room.classId}>{room.className}</option>)}</select></label>
       {view === 'candidates' && <label className="field">Tìm trẻ<input placeholder="Tên hoặc mã trẻ" value={search} onChange={event => { setSearch(event.target.value); setCandidatePage(1) }} /></label>}
     </div>
     <SearchFeedback waiting={searchWaiting} fetching={query.isFetching} />
     {query.isPending ? <p className="empty">Đang tải bản suất…</p> : query.isError ? <p className="error">Không tải được điều chỉnh. <button type="button" className="button secondary" onClick={() => void query.refetch()}>Thử lại</button></p> : data && <>
-      <div className="panel-head"><div><strong>{data.className}: gốc {data.original.count} → đang áp dụng {data.current.count} suất · bản {data.current.version}</strong>
-        <p>Tăng {data.added.length} trẻ · Giảm {data.removed.length} trẻ · Điều chỉnh riêng cho bếp: {data.current.kitchenAdjustment > 0 ? "+" : ""}{data.current.kitchenAdjustment}</p></div><div className="table-actions"><button type="button" className="button secondary" onClick={() => setSnapshotDialog({ title: 'Bản gốc', snapshot: data.original })}>Xem bản gốc</button><button type="button" className="button secondary" onClick={() => setSnapshotDialog({ title: 'Đang áp dụng', snapshot: data.current })}>Xem bản hiện hành</button></div></div>
+      <div className="amendment-headline"><span>Đang gửi bếp</span><strong>{data.current.count} suất</strong><small>Bản {data.current.version}</small></div>
+      <details className="amendment-comparison"><summary>Đối chiếu bản gốc và thay đổi</summary><div className="amendment-comparison-content">
+      <div className="amendment-overview" aria-label="So sánh số suất">
+        <article><span>Bản chốt gốc</span><strong>{data.original.count}<small>suất</small></strong><span>Bản {data.original.version}</span><button type="button" className="button secondary" onClick={() => setSnapshotDialog({ title: 'Bản gốc', snapshot: data.original })}>Xem bản gốc</button></article>
+        <article className="amendment-current" aria-label="Suất hiện hành"><span>Đang áp dụng</span><strong>{data.current.count}<small>suất</small></strong><span>Bản {data.current.version}</span><button type="button" className="button secondary" onClick={() => setSnapshotDialog({ title: 'Đang áp dụng', snapshot: data.current })}>Xem bản hiện hành</button></article>
+      </div>
+      <dl className="amendment-deltas"><div><dt>Trẻ tăng</dt><dd>+{data.added.length}</dd></div><div><dt>Trẻ giảm</dt><dd>−{data.removed.length}</dd></div><div><dt>Suất riêng bếp</dt><dd>{data.current.kitchenAdjustment > 0 ? '+' : ''}{data.current.kitchenAdjustment}</dd></div></dl>
+      </div></details>
       {!data.hasOriginalSources && <p className="muted">Bản chốt cũ chưa lưu đầy đủ nguồn quyết định. Giữ danh sách gốc; không suy diễn lại lịch sử báo vắng.</p>}
       {!data.hasCompleteRoster && <p className="error">Bản cũ thiếu danh sách trẻ khớp tổng suất. Cần đối chiếu hồ sơ trước khi điều chỉnh theo trẻ.</p>}
-      <div className="list-tabs modal-tabs"><button type="button" aria-pressed={view === 'requests'} onClick={() => setView('requests')}>Yêu cầu và lịch sử</button>{data.canRequest && <button type="button" aria-pressed={view === 'candidates'} onClick={() => setView('candidates')}>Tạo yêu cầu</button>}</div>
+      <div className="list-tabs amendment-view-switch" aria-label="Yêu cầu điều chỉnh"><button type="button" aria-pressed={view === 'requests'} onClick={() => setView('requests')}>Yêu cầu và lịch sử</button>{data.canRequest && <button type="button" aria-pressed={view === 'candidates'} onClick={() => setView('candidates')}>Tạo yêu cầu</button>}</div>
       {view === 'candidates' && data.canRequest && <>
         <div className="list-toolbar">
           <label className="field">Thao tác<select value={willEat ? 'add' : 'remove'} onChange={event => { setWillEat(event.target.value === 'add'); setSelected([]); setSelectedBase('') }}><option value="remove">Giảm suất</option><option value="add">Tăng suất</option></select></label>
@@ -104,22 +112,22 @@ export function PortionAmendments({ mealId, rooms, roles }: { mealId: string; ro
           <button type="button" className="button primary" disabled={searchWaiting || query.isFetching || (!willEat && (quantityOnly ? quantity : selected.length) > data.current.count) || (quantityOnly ? !Number.isInteger(quantity) || quantity < 1 || quantity > 200 : !selected.length || selected.length > 200 || selectedBase !== data.current.id)} onClick={() => { setReason(''); setTarget({ kind: 'request', children: quantityOnly ? [] : [...selected], quantity: quantityOnly ? quantity : selected.length, willEat, baseId: data.current.id, baseVersion: data.current.version, classId, beforeCount: data.current.count }) }}>Tạo phiếu {willEat ? 'tăng' : 'giảm'} {quantityOnly ? quantity : selected.length} suất</button>
         </div>
         {!willEat && (quantityOnly ? quantity : selected.length) > data.current.count && <p className="error">Số suất giảm vượt tổng đang gửi bếp.</p>}
-        <p><strong>Dự kiến gửi bếp: {data.current.count} → {Number.isInteger(previewCount) ? previewCount : "—"} suất</strong> (chỉ áp dụng sau khi duyệt).</p>
+        <div className="amendment-preview" role="status" aria-label="Dự kiến gửi bếp"><span>Dự kiến gửi bếp</span><strong>{data.current.count} → {Number.isInteger(previewCount) ? previewCount : '—'} suất</strong><small>Chỉ áp dụng sau khi duyệt.</small></div>
         {quantityOnly ? <p className="muted">Chỉ thay đổi số lượng gửi bếp. Không thay đổi trạng thái ăn hoặc tiền ăn của từng trẻ.</p> : <>
           <p>Đã chọn {selected.length} trẻ (giữ lựa chọn khi tìm kiếm/chuyển trang). <button type="button" className="button secondary" disabled={query.isFetching || searchWaiting || selectionStale || !unselectedInPage.length || selected.length + unselectedInPage.length > 200} onClick={() => { setSelectedBase(data.current.id); setSelected(previous => [...previous, ...unselectedInPage]) }}>Chọn trẻ phù hợp trong trang</button> <button type="button" className="button secondary" onClick={() => { setSelected([]); setSelectedBase('') }}>Bỏ chọn</button></p>
           {selected.length > 0 && <div className="selected-children" aria-label="Trẻ đã chọn">{selected.map(child => <button type="button" className="button secondary" key={child.studentId} aria-label={`Bỏ chọn ${child.studentName}`} onClick={() => setSelected(previous => previous.filter(x => x.studentId !== child.studentId))}>{child.studentName} ×</button>)}</div>}
           {selected.length > 0 && selectedBase !== data.current.id && <p className="error">Bản suất đã đổi. Bỏ chọn rồi đối chiếu lại danh sách.</p>}
-          <div className="table-wrap"><table><thead><tr><th>Chọn</th><th>Trẻ</th><th>Bản đang áp dụng</th><th>Nguồn</th></tr></thead><tbody>
+          <div className="table-wrap"><ResponsiveTable><thead><tr><th>Chọn</th><th>Trẻ</th><th>Bản đang áp dụng</th><th>Nguồn</th></tr></thead><tbody>
             {data.candidates.map(child => <tr key={child.studentId}><td><input type="checkbox" aria-label={`Chọn ${child.studentName}`} disabled={child.willEat === willEat || searchWaiting || query.isFetching || (selected.length >= 200 && !selected.some(x => x.studentId === child.studentId)) || (selected.length > 0 && selectedBase !== data.current.id)} checked={selected.some(x => x.studentId === child.studentId)} onChange={event => { setSelectedBase(data.current.id); setSelected(previous => event.target.checked ? [...previous, child] : previous.filter(x => x.studentId !== child.studentId)) }} /></td><td>{child.studentCode} · {child.studentName}</td><td>{child.willEat ? 'Có suất' : 'Không có suất'}</td><td>{sources[child.source] ?? child.source}</td></tr>)}
-          </tbody></table></div>
+          </tbody></ResponsiveTable></div>
           {!data.candidates.length && <p className="empty">Không có trẻ phù hợp.</p>}
           <Pagination page={candidatePage} total={data.candidateTotal} pageSize={25} busy={searchWaiting || query.isFetching} onChange={setCandidatePage} />
         </>}</>}
-      {view === 'requests' && <><div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Thay đổi</th><th scope="col">Trạng thái</th><th scope="col">Lý do</th><th scope="col">Người gửi / bản nguồn</th><th scope="col">Thao tác</th></tr></thead><tbody>
+      {view === 'requests' && <><div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Thay đổi</th><th scope="col">Trạng thái</th><th scope="col">Lý do</th><th scope="col">Người gửi / bản nguồn</th><th scope="col">Thao tác</th></tr></thead><tbody>
       {data.items.map(item => <tr key={item.id}><td><strong>{item.isQuantityOnly ? "Số lượng bếp" : item.students.length > 0 ? item.students.map(x => x.studentName).join(", ") : item.studentName}</strong><small>{item.isQuantityOnly ? "Không gắn trẻ" : item.students.length > 0 ? item.students.map(x => x.studentCode).join(", ") : item.studentCode}</small></td><td>{item.willEat ? '+' : '−'}{item.quantity} suất</td><td>{statuses[item.status]}</td>
         <td>{item.reason}{item.reviewedAt && <small>{item.reviewedByName} · {time(item.reviewedAt)}: {item.reviewReason}</small>}</td><td>{item.requestedByName}<small>{time(item.requestedAt)} · bản {item.baseVersion}</small></td>
         <td><button type="button" className="button secondary" onClick={() => { setReason(''); setTarget({ kind: 'review', request: item }) }}>{isAdmin && item.status === 'PENDING' ? 'Xem và xử lý' : 'Xem bản nguồn'}</button></td></tr>)}
-      </tbody></table></div>
+      </tbody></ResponsiveTable></div>
       {!data.items.length && <p className="empty">Chưa có yêu cầu điều chỉnh.</p>}
       <Pagination page={page} total={data.total} pageSize={25} busy={searchWaiting || query.isFetching} onChange={setPage} /></>}
     </>}

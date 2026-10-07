@@ -1,3 +1,5 @@
+import { ResponsiveTable } from '../../components/ResponsiveTable'
+import { FilterPanel } from '../../components/FilterPanel'
 import { useDeadline } from '../../lib/useDeadline'
 import { schoolDateTime } from '../../lib/schoolTime'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
@@ -63,9 +65,9 @@ export function MealExceptions({ mealId }: { mealId: string }) {
   </>
   return <section className="panel workflow-lists"><div className="panel-head"><div><h2>{decisions.data?.isSettled ? 'Nguồn trước điều chỉnh và suất hiện hành' : 'Nguồn dự kiến ăn và ngoại lệ'}</h2>
     <p>{decisions.data?.isSettled ? 'Cột tại giờ chốt giữ nguồn dự kiến ban đầu. Cột hiện hành lấy bản chốt mới nhất sau các phiếu đã duyệt; phiếu đang chờ chưa áp dụng.' : 'Bao gồm trẻ có suất và không có suất. Đây là dự kiến ăn, chưa xác nhận có mặt thực tế.'}</p></div></div>
-    <div className="workflow-form workflow-fields"><label className="field">Tìm trẻ<input placeholder="Mã hoặc tên trẻ" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
+    <FilterPanel activeCount={[searchTerm, classId].filter(Boolean).length}><div className="workflow-form workflow-fields"><label className="field">Tìm trẻ<input placeholder="Mã hoặc tên trẻ" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
       <label className="field">Lớp<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1) }}><option value="">Tất cả lớp được xem</option>
-        {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div>
+        {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div></FilterPanel>
     <SearchFeedback waiting={searchWaiting} fetching={decisions.isFetching} />
     {decisions.isPending ? <p className="empty compact">Đang tải…</p> : decisions.isError ? <p className="empty compact error">{apiErrorMessage(decisions.error)}</p> : <>
       {!canEdit && <p className="empty compact">{decisions.data?.isCancelled ? `Phiên đã hủy: ${decisions.data.cancellationReason ?? 'Theo lịch trường'}` : 'Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.'}</p>}
@@ -76,7 +78,7 @@ export function MealExceptions({ mealId }: { mealId: string }) {
         </>}
       </div>}
       {!decisions.data?.items.length && <p className="empty compact">{searchTerm || classId ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ ghi danh tại ngày ăn.'}</p>}
-      <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">{decisions.data?.isSettled ? 'Suất tại giờ chốt' : 'Suất dự kiến'}</th>{decisions.data?.isSettled && <th scope="col">Suất hiện hành</th>}<th scope="col">{decisions.data?.isSettled ? 'Nguồn tại giờ chốt / lý do' : 'Nguồn / lý do'}</th><th scope="col">Thao tác</th></tr></thead><tbody>
+      <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">{decisions.data?.isSettled ? 'Suất tại giờ chốt' : 'Suất dự kiến'}</th>{decisions.data?.isSettled && <th scope="col">Suất hiện hành</th>}<th scope="col">{decisions.data?.isSettled ? 'Nguồn tại giờ chốt / lý do' : 'Nguồn / lý do'}</th><th scope="col">Thao tác</th></tr></thead><tbody>
       {decisions.data?.items.map(student => {
         const room = appliedRooms.get(student.classId)
         const current = currentStudentPortion(student.studentId, room)
@@ -86,7 +88,7 @@ export function MealExceptions({ mealId }: { mealId: string }) {
         {student.latestReason && <small>{student.latestReason}</small>}</td>
         <td><div className="table-actions"><button type="button" className="button secondary" disabled={!canEdit || decisions.isFetching} onClick={() => open(student, 'edit')}>Ghi ngoại lệ</button>
           <button type="button" className="button secondary" onClick={() => open(student, 'history')}>{decisions.data.isSettled ? 'Lịch sử ngoại lệ trước chốt' : 'Lịch sử'}</button></div></td></tr>})}
-      </tbody></table></div>
+      </tbody></ResponsiveTable></div>
     </>}
     <Pagination page={page} total={decisions.data?.total ?? 0} pageSize={25} busy={searchWaiting || decisions.isFetching} onChange={setPage} />
     {target && <Modal title={`${target.kind === 'edit' ? 'Ngoại lệ' : 'Lịch sử'}: ${target.student.fullName}`} description={`${target.student.studentCode} · ${target.student.className}`} busy={save.isPending} onClose={() => setTarget(null)}>

@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom'
 import { Toaster } from 'sonner'
 import { X } from 'lucide-react'
 
-type Props = { title: string; description?: string; children: ReactNode; onClose: () => void; busy?: boolean; wide?: boolean }
+type Props = { title: string; description?: string; children: ReactNode; onClose: () => void; busy?: boolean; wide?: boolean; drawer?: boolean }
 
-export function Modal({ title, description, children, onClose, busy = false, wide = false }: Props) {
+export function Modal({ title, description, children, onClose, busy = false, wide = false, drawer = false }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const backdropPress = useRef(false)
   const titleId = useId()
@@ -17,7 +17,7 @@ export function Modal({ title, description, children, onClose, busy = false, wid
     dialog.showModal()
     return () => { dialog.close(); document.body.style.overflow = previousOverflow }
   }, [])
-  return createPortal(<dialog ref={dialogRef} className={`app-modal ${wide ? 'app-modal-wide' : ''}`}
+  return createPortal(<dialog ref={dialogRef} className={`app-modal ${wide ? 'app-modal-wide' : ''} ${drawer ? 'mobile-drawer' : ''}`}
     aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} aria-busy={busy}
     onKeyDown={event => {
       if (event.key === 'Escape') {
@@ -35,7 +35,7 @@ export function Modal({ title, description, children, onClose, busy = false, wid
       backdropPress.current = false
     }}>
     <header className="modal-header"><div><h2 id={titleId}>{title}</h2>{description && <p id={descriptionId}>{description}</p>}</div>
-      <button type="button" className="icon-button" aria-label="Đóng cửa sổ" disabled={busy} onClick={onClose}><X size={20} /></button></header>
+      <button type="button" className="icon-button" aria-label={drawer ? 'Đóng menu' : 'Đóng cửa sổ'} disabled={busy} onClick={onClose}><X size={20} /></button></header>
     <div className="modal-body">{children}</div>
     <Toaster id="edit-modal" position="top-right" richColors closeButton />
   </dialog>, document.body)

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users, School, ClipboardList, CalendarOff } from 'lucide-react'
+import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users, School, ClipboardList, CalendarOff, Menu } from 'lucide-react'
+import { Modal } from './components/Modal'
 import { api, apiErrorMessage, getAccessToken, setAccessToken } from './lib/api'
 import { canOpenPage, defaultPage, pageFromHash, usePageNavigation } from './lib/navigation'
 import { AccountsPage } from './features/access/AccountsPage'
@@ -20,6 +21,8 @@ export default function App() {
   const queryClient = useQueryClient()
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [page, setPage] = usePageNavigation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
   const [restoring, setRestoring] = useState(!!getAccessToken())
   const [restoreError, setRestoreError] = useState('')
   const [restoreAttempt, setRestoreAttempt] = useState(0)
@@ -65,6 +68,17 @@ export default function App() {
   }, [user, page])
 
   useEffect(() => {
+    setMenuOpen(false)
+  }, [page])
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 761px)')
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false) }
+    desktop.addEventListener('change', closeOnDesktop)
+    return () => desktop.removeEventListener('change', closeOnDesktop)
+  }, [])
+
+  useEffect(() => {
     const interceptor = api.interceptors.response.use(undefined, error => {
       if (error.response?.status === 401 && user) clearSession()
       return Promise.reject(error)
@@ -84,11 +98,10 @@ export default function App() {
   if (!user) return showLogin ? <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} /> : <LandingPage onLogin={() => setShowLogin(true)} />
   const pageName = page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'calendar' ? 'Lịch bữa ăn' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
 
-  return <div className="shell">
-    <aside className="sidebar">
-      <div className="brand"><span className="logo"><Leaf size={22} /></span><span>meal<b>trace</b><small>School meal operations</small></span></div>
-      <p className="side-label">KHÔNG GIAN LÀM VIỆC</p>
-      <nav aria-label="Điều hướng chính">
+  const navigation = (id: string) => (
+      <nav id={id} aria-label="Điều hướng chính" onClick={event => {
+        if ((event.target as HTMLElement).closest('button')) setMenuOpen(false)
+      }}>
         {isAdmin && <button type="button" className={`nav ${page === 'accounts' ? 'active' : ''}`} onClick={() => setPage('accounts')}><Users size={18} /> Tài khoản</button>}
         {canRegisterStudents && <button type="button" className={`nav ${page === 'classes' ? 'active' : ''}`} onClick={() => setPage('classes')}><School size={18} /> Lớp và trẻ</button>}
         {isAdmin && <button type="button" className={`nav ${page === 'calendar' ? 'active' : ''}`} onClick={() => setPage('calendar')}><CalendarDays size={18} /> Lịch bữa ăn</button>}
@@ -97,6 +110,15 @@ export default function App() {
         {isMealStaff && <button type="button" className={`nav ${page === 'meals' ? 'active' : ''}`} onClick={() => setPage('meals')}><CalendarDays size={18} /> Ngày ăn</button>}
         <button type="button" className={`nav ${page === 'profile' ? 'active' : ''}`} onClick={() => setPage('profile')}><UserRound size={18} /> Hồ sơ của tôi</button>
       </nav>
+  )
+
+  return <div className="shell">
+    <button ref={menuButtonRef} type="button" className="mobile-menu-toggle" aria-label="Mở menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><Menu size={23} /></button>
+    {menuOpen && <Modal drawer title="MealTrace" onClose={() => { setMenuOpen(false); menuButtonRef.current?.focus() }}>{navigation('mobile-navigation')}</Modal>}
+    <aside className="sidebar">
+      <div className="brand"><span className="logo"><Leaf size={22} /></span><span>meal<b>trace</b><small>School meal operations</small></span></div>
+      <p className="side-label">KHÔNG GIAN LÀM VIỆC</p>
+      {navigation('main-navigation')}
       <div className="side-foot"><ShieldCheck size={17} /> Dữ liệu có thể truy vết</div>
     </aside>
     <div className="content">

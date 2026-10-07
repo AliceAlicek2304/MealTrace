@@ -52,7 +52,7 @@ describe('Batch portion amendment UI', () => {
     expect(screen.getByText(/Đã chọn 3 trẻ/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Bỏ chọn Trẻ 1' }))
     expect(screen.getByText(/Đã chọn 2 trẻ/)).toBeTruthy()
-    expect(screen.getByText(/Dự kiến gửi bếp: 3 → 1 suất/)).toBeTruthy()
+    expect(within(screen.getByRole('status', { name: 'Dự kiến gửi bếp' })).getByText('3 → 1 suất')).toBeTruthy()
   })
 
   it('submits one multi-child request then lets admin approve the entire request', async () => {
@@ -80,7 +80,9 @@ describe('Batch portion amendment UI', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Duyệt và áp dụng' }) as HTMLButtonElement).disabled).toBe(false))
     await user.click(screen.getByRole('button', { name: 'Duyệt và áp dụng' }))
     await waitFor(() => expect(post).toHaveBeenCalledWith('/meal-days/meal/amendments/request/review', { approve: true, reason: 'Đã đối chiếu' }))
-    expect(await screen.findByText(/đang áp dụng 1 suất · bản 2/)).toBeTruthy()
+    const current = within(screen.getByRole('article', { name: 'Suất hiện hành' }))
+    expect(await current.findByText('Bản 2')).toBeTruthy()
+    expect(current.getByText('1', { selector: 'strong' })).toBeTruthy()
   })
 
   it('blocks submitting a stale source while keeping the reason visible', async () => {
