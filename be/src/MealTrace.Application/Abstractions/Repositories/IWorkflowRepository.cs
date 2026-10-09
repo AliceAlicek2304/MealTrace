@@ -23,6 +23,7 @@ public interface IWorkflowRepository
     Task<bool> ClassExistsAsync(CreateStudent input);
     Task<bool> StudentCodeExistsAsync(Student student);
     Task<bool> StudentExistsAsync(Guid studentId);
+    Task<Student?> FindStudentForParentLinkAsync(Guid studentId);
     Task<IdentityAccount?> FindParentByPhoneAsync(string? phone);
     Task<bool> ParentLinkExistsAsync(IdentityAccount parent, Guid studentId);
     Task<List<ParentChildSummary>> ListParentChildrenAsync(DateTimeOffset now, Guid userId);
@@ -33,6 +34,9 @@ public interface IWorkflowRepository
     Task<MealAbsence> GetTrackedAbsenceAsync(Guid id);
     Task<bool> HasGuardianLinkAsync(Guid userId, MealAbsence absence);
     Task<bool> HasOtherOverlappingAbsenceAsync(Guid id, MealAbsence absence, ReportAbsence input);
+    Task<List<AbsenceStudentOption>> ListAbsenceStudentOptionsAsync(Guid userId, CancellationToken ct);
+    Task<int> CountReportedAbsencesAsync(AbsenceListFilter filter, CancellationToken ct);
+    Task<List<AbsenceSummary>> SearchReportedAbsencesAsync(AbsenceListFilter filter, int page, int size, CancellationToken ct);
     Task<List<AbsenceSummary>> ListReportedAbsencesAsync(Guid reportedByUserId, Guid guardianUserId);
     Task<MealAbsence?> FindAbsenceForCancellationAsync(Guid id, Guid userId);
     Task<MealAbsence> GetAbsenceForCancellationAsync(Guid id);

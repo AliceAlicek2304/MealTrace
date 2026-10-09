@@ -1,3 +1,5 @@
+using MealTrace.Application.Dtos.Common;
+using MealTrace.Application.Models.Persistence;
 using MealTrace.Application.Features.Portions;
 using MealTrace.Application.Features.Meals;
 using MealTrace.Application.Features.Calendar;
@@ -13,7 +15,7 @@ using MealTrace.Domain.Time;
 using MealTrace.Application.Dtos.Students;
 
 namespace MealTrace.Application.Features.Workflow;
-public sealed class WorkflowService(IWorkflowRepository repository, MealCalendarService calendar, MealDecisionService decisionService, PortionService portions, ICurrentActor currentActor, TimeProvider clock, IIdentityService users, IUnitOfWork unitOfWork)
+public sealed class WorkflowService(IWorkflowRepository repository, MealCalendarService calendar, MealDecisionService decisionService, PortionService portions, ICurrentActor currentActor, TimeProvider clock, IIdentityService users, IUnitOfWork unitOfWork, MealTrace.Application.Features.Notifications.ParentRegistrationNotificationService registrationNotifications)
 {
     public async Task<Result<List<AcademicYearResponse>>> ListAcademicYearsAsync()
     {
@@ -125,13 +127,17 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
 
     public async Task<Result<StudentCreatedResponse>> CreateStudentAsync(CreateStudent input)
     {
+        if (!currentActor.IsInRole(RoleNames.Admin) && (!currentActor.IsInRole(RoleNames.Teacher) || !await CanReadClass(input.ClassId))) return Result.Forbidden();
         var name = input.FullName?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 150 || !await repository.ClassExistsAsync(input))
             return Result.Invalid("Tên trẻ hoặc lớp không hợp lệ.");
+        if (input.DateOfBirth > SchoolTime.Today(clock.GetUtcNow()) || input.Gender is not (null or "MALE" or "FEMALE" or "OTHER"))
+            return Result.Invalid("Ngày sinh hoặc giới tính không hợp lệ.");
         var student = new Student
         {
             FullName = name,
-
+            DateOfBirth = input.DateOfBirth,
+            Gender = input.Gender,
             ClassId = input.ClassId
         };
         if (!string.IsNullOrWhiteSpace(input.StudentCode))
@@ -180,8 +186,11 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
 
     public async Task<Result<ParentLinkedResponse>> LinkParentAsync(Guid studentId, LinkParent input)
     {
-        if (!await repository.StudentExistsAsync(studentId))
+        if (!currentActor.IsInRole(RoleNames.Admin) && !currentActor.IsInRole(RoleNames.Teacher)) return Result.Forbidden();
+        var student = await repository.FindStudentForParentLinkAsync(studentId);
+        if (student is null)
             return Result.NotFound();
+        if (!await CanReadClass(student.ClassId)) return Result.Forbidden();
         var email = input.Email?.Trim().ToLowerInvariant();
         var phone = PhoneNumbers.Normalize(input.PhoneNumber);
         if (!string.IsNullOrWhiteSpace(input.PhoneNumber) && phone is null)
@@ -225,6 +234,8 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
             return Result.Conflict("Phụ huynh đã được liên kết với trẻ này.");
         if (!await users.IsInRoleAsync(parent, RoleNames.Parent))
         {
+            if (!created && !currentActor.IsInRole(RoleNames.Admin))
+                return Result.Conflict("Tài khoản hiện có chưa phải phụ huynh. Cần Admin đối chiếu và cấp quyền.");
             var roleResult = await users.AddToRoleAsync(parent, RoleNames.Parent);
             if (!roleResult.Succeeded)
                 return Result.Invalid("Không thể cấp vai trò phụ huynh.");
@@ -251,7 +262,8 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
             PhoneNumber = parent.PhoneNumber,
             StudentId = studentId,
             Created = created,
-            TemporaryPassword = temporaryPassword
+            TemporaryPassword = temporaryPassword,
+            Notification = input.SendRegistrationNotification ? await registrationNotifications.SendAsync(parent.PhoneNumber, student.FullName, temporaryPassword) : null
         });
     }
 
@@ -360,6 +372,20 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
             Id = replacement.Id,
             ReplacedId = id
         });
+    }
+
+    public async Task<Result<AbsenceListResponse>> SearchAbsencesAsync(Guid? studentId, string? status, string? search, int? page, int? pageSize, CancellationToken ct)
+    {
+        status = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToUpperInvariant();
+        search = search?.Trim();
+        if (search?.Length > 200 || (status is not null && status is not ("ACTIVE" or "EXPIRED" or "UPCOMING" or "CANCELLED")))
+            return Result.Invalid("Bộ lọc không hợp lệ; từ khóa tối đa 200 ký tự.");
+        var number = Math.Clamp(page ?? 1, 1, 100000);
+        var size = Math.Clamp(pageSize ?? 25, 1, 100);
+        var filter = new AbsenceListFilter(CurrentUserId(), studentId, status, search, SchoolTime.Today(clock.GetUtcNow()));
+        var total = await repository.CountReportedAbsencesAsync(filter, ct);
+        var items = await repository.SearchReportedAbsencesAsync(filter, number, size, ct);
+        return Result.Success(new AbsenceListResponse(items, total, number, size, await repository.ListAbsenceStudentOptionsAsync(filter.UserId, ct)));
     }
 
     public async Task<Result<List<AbsenceSummary>>> ListAbsencesAsync()

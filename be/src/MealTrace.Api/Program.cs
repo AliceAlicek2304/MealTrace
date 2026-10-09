@@ -24,11 +24,21 @@ if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt:Key must contai
 builder.Services.AddApplication();
 builder.Services.AddScoped<MealTrace.Application.Abstractions.ICurrentActor, MealTrace.Api.Authentication.HttpCurrentActor>();
 builder.Services.AddInfrastructure(connectionString, builder.Environment.IsDevelopment());
+builder.Services.AddNotifications(builder.Configuration);
 builder.Services.AddMealTraceAuthentication(builder.Configuration, jwtKey);
 builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("registrationOtp", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
+    options.AddPolicy("parentLinks", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
+    options.AddPolicy("register", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
     options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
@@ -95,12 +105,15 @@ app.UseAuthorization();
 app.MapGet("/api/health", () => Results.Ok(new MealTrace.Application.Dtos.Common.HealthResponse("ok", "MealTrace API"))).Produces<MealTrace.Application.Dtos.Common.HealthResponse>();
 app.MapAuthEndpoints();
 app.MapAccountEndpoints();
+app.MapNotificationEndpoints();
 app.MapMealEndpoints();
 app.MapWorkflowEndpoints();
 app.MapMealExceptionEndpoints();
 app.MapMealCalendarEndpoints();
 app.MapPortionAmendmentEndpoints();
 app.MapStudentAdministrationEndpoints();
+app.MapParentLinkEndpoints();
+app.MapStudentImportEndpoints();
 app.MapKitchenEndpoints();
 app.Run();
 

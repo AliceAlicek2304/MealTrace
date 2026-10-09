@@ -25,7 +25,12 @@ public static class StudentAdministrationEndpoints
 
         group.MapPut("/classes/{id:guid}", async (Guid id, EditClass input, StudentAdministrationService service) => (await service.EditClassAsync(id, input)).ToHttpResult()).Produces(StatusCodes.Status204NoContent).WithName("EditClass");
 
-        group.MapGet("/students", async (Guid? classId, string? search, string? status, int? page, int? pageSize, StudentAdministrationService service) => (await service.SearchStudentsAsync(classId, search, status, page, pageSize)).ToHttpResult()).Produces<StudentListResponse>(StatusCodes.Status200OK).WithName("SearchStudents");
+        group.MapGet("/students", async (Guid? classId, string? search, string? status, string? parentStatus, int? page, int? pageSize, StudentAdministrationService service) => (await service.SearchStudentsAsync(classId, search, status, page, pageSize, parentStatus)).ToHttpResult()).Produces<StudentListResponse>(StatusCodes.Status200OK).WithName("SearchStudents");
+
+        app.MapGet("/api/students/search", async (Guid? classId, string? search, string? status, string? parentStatus, int? page, int? pageSize, StudentAdministrationService service) => (await service.SearchStudentsAsync(classId, search, status, page, pageSize, parentStatus)).ToHttpResult())
+            .RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Teacher))
+            .AddEndpointFilter(async (context, next) => { context.HttpContext.Response.Headers.CacheControl = "no-store"; return await next(context); })
+            .Produces<StudentListResponse>(StatusCodes.Status200OK).WithTags("Classes and enrollment").WithName("SearchScopedStudents");
 
         group.MapPut("/students/{id:guid}", async (Guid id, EditStudent input, StudentAdministrationService service) => (await service.EditStudentAsync(id, input)).ToHttpResult()).Produces(StatusCodes.Status204NoContent).WithName("EditStudent");
 

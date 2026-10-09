@@ -9,12 +9,16 @@ using MealTrace.Domain.Security;
 namespace MealTrace.Application.Features.Accounts;
 public sealed class AccountService(IAccountRepository repository, IIdentityService manager, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
 {
-    public async Task<Result<AccountListResponse>> ListAccountsAsync(int? page, int? pageSize, Guid? classId)
+    public async Task<Result<AccountListResponse>> ListAccountsAsync(int? page, int? pageSize, Guid? classId, string? search = null, string? role = null)
     {
-        var number = Math.Max(1, page ?? 1);
+        search = search?.Trim();
+        role = string.IsNullOrWhiteSpace(role) ? null : role.Trim().ToUpperInvariant();
+        if (search?.Length > 200 || (role is not null && !RoleNames.All.Contains(role)))
+            return Result.Invalid("Từ khóa tối đa 200 ký tự và vai trò phải hợp lệ.");
+        var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
-        var total = await repository.CountAccountsAsync(classId);
-        var users = await repository.ListAccountsAsync(classId, number, size);
+        var total = await repository.CountAccountsAsync(classId, search, role);
+        var users = await repository.ListAccountsAsync(classId, number, size, search, role);
         var ids = users.Select(x => x.Id).ToArray();
         var roleRows = await repository.ListAccountRolesAsync(ids);
         var teacherRows = await repository.ListTeacherAssignmentsAsync(ids);
@@ -208,8 +212,6 @@ public sealed class AccountService(IAccountRepository repository, IIdentityServi
             return "Grant thanh tra đã hết hạn.";
         if (input.Roles.Contains(RoleNames.Teacher) && input.ClassIds.Length == 0)
             return "Giáo viên cần được phân công lớp.";
-        if (input.Roles.Contains(RoleNames.Parent) && input.StudentIds.Length == 0)
-            return "Phụ huynh cần được liên kết học sinh.";
         if (input.ClassIds.Length > 0 && (!input.Roles.Contains(RoleNames.Teacher) || await repository.CountExistingClassesAsync(input) != input.ClassIds.Distinct().Count()))
             return "Phạm vi lớp không hợp lệ.";
         if (input.StudentIds.Length > 0 && (!input.Roles.Contains(RoleNames.Parent) || await repository.CountExistingStudentsAsync(input) != input.StudentIds.Distinct().Count()))

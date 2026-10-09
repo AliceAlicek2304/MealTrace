@@ -17,4 +17,5 @@ public sealed record ParentLinkedResponse
 
     [System.Text.Json.Serialization.JsonPropertyName("temporaryPassword")]
     public string? TemporaryPassword { get; init; }
+    public MealTrace.Application.Dtos.Notifications.NotificationResponse? Notification { get; init; }
 }

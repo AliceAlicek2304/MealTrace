@@ -8,6 +8,9 @@ namespace MealTrace.Infrastructure.Persistence.Repositories;
 
 internal sealed class AuthRepository(MealTraceDbContext db) : IAuthRepository
 {
+    public Task<ParentSignupOtp?> FindSignupOtpAsync(string phone) =>
+        PersistenceErrors.ExecuteAsync(() => db.ParentSignupOtps.SingleOrDefaultAsync(x => x.PhoneNumber == phone));
+    public void AddSignupOtp(ParentSignupOtp otp) => db.ParentSignupOtps.Add(otp);
     public async Task<IdentityAccount?> FindAccountByPhoneAsync(string? phone)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>

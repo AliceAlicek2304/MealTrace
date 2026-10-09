@@ -1,4 +1,10 @@
-import { useEffect, useState } from 'react'
+import { ResponsiveTable } from '../../components/ResponsiveTable'
+import { FilterPanel } from '../../components/FilterPanel'
+import { useDeadline } from '../../lib/useDeadline'
+import { schoolDateTime } from '../../lib/schoolTime'
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
+import { SearchFeedback } from '../../components/SearchFeedback'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../../lib/api'
@@ -19,23 +25,24 @@ const actionLabel: Record<Action, string> = { EAT: 'Dự kiến có suất', ABS
 export function MealExceptions({ mealId }: { mealId: string }) {
   const cache = useQueryClient()
   const [search, setSearch] = useState('')
+  const searchTerm = useDebouncedValue(search.trim())
+  const searchWaiting = search.trim() !== searchTerm
   const [classId, setClassId] = useState('')
   const [page, setPage] = useState(1)
   const [target, setTarget] = useState<{ kind: 'edit' | 'history'; student: Decision } | null>(null)
   const [action, setAction] = useState<Action>('ABSENT')
   const [reason, setReason] = useState('')
   const [historyPage, setHistoryPage] = useState(1)
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer) }, [])
-  const decisions = useQuery({ queryKey: ['meal-decisions', mealId, search, classId, page], refetchInterval: 15000,
-    queryFn: async () => (await api.get<Decisions>(`/meal-days/${mealId}/decisions`, { params: { search, classId: classId || undefined, page } })).data })
+  const decisions = useQuery({ queryKey: ['meal-decisions', mealId, searchTerm, classId, page], enabled: !searchWaiting, refetchInterval: 15000,
+    queryFn: async () => (await api.get<Decisions>(`/meal-days/${mealId}/decisions`, { params: { search: searchTerm, classId: classId || undefined, page } })).data })
   const applied = useQuery({ queryKey: ['portions', mealId], enabled: !!decisions.data?.isSettled, refetchInterval: 15000,
     queryFn: async () => (await api.get<{ classes: CurrentClassPortion[] }>(`/meal-days/${mealId}/portions`)).data })
   const appliedRooms = new Map(applied.data?.classes.map(room => [room.classId, room]))
   const filteredRooms = applied.data?.classes.filter(room => !classId || room.classId === classId)
   const history = useQuery({ queryKey: ['meal-exception-history', mealId, target?.student.studentId, historyPage], enabled: !!target,
     queryFn: async () => (await api.get<History>(`/meal-days/${mealId}/students/${target!.student.studentId}/exceptions`, { params: { page: historyPage } })).data })
-  const canEdit = !!decisions.data?.canEdit && now < new Date(decisions.data.cutoffAt).getTime()
+  const cutoffPassed = useDeadline(decisions.data?.cutoffAt)
+  const canEdit = !!decisions.data?.canEdit && Number.isFinite(Date.parse(decisions.data?.cutoffAt ?? '')) && !cutoffPassed
   const save = useMutation({ mutationFn: () => api.post(`/meal-days/${mealId}/exceptions`, {
     studentId: target!.student.studentId, action, reason, expectedEventId: target!.student.latestEventId,
   }), onSuccess: async () => {
@@ -52,15 +59,16 @@ export function MealExceptions({ mealId }: { mealId: string }) {
   const historyContent = <>
     {history.isPending ? <p>Đang tải lịch sử…</p> : history.isError ? <p className="error">{apiErrorMessage(history.error)}</p> : !history.data?.items.length ? <p className="form-help">Chưa có ngoại lệ.</p> :
       history.data.items.map(event => <div className="entry" key={event.id}><strong>{actionLabel[event.action]}</strong>
-        <small>{event.actorName || (event.isLegacy ? 'Dữ liệu cũ: chưa ghi người xử lý' : 'Chưa có tên người xử lý')} · {new Date(event.recordedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</small>
+        <small>{event.actorName || (event.isLegacy ? 'Dữ liệu cũ: chưa ghi người xử lý' : 'Chưa có tên người xử lý')} · {schoolDateTime(event.recordedAt)}</small>
         <p>{event.reason || 'Chưa ghi lý do'}</p></div>)}
     <Pagination page={historyPage} total={history.data?.total ?? 0} pageSize={25} busy={history.isFetching || save.isPending} onChange={setHistoryPage} />
   </>
   return <section className="panel workflow-lists"><div className="panel-head"><div><h2>{decisions.data?.isSettled ? 'Nguồn trước điều chỉnh và suất hiện hành' : 'Nguồn dự kiến ăn và ngoại lệ'}</h2>
     <p>{decisions.data?.isSettled ? 'Cột tại giờ chốt giữ nguồn dự kiến ban đầu. Cột hiện hành lấy bản chốt mới nhất sau các phiếu đã duyệt; phiếu đang chờ chưa áp dụng.' : 'Bao gồm trẻ có suất và không có suất. Đây là dự kiến ăn, chưa xác nhận có mặt thực tế.'}</p></div></div>
-    <div className="workflow-form workflow-fields"><label className="field">Tìm trẻ<input placeholder="Mã hoặc tên trẻ" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
+    <FilterPanel activeCount={[searchTerm, classId].filter(Boolean).length}><div className="workflow-form workflow-fields"><label className="field">Tìm trẻ<input placeholder="Mã hoặc tên trẻ" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
       <label className="field">Lớp<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1) }}><option value="">Tất cả lớp được xem</option>
-        {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div>
+        {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div></FilterPanel>
+    <SearchFeedback waiting={searchWaiting} fetching={decisions.isFetching} />
     {decisions.isPending ? <p className="empty compact">Đang tải…</p> : decisions.isError ? <p className="empty compact error">{apiErrorMessage(decisions.error)}</p> : <>
       {!canEdit && <p className="empty compact">{decisions.data?.isCancelled ? `Phiên đã hủy: ${decisions.data.cancellationReason ?? 'Theo lịch trường'}` : 'Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.'}</p>}
       {decisions.data?.isSettled && <div className="workflow-form">
@@ -69,8 +77,8 @@ export function MealExceptions({ mealId }: { mealId: string }) {
           {filteredRooms?.some(room => room.kitchenAdjustment !== 0) && <p>Điều chỉnh số lượng bếp không gắn trẻ: {filteredRooms.reduce((sum, room) => sum + room.kitchenAdjustment, 0)} suất. Trạng thái suất từng trẻ giữ riêng, không tự thay đổi tiền ăn.</p>}
         </>}
       </div>}
-      {!decisions.data?.items.length && <p className="empty compact">Không có trẻ phù hợp.</p>}
-      <div className="table-wrap"><table><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">{decisions.data?.isSettled ? 'Suất tại giờ chốt' : 'Suất dự kiến'}</th>{decisions.data?.isSettled && <th scope="col">Suất hiện hành</th>}<th scope="col">{decisions.data?.isSettled ? 'Nguồn tại giờ chốt / lý do' : 'Nguồn / lý do'}</th><th scope="col">Thao tác</th></tr></thead><tbody>
+      {!decisions.data?.items.length && <p className="empty compact">{searchTerm || classId ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ ghi danh tại ngày ăn.'}</p>}
+      <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">{decisions.data?.isSettled ? 'Suất tại giờ chốt' : 'Suất dự kiến'}</th>{decisions.data?.isSettled && <th scope="col">Suất hiện hành</th>}<th scope="col">{decisions.data?.isSettled ? 'Nguồn tại giờ chốt / lý do' : 'Nguồn / lý do'}</th><th scope="col">Thao tác</th></tr></thead><tbody>
       {decisions.data?.items.map(student => {
         const room = appliedRooms.get(student.classId)
         const current = currentStudentPortion(student.studentId, room)
@@ -80,9 +88,9 @@ export function MealExceptions({ mealId }: { mealId: string }) {
         {student.latestReason && <small>{student.latestReason}</small>}</td>
         <td><div className="table-actions"><button type="button" className="button secondary" disabled={!canEdit || decisions.isFetching} onClick={() => open(student, 'edit')}>Ghi ngoại lệ</button>
           <button type="button" className="button secondary" onClick={() => open(student, 'history')}>{decisions.data.isSettled ? 'Lịch sử ngoại lệ trước chốt' : 'Lịch sử'}</button></div></td></tr>})}
-      </tbody></table></div>
+      </tbody></ResponsiveTable></div>
     </>}
-    <Pagination page={page} total={decisions.data?.total ?? 0} pageSize={25} busy={decisions.isFetching} onChange={setPage} />
+    <Pagination page={page} total={decisions.data?.total ?? 0} pageSize={25} busy={searchWaiting || decisions.isFetching} onChange={setPage} />
     {target && <Modal title={`${target.kind === 'edit' ? 'Ngoại lệ' : 'Lịch sử'}: ${target.student.fullName}`} description={`${target.student.studentCode} · ${target.student.className}`} busy={save.isPending} onClose={() => setTarget(null)}>
       {target.kind === 'edit' && <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!save.isPending && canEdit) save.mutate() }}>
         <p className="form-help">Hiện tại: {sourceLabel[target.student.source]}. {target.student.parentReportedAbsent ? 'Phụ huynh đã đăng ký không ăn / báo vắng.' : ''}</p>

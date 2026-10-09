@@ -13,3 +13,6 @@ docs/manual-test-plan.md
 
 # Local test and query measurement artifacts
 be/artifacts/
+
+# Android E2E local credentials
+mobile/e2e*.local.json

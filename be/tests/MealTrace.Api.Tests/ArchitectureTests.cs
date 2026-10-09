@@ -175,7 +175,13 @@ public sealed class ArchitectureTests
         Assert.Contains("/api/admin/meal-calendar/{code}/generate", document.Paths.Keys);
         Assert.Contains("/api/meal-days/{dayId}/amendments/{requestId}/review", document.Paths.Keys);
         Assert.Contains("/api/kitchen/recipes/{id}/versions/{v}/nutrition", document.Paths.Keys);
-        Assert.NotNull(document.Paths["/api/auth/login"].Operations[Microsoft.OpenApi.Models.OperationType.Post].RequestBody);
+        var loginOperation = document.Paths["/api/auth/login"].Operations[Microsoft.OpenApi.Models.OperationType.Post];
+        Assert.NotNull(loginOperation.RequestBody);
+        var loginRequestSchema = loginOperation.RequestBody.Content["application/json"].Schema;
+        Assert.Equal("LoginRequest", loginRequestSchema.Reference?.Id);
+        Assert.Equal(new[] { "identifier", "password" }, document.Components.Schemas["LoginRequest"].Properties.Keys.Order().ToArray());
+        Assert.Equal(new[] { "identifier", "password" }, document.Components.Schemas["LoginRequest"].Required.Order().ToArray());
+        Assert.Contains("email hoặc số điện thoại", loginOperation.Description, StringComparison.OrdinalIgnoreCase);
         var loginSchema = document.Paths["/api/auth/login"].Operations[Microsoft.OpenApi.Models.OperationType.Post]
             .Responses["200"].Content["application/json"].Schema;
         Assert.Equal("LoginResponse", loginSchema.Reference.Id);

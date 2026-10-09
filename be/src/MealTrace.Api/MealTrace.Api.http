@@ -8,7 +8,7 @@ POST {{MealTraceApi}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@demo.mealtrace.local",
+  "identifier": "admin@demo.mealtrace.local",
   "password": "PASTE_LOCAL_SEED_PASSWORD"
 }
 

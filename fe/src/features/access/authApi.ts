@@ -3,6 +3,14 @@ import type { SchoolUser, UserDraft } from './model'
 
 export type CurrentUser = { id: string; fullName: string; email: string; phoneNumber?: string | null; roles: string[]; inspectorAccessUntil: string | null }
 export type LoginResponse = { accessToken: string; expiresAt: string; user: CurrentUser }
+export type ParentRegistration = { fullName: string; phoneNumber: string; password: string; challengeId?: string; otpCode?: string }
+export type ParentOtpChallenge = { challengeId: string; expiresAt: string; resendAt: string; message: string }
+export async function requestParentOtp(phoneNumber: string): Promise<ParentOtpChallenge> {
+  return (await api.post<ParentOtpChallenge>('/auth/register/otp', { phoneNumber })).data
+}
+export async function registerParent(input: ParentRegistration): Promise<void> {
+  await api.post('/auth/register', { fullName: input.fullName.trim(), phoneNumber: input.phoneNumber, password: input.password, challengeId: input.challengeId, otpCode: input.otpCode })
+}
 export type ScopeOptions = {
   classes: { id: string; name: string }[]
   students: { id: string; name: string; classId: string }[]
@@ -17,8 +25,8 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return (await api.post<LoginResponse>('/auth/login', { identifier: email, password })).data
 }
 export type UserPage = { items: SchoolUser[]; total: number; page: number; pageSize: number }
-export async function listUsers(page: number, classId: string): Promise<UserPage> {
-  return (await api.get<UserPage>('/admin/users', { params: { page, pageSize: 25, classId: classId || undefined } })).data
+export async function listUsers(page: number, classId: string, search = '', role = 'ALL'): Promise<UserPage> {
+  return (await api.get<UserPage>('/admin/users', { params: { page, pageSize: 25, classId: classId || undefined, search: search.trim() || undefined, role: role === 'ALL' ? undefined : role } })).data
 }
 export async function getScopeOptions(params: { search?: string; classId?: string; classPage?: number; studentPage?: number; selectedClassIds?: string; selectedStudentIds?: string } = {}): Promise<ScopeOptions> {
   return (await api.get<ScopeOptions>('/admin/scope-options', { params })).data

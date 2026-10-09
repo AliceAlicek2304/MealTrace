@@ -5,10 +5,10 @@ import { normalizePhone, validateUserDraft } from './validation'
 describe('kiểm tra dữ liệu tài khoản FE', () => {
   const demoUsers: SchoolUser[] = [{ id: 'admin', fullName: 'Admin', email: 'admin@example.com', roles: ['ADMIN'], status: 'ACTIVE', classIds: [], studentIds: [], inspectorAccessUntil: null }]
 
-  it('yêu cầu phạm vi lớp và học sinh cho vai trò tương ứng', () => {
+  it('giáo viên cần lớp; phụ huynh có thể chưa liên kết trẻ', () => {
     const draft = { ...emptyDraft(), fullName: 'Minh', email: 'minh@example.com', roles: ['TEACHER', 'PARENT'] as const }
     expect(validateUserDraft({ ...draft, roles: [...draft.roles] }, demoUsers, null)).toMatch(/lớp/)
-    expect(validateUserDraft({ ...draft, roles: [...draft.roles], classIds: ['mam-1'] }, demoUsers, null)).toMatch(/học sinh/)
+    expect(validateUserDraft({ ...draft, roles: [...draft.roles], classIds: ['mam-1'] }, demoUsers, null)).toBeNull()
     expect(validateUserDraft({ ...draft, roles: [...draft.roles], classIds: ['mam-1'], studentIds: ['HS-2026-0012'] }, demoUsers, null)).toBeNull()
   })
 
