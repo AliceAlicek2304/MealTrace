@@ -24,6 +24,8 @@ public static class DependencyInjection
         services.AddHttpClient<Notifications.VonageWhatsAppSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
             .RedactLoggedHeaders(["Authorization"]);
+        services.AddTransient<MealTrace.Application.Abstractions.Notifications.IRegistrationOtpSender>(sp => new Notifications.RegistrationWhatsAppOtpSender(
+            sp.GetRequiredService<Notifications.VonageWhatsAppSender>(), sp.GetRequiredService<Notifications.TwilioWhatsAppSender>(), preferVonage));
         services.AddTransient<MealTrace.Application.Abstractions.Notifications.INotificationSender>(sp => preferVonage
             ? new Notifications.PriorityWhatsAppSender(sp.GetRequiredService<Notifications.VonageWhatsAppSender>(), sp.GetRequiredService<Notifications.TwilioWhatsAppSender>())
             : sp.GetRequiredService<Notifications.TwilioWhatsAppSender>());
@@ -52,6 +54,9 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IAccessTokenService, JwtTokenService>();
+        services.AddScoped<IStudentImportRepository, StudentImportRepository>();
+        services.AddSingleton<MealTrace.Application.Abstractions.IStudentSpreadsheetReader, Imports.StudentSpreadsheetReader>();
+        services.AddScoped<IParentLinkRepository, ParentLinkRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<IWorkflowRepository, WorkflowRepository>();

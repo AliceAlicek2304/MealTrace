@@ -17,16 +17,19 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<MealTrace.Application.Features.Students.StudentImportService>();
         services.AddScoped<IIngredientService, IngredientService>();
         services.AddScoped<IRecipeService, RecipeService>();
         services.AddScoped<INutritionService, NutritionService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<ParentSignupOtpService>();
         services.AddScoped<AccountService>();
         services.AddScoped<Features.Notifications.NotificationService>();
         services.AddScoped<Features.Notifications.ParentRegistrationNotificationService>();
         services.AddSingleton<Features.Notifications.NotificationSendGate>();
         services.AddScoped<WorkflowService>();
         services.AddScoped<StudentAdministrationService>();
+        services.AddScoped<ParentLinkService>();
         services.AddScoped<MealCalendarService>();
         services.AddScoped<MealExceptionService>();
         services.AddScoped<PortionAmendmentService>();

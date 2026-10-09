@@ -61,6 +61,8 @@ public sealed class StudentAdministrationService(IStudentAdministrationRepositor
                 Id = x.Id,
                 StudentCode = x.StudentCode,
                 FullName = x.FullName,
+                DateOfBirth = x.DateOfBirth,
+                Gender = x.Gender,
                 Revision = x.Revision,
                 IsActive = x.IsActive,
                 ClassId = x.ClassId,

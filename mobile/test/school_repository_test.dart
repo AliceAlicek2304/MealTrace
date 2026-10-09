@@ -29,6 +29,10 @@ void main() {
                           {'fullName': 'Nguyễn An'},
                         ],
                         'total': 1,
+                        'rows': [
+                          {'row': 4, 'fullName': 'Nguyễn An', 'error': null},
+                        ],
+                        'canImport': true,
                         'classes': [
                           {'className': 'M1'},
                         ],
@@ -48,7 +52,16 @@ void main() {
         final result = await repo.execute(
           operation,
           context: validSchoolValues(),
-          input: const {'search': 'Nguyễn & An', 'page': 2},
+          input:
+              operation == SchoolOperation.previewStudentImport ||
+                  operation == SchoolOperation.confirmStudentImport
+              ? {
+                  'fileName': 'test.xlsx',
+                  'fileBytes': <int>[1, 2, 3],
+                  'classId': schoolId,
+                  'startDate': schoolToday(),
+                }
+              : const {'search': 'Nguyễn & An', 'page': 2},
         );
         expect(sent!.headers['Authorization'], 'Bearer session-test');
         expect(sent!.url.host, 'example.test');
@@ -194,7 +207,11 @@ void main() {
         expect(
           input.keys.toSet(),
           {...form.bound, ...form.fields.map((field) => field.key)}.difference(
-            form.operation == SchoolOperation.saveYear ? {'code'} : {},
+            form.operation == SchoolOperation.saveYear
+                ? {'code'}
+                : form.operation == SchoolOperation.createParentLink
+                ? {'schoolYear'}
+                : {},
           ),
         );
         if (form.bound.contains('expectedRevision')) {

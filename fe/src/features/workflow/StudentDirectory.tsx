@@ -19,8 +19,8 @@ type Student = { id: string; studentCode: string; fullName: string; revision: nu
 type Enrollment = { id: string; className: string; schoolYear: string; startDate: string; endDate: string | null; reason: string; endReason: string | null }
 type Editor = { kind: 'class'; room: Room } | { kind: 'student' | 'enrollment'; student: Student }
 
-export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initialClassId, isAdmin = true }: {
-  onLink: (student: { id: string; fullName: string }) => void; view: 'classes' | 'students'; onCreate: () => void;
+export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStudents, initialClassId, isAdmin = true }: {
+  onLink: (student: { id: string; fullName: string }) => void; view: 'classes' | 'students'; onCreate: () => void; onImport?: () => void;
   onViewStudents: (classId: string) => void; initialClassId: string; isAdmin?: boolean
 }) {
   const cache = useQueryClient()
@@ -75,7 +75,7 @@ export function StudentDirectory({ onLink, view, onCreate, onViewStudents, initi
       </>}
       <Pagination page={classPage} total={classes.data?.total ?? 0} pageSize={20} busy={classSearchWaiting || classes.isFetching} onChange={setClassPage} />
     </section>}
-    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>{isAdmin ? 'Danh sách trẻ' : 'Trẻ trong lớp phụ trách'}</h2><button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div><FilterPanel activeCount={[searchTerm, classId, status, parentStatus].filter(Boolean).length}><div className="list-toolbar"><ClassPicker compact assignedOnly={!isAdmin} value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
+    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>{isAdmin ? 'Danh sách trẻ' : 'Trẻ trong lớp phụ trách'}</h2><div className="student-directory-actions">{isAdmin && onImport && <button type="button" className="button secondary" onClick={onImport}>Nhập trẻ từ Excel</button>}<button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div></div><FilterPanel activeCount={[searchTerm, classId, status, parentStatus].filter(Boolean).length}><div className="list-toolbar"><ClassPicker compact assignedOnly={!isAdmin} value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
       <label className="field">Tìm trẻ<input placeholder="Mã trẻ hoặc họ tên" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
         <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label>
         <label className="field">Liên kết phụ huynh<select value={parentStatus} onChange={e => { setParentStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="UNLINKED">Chưa liên kết</option><option value="LINKED">Đã liên kết</option></select></label></div></FilterPanel>

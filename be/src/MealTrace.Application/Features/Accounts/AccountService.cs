@@ -212,8 +212,6 @@ public sealed class AccountService(IAccountRepository repository, IIdentityServi
             return "Grant thanh tra đã hết hạn.";
         if (input.Roles.Contains(RoleNames.Teacher) && input.ClassIds.Length == 0)
             return "Giáo viên cần được phân công lớp.";
-        if (input.Roles.Contains(RoleNames.Parent) && input.StudentIds.Length == 0)
-            return "Phụ huynh cần được liên kết học sinh.";
         if (input.ClassIds.Length > 0 && (!input.Roles.Contains(RoleNames.Teacher) || await repository.CountExistingClassesAsync(input) != input.ClassIds.Distinct().Count()))
             return "Phạm vi lớp không hợp lệ.";
         if (input.StudentIds.Length > 0 && (!input.Roles.Contains(RoleNames.Parent) || await repository.CountExistingStudentsAsync(input) != input.StudentIds.Distinct().Count()))

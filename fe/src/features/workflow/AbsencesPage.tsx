@@ -72,6 +72,7 @@ export function AbsencesPage() {
 
   return <><div className="eyebrow">PHỤ HUYNH</div><h1>Báo vắng / Không ăn tại trường</h1>
     <p className="lead">Trẻ vẫn đi học có thể đăng ký không ăn tại trường theo tuần, tháng hoặc đến hết năm học. Khoảng ngày nằm trong niên khóa của trẻ; không tự kéo dài sang năm học mới. Việc đăng ký không thay đổi ghi danh học.</p>
+    {children.data?.length === 0 && <p>Bạn chưa có trẻ được liên kết. <a href="#/links">Gửi yêu cầu liên kết trẻ</a> để nhà trường duyệt.</p>}
     {createOpen && <Modal title="Đăng ký không ăn" busy={report.isPending} onClose={() => setCreateOpen(false)}><form className="workflow-form" onSubmit={submit}>
       <div className="workflow-fields"><label className="field">Trẻ<select required value={studentId} onChange={e => { setStudentId(e.target.value); setFromDate(localToday()); setToDate(localToday()) }}><option value="">Chọn trẻ</option>
         {children.data?.map(child => <option key={child.studentId} value={child.studentId}>{child.fullName} · {child.className}</option>)}</select></label>
@@ -83,7 +84,7 @@ export function AbsencesPage() {
       <p className="form-help">Tính cả ngày bắt đầu và kết thúc. Có thể sửa khoảng ngày hoặc hủy khi muốn ăn lại; phiên đã qua giờ chốt giữ nguyên.</p>
       <label className="field">Lý do<textarea required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></label>
       <button type="submit" className="button primary" disabled={report.isPending || !child?.yearEndDate}>Gửi đăng ký</button>
-      {children.isError ? <p className="form-error">Không tải được danh sách trẻ. Đóng cửa sổ và thử lại.</p> : !children.isPending && !children.data?.length && <p className="form-error">Tài khoản chưa được liên kết với trẻ. Liên hệ nhà trường.</p>}
+      {children.isError ? <p className="form-error">Không tải được danh sách trẻ. Đóng cửa sổ và thử lại.</p> : !children.isPending && !children.data?.length && <p className="form-error">Tài khoản chưa được liên kết với trẻ. Vào mục Liên kết trẻ để gửi yêu cầu.</p>}
     </form></Modal>}
     <section className="panel workflow-lists"><div className="panel-head"><h2>Đăng ký đã gửi</h2><button type="button" className="button primary" onClick={() => setCreateOpen(true)}>Đăng ký không ăn</button></div>
       <FilterPanel activeCount={[searchTerm, filterStudent, filterStatus].filter(Boolean).length}><div className="list-toolbar"><label className="field">Tìm kiếm<input placeholder="Tên trẻ hoặc lý do" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>

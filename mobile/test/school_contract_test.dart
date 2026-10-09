@@ -80,6 +80,17 @@ void main() {
         suffix.replaceFirst('/auth', ''),
         suffix.replaceFirst('/meal-days', ''),
       ];
+      if (route.path.contains('/link-requests/') ||
+          route.path.contains('/student-link-requests/')) {
+        candidates.add(
+          route.path
+              .replaceFirst('/parent/link-requests', '')
+              .replaceFirst('/student-link-requests', ''),
+        );
+      }
+      if (route.path.contains('/students/import/')) {
+        candidates.add(route.path.replaceFirst('/admin/students/import', ''));
+      }
       if (route.path.contains('/amendments')) {
         candidates.addAll([
           '/meal-days/{dayId}/amendments',

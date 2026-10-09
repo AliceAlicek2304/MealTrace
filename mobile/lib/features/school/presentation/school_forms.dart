@@ -132,6 +132,92 @@ class SchoolForm {
 }
 
 final schoolForms = <SchoolOperation, SchoolForm>{
+  SchoolOperation.createParentLink: const SchoolForm(
+    SchoolOperation.createParentLink,
+    'Yêu cầu liên kết trẻ',
+    [
+      SchoolField(
+        'schoolYear',
+        'Năm học',
+        kind: FieldKind.reference,
+        reference: SchoolOperation.years,
+      ),
+      SchoolField(
+        'classId',
+        'Lớp của trẻ',
+        kind: FieldKind.reference,
+        reference: SchoolOperation.parentLinkClasses,
+      ),
+      SchoolField('studentName', 'Họ tên trẻ'),
+      SchoolField(
+        'relationship',
+        'Quan hệ',
+        kind: FieldKind.choice,
+        options: {'FATHER': 'Cha', 'MOTHER': 'Mẹ', 'GUARDIAN': 'Người giám hộ'},
+      ),
+      SchoolField(
+        'note',
+        'Ghi chú để nhà trường đối chiếu',
+        required: false,
+        maxLength: 500,
+      ),
+    ],
+    help:
+        'Nhà trường đối chiếu và duyệt yêu cầu trước khi bạn được xem thông tin và báo vắng cho trẻ.',
+  ),
+  SchoolOperation.cancelParentLink: const SchoolForm(
+    SchoolOperation.cancelParentLink,
+    'Hủy yêu cầu liên kết',
+    [],
+    bound: ['revision'],
+    confirm: true,
+    help: 'Hủy yêu cầu đang chờ duyệt. Bạn có thể gửi lại sau.',
+  ),
+  SchoolOperation.reviewParentLink: const SchoolForm(
+    SchoolOperation.reviewParentLink,
+    'Duyệt / từ chối liên kết',
+    [
+      SchoolField(
+        'approve',
+        'Quyết định',
+        kind: FieldKind.choice,
+        options: {'true': 'Duyệt', 'false': 'Từ chối'},
+        initial: 'false',
+      ),
+      SchoolField('reason', 'Kết quả đối chiếu / lý do', maxLength: 500),
+    ],
+    bound: ['revision'],
+    confirm: true,
+    help:
+        'Đối chiếu danh tính và quan hệ phụ huynh với hồ sơ nhà trường trước khi cấp quyền truy cập trẻ.',
+  ),
+  SchoolOperation.bulkReviewParentLinks: const SchoolForm(
+    SchoolOperation.bulkReviewParentLinks,
+    'Xử lý danh sách đã chọn',
+    [
+      SchoolField(
+        'approve',
+        'Quyết định',
+        kind: FieldKind.choice,
+        options: {'true': 'Duyệt', 'false': 'Từ chối'},
+        initial: 'false',
+      ),
+      SchoolField('reason', 'Kết quả đối chiếu / lý do', maxLength: 500),
+    ],
+    bound: ['classId', 'schoolYear', 'items'],
+    confirm: true,
+    help:
+        'Chỉ xử lý các yêu cầu trong danh sách đã chọn. Đối chiếu trẻ, phụ huynh và SĐT trước khi xác nhận. Nếu danh sách đã thay đổi, tải lại và rà lại.',
+  ),
+  SchoolOperation.revokeParentLink: const SchoolForm(
+    SchoolOperation.revokeParentLink,
+    'Thu hồi liên kết sai',
+    [reasonField],
+    bound: ['revision'],
+    confirm: true,
+    help:
+        'Gỡ quyền truy cập trẻ và thu hồi phiên đăng nhập phụ huynh. Giữ lịch sử duyệt; phụ huynh có thể gửi yêu cầu đúng để duyệt lại.',
+  ),
   SchoolOperation.createUser: const SchoolForm(
     SchoolOperation.createUser,
     'Thêm tài khoản',
@@ -247,7 +333,7 @@ final schoolForms = <SchoolOperation, SchoolForm>{
       ),
     ],
     help:
-        'Tài khoản đã tồn tại được liên kết ngay. Tài khoản mới cần họ tên. Gửi tin không xác minh quyền sở hữu SĐT; hồ sơ vẫn được lưu khi gửi thất bại.',
+        'Tài khoản đã tồn tại được liên kết ngay. Tài khoản mới cần họ tên. Hồ sơ vẫn được lưu khi gửi tin thất bại.',
   ),
   SchoolOperation.saveYear: const SchoolForm(
     SchoolOperation.saveYear,

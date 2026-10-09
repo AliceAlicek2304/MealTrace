@@ -5,6 +5,9 @@ import { X } from 'lucide-react'
 
 type Props = { title: string; description?: string; children: ReactNode; onClose: () => void; busy?: boolean; wide?: boolean; drawer?: boolean }
 
+let openDialogs = 0
+let originalBodyOverflow = ''
+
 export function Modal({ title, description, children, onClose, busy = false, wide = false, drawer = false }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const backdropPress = useRef(false)
@@ -12,10 +15,11 @@ export function Modal({ title, description, children, onClose, busy = false, wid
   const descriptionId = useId()
   useLayoutEffect(() => {
     const dialog = dialogRef.current!
-    const previousOverflow = document.body.style.overflow
+    if (openDialogs === 0) originalBodyOverflow = document.body.style.overflow
+    openDialogs++
     document.body.style.overflow = 'hidden'
     dialog.showModal()
-    return () => { dialog.close(); document.body.style.overflow = previousOverflow }
+    return () => { dialog.close(); openDialogs--; if (openDialogs === 0) document.body.style.overflow = originalBodyOverflow }
   }, [])
   return createPortal(<dialog ref={dialogRef} className={`app-modal ${wide ? 'app-modal-wide' : ''} ${drawer ? 'mobile-drawer' : ''}`}
     aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} aria-busy={busy}

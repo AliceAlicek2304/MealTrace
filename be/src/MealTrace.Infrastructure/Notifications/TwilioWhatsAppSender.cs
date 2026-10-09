@@ -13,12 +13,18 @@ public sealed record TwilioWhatsAppSettings(string? AccountSid, string? AuthToke
 // Trial sends a fixed approved template; never substitute registration credentials into it.
 public sealed class TwilioWhatsAppSender(HttpClient client, TwilioWhatsAppSettings settings) : INotificationSender
 {
-    public async Task<NotificationSendResult> SendAsync(string number, CancellationToken ct, string? text = null)
+    public Task<NotificationSendResult> SendAsync(string number, CancellationToken ct, string? text = null) => SendCoreAsync(number, ct, null);
+
+    public Task<NotificationSendResult> SendTextAsync(string number, string text, CancellationToken ct) => SendCoreAsync(number, ct, text);
+
+    private async Task<NotificationSendResult> SendCoreAsync(string number, CancellationToken ct, string? customText)
     {
         if (!Matches(settings.AccountSid, @"^AC[0-9a-fA-F]{32}$") || string.IsNullOrWhiteSpace(settings.AuthToken)
             || !Matches(settings.From, @"^\+[1-9][0-9]{7,14}$") || !Matches(number, @"^[1-9][0-9]{7,14}$")
-            || !Matches(settings.ContentSid, @"^HX[0-9a-fA-F]{32}$"))
+            || (customText is null && !Matches(settings.ContentSid, @"^HX[0-9a-fA-F]{32}$")))
             return new(NotificationOutcome.Disabled, null, "Chưa cấu hình Twilio WhatsApp trial hợp lệ.");
+        if (customText is not null && (string.IsNullOrWhiteSpace(customText) || customText.Length > 4096))
+            return new(NotificationOutcome.Failed, null, "Nội dung WhatsApp không hợp lệ.");
         using var request = new HttpRequestMessage(HttpMethod.Post,
             $"https://api.twilio.com/2010-04-01/Accounts/{settings.AccountSid}/Messages.json");
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic",
@@ -27,7 +33,7 @@ public sealed class TwilioWhatsAppSender(HttpClient client, TwilioWhatsAppSettin
         {
             ["To"] = "whatsapp:+" + number,
             ["From"] = "whatsapp:" + settings.From,
-            ["ContentSid"] = settings.ContentSid!
+            [customText is null ? "ContentSid" : "Body"] = customText ?? settings.ContentSid!
         });
         try
         {
@@ -44,7 +50,7 @@ public sealed class TwilioWhatsAppSender(HttpClient client, TwilioWhatsAppSettin
                 return new(NotificationOutcome.Failed, sid.GetString(), "Twilio báo WhatsApp thất bại; xem Logs trước khi gửi lại.");
             if (status.GetString() is not ("accepted" or "queued" or "sending" or "sent" or "delivered" or "read")) return Unknown();
             return new(NotificationOutcome.Accepted, sid.GetString(),
-                "Twilio đã nhận WhatsApp mẫu thử. Mẫu cảnh báo số dư là nội dung demo, không phải số dư thật; chưa chứa tên trẻ/tài khoản/mật khẩu. Kiểm tra WhatsApp để xác nhận nhận tin.");
+                customText is not null ? "Twilio đã nhận tin WhatsApp OTP; kiểm tra điện thoại để nhận mã." : "Twilio đã nhận WhatsApp mẫu thử. Mẫu cảnh báo số dư là nội dung demo, không phải số dư thật; chưa chứa tên trẻ/tài khoản/mật khẩu. Kiểm tra WhatsApp để xác nhận nhận tin.");
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return Unknown(); }
         catch (HttpRequestException) { return Unknown(); }

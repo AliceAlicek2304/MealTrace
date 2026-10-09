@@ -10,6 +10,8 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    public DbSet<ParentLinkRequest> ParentLinkRequests => Set<ParentLinkRequest>();
+    public DbSet<ParentSignupOtp> ParentSignupOtps => Set<ParentSignupOtp>();
     public DbSet<AccountPasswordResetAudit> AccountPasswordResetAudits => Set<AccountPasswordResetAudit>();
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
@@ -41,6 +43,14 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.ApplyConfiguration(new Configurations.ParentLinkRequestConfiguration());
+        model.Entity<ParentSignupOtp>(entity =>
+        {
+            entity.HasKey(x => x.PhoneNumber);
+            entity.Property(x => x.PhoneNumber).HasMaxLength(10);
+            entity.Property(x => x.CodeHash).HasMaxLength(64);
+            entity.HasIndex(x => x.ChallengeId).IsUnique();
+        });
         model.ApplyConfiguration(new Configurations.MealScheduleConfiguration());
         model.ApplyConfiguration(new Configurations.MealCalendarExceptionConfiguration());
         model.ApplyConfiguration(new Configurations.MealCalendarAuditConfiguration());

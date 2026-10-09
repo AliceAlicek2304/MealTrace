@@ -7,6 +7,7 @@ import { StudentDirectory } from './StudentDirectory'
 import { AcademicYears } from './AcademicYears'
 import { SchoolYearPicker } from '../../components/SchoolYearPicker'
 import { toast } from 'sonner'
+import { StudentImportForm } from './StudentImportForm'
 
 type Student = { id: string; fullName: string; classId: string }
 type NotificationResult = { status: string; message: string; providerMessageId: string | null }
@@ -22,10 +23,12 @@ function notificationMessage(result: NotificationResult) {
 export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
   const queryClient = useQueryClient()
   const notifications = useQuery({ queryKey: ['notification-settings'], queryFn: async () =>
-    (await api.get<{ enabled: boolean; channel: string; templateOnly: boolean }>('/notifications/settings')).data })
+    (await api.get<{ enabled: boolean; channel: string }>('/notifications/settings')).data })
   const channel = notifications.data?.channel ?? 'Thông báo'
 
   const [tab, setTab] = useState<'students' | 'classes' | 'years'>('students')
+  const [importing, setImporting] = useState(false)
+  const [importBusy, setImportBusy] = useState(false)
   const [creating, setCreating] = useState<'class' | 'student' | null>(null)
   const [name, setName] = useState('')
   const [schoolYear, setSchoolYear] = useState('')
@@ -77,7 +80,8 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
       <button type="button" aria-pressed={tab === 'classes'} onClick={() => setTab('classes')}>Lớp</button>
       <button type="button" aria-pressed={tab === 'years'} onClick={() => setTab('years')}>Năm học</button>
     </div>}
-    {isAdmin && tab === 'years' ? <AcademicYears /> : <StudentDirectory isAdmin={isAdmin} view={isAdmin ? tab as 'classes' | 'students' : 'students'} onCreate={() => { setCreating(isAdmin && tab === 'classes' ? 'class' : 'student'); setName(''); setStudentName(''); setStudentCode(''); setStartDate(today) }} onViewStudents={id => { setClassId(id); setTab('students') }} initialClassId={classId} onLink={openParent} />}
+    {importing && isAdmin && <Modal title="Nhập trẻ từ Excel" busy={importBusy} onClose={() => setImporting(false)}><StudentImportForm initialClassId={classId} onDone={() => setImporting(false)} onBusy={setImportBusy} /></Modal>}
+    {isAdmin && tab === 'years' ? <AcademicYears /> : <StudentDirectory onImport={() => setImporting(true)} isAdmin={isAdmin} view={isAdmin ? tab as 'classes' | 'students' : 'students'} onCreate={() => { setCreating(isAdmin && tab === 'classes' ? 'class' : 'student'); setName(''); setStudentName(''); setStudentCode(''); setStartDate(today) }} onViewStudents={id => { setClassId(id); setTab('students') }} initialClassId={classId} onLink={openParent} />}
     {creating === 'class' && <Modal title="Tạo lớp" busy={addClass.isPending} onClose={() => setCreating(null)}><form className="workflow-form" onSubmit={submitClass}>
         <label className="field">Tên lớp<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
         <SchoolYearPicker value={schoolYear} onChange={setSchoolYear} />
@@ -98,8 +102,7 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
           <label className="switch-line"><input type="checkbox" disabled={!notifications.data?.enabled} checked={sendRegistrationNotification} onChange={e => setSendRegistrationNotification(e.target.checked)} /> Gửi hướng dẫn đăng nhập qua {channel}</label>
           <button type="submit" className="button primary" disabled={linkParent.isPending}>Liên kết</button></div></form>
       <p className="form-help">Hồ sơ và tài khoản vẫn được lưu nếu gửi tin không thành công. Phụ huynh cần dùng WhatsApp để nhận tin.</p>
-      {isAdmin && <details className="notification-details"><summary>Thông tin cấu hình gửi thử</summary><p>{notifications.data?.templateOnly ? 'Twilio dùng mẫu demo cố định, chưa chứa thông tin đăng nhập.' : 'Ưu tiên Vonage gửi tên trẻ và thông tin đăng nhập; Twilio dự phòng dùng mẫu demo cố định.'} Chỉ gửi tới số thử đã cấu hình; cần kết nối môi trường thử và mở hội thoại trước. Đợi 60 giây giữa các lần gửi. Gửi tin không xác minh quyền sở hữu SĐT.</p></details>}
-      {notificationResult && <p className={notificationResult.status === 'ACCEPTED' ? 'form-help' : 'error'} role="status">{isAdmin ? `${channel} ${notificationResult.status}: ${notificationResult.message}` : notificationMessage(notificationResult)}</p>}
+      {notificationResult && <p className={notificationResult.status === 'ACCEPTED' ? 'form-help' : 'error'} role="status">{notificationMessage(notificationResult)}</p>}
       {temporaryPassword && <div className="credential-once"><strong>Đăng nhập: {credentialPhone} · Mật khẩu tạm:</strong> <code>{temporaryPassword}</code><button type="button" onClick={() => setTemporaryPassword('')}>Đã lưu, ẩn mật khẩu</button><small>Chỉ hiển thị một lần. Chuyển riêng cho phụ huynh qua kênh an toàn.</small></div>}
     </Modal>}
   </>

@@ -27,6 +27,8 @@ void size(WidgetTester tester, double width, {double height = 780}) {
 
 void main() {
   final screens = [
+    SchoolOperation.parentLinks,
+    SchoolOperation.reviewableParentLinks,
     SchoolOperation.users,
     SchoolOperation.classes,
     SchoolOperation.students,

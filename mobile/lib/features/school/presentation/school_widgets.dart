@@ -4,6 +4,14 @@ import 'school_controller.dart';
 import 'school_forms.dart';
 
 const fieldLabels = <String, String>{
+  'requestCount': 'Số yêu cầu',
+  'selectedRequests': 'Yêu cầu đã chọn',
+  'revocationReason': 'Lý do thu hồi',
+  'revokedAt': 'Ngày thu hồi',
+  'parentName': 'Phụ huynh',
+  'parentPhone': 'SĐT phụ huynh',
+  'relationship': 'Quan hệ',
+  'note': 'Ghi chú',
   'fullName': 'Họ tên',
   'studentName': 'Trẻ',
   'className': 'Lớp',
@@ -123,6 +131,10 @@ const valueLabels = {
   'CLOSED': 'Ngày nghỉ',
   'CREATE': 'Tạo mới',
   'RESTORE': 'Khôi phục',
+  'REVOKED': 'Đã thu hồi',
+  'FATHER': 'Cha',
+  'MOTHER': 'Mẹ',
+  'GUARDIAN': 'Người giám hộ',
   'EXISTS': 'Đã có, bỏ qua',
   'LOCKED': 'Đã khóa, bỏ qua',
   'OTHER_YEAR': 'Thuộc năm khác',
@@ -423,6 +435,14 @@ class _ReferencePickerState extends State<ReferencePicker> {
       var rows = widget.field.collection == null
           ? result.records
           : result.summary.records(widget.field.collection!);
+      if (op == SchoolOperation.parentLinkClasses &&
+          widget.contextValues['schoolYear'] != null) {
+        rows = rows
+            .where(
+              (x) => x.text('schoolYear') == widget.contextValues['schoolYear'],
+            )
+            .toList();
+      }
       final totalKey = op == SchoolOperation.amendments
           ? 'candidateTotal'
           : widget.field.collection == 'classes'
@@ -431,7 +451,9 @@ class _ReferencePickerState extends State<ReferencePicker> {
       final serverPaged =
           op != SchoolOperation.assignedClasses &&
           op != SchoolOperation.years &&
-          op != SchoolOperation.children;
+          op != SchoolOperation.children &&
+          op != SchoolOperation.parentLinkClasses &&
+          op != SchoolOperation.reviewLinkClasses;
       total = serverPaged
           ? result.summary.number(totalKey, result.total)
           : rows.length;
@@ -523,7 +545,9 @@ class _ReferencePickerState extends State<ReferencePicker> {
                   for (final record in records)
                     CheckboxListTile(
                       title: Text(record.title),
-                      subtitle: record.text('className').isNotEmpty
+                      subtitle: record.text('schoolYear').isNotEmpty
+                          ? Text(record.text('schoolYear'))
+                          : record.text('className').isNotEmpty
                           ? Text(record.text('className'))
                           : null,
                       value: selected.contains(id(record)),

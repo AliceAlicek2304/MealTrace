@@ -213,6 +213,23 @@ class _SchoolPageState extends State<SchoolPage> {
     }
 
     switch (widget.operation) {
+      case SchoolOperation.parentLinks:
+        edit(
+          SchoolOperation.cancelParentLink,
+          'Hủy yêu cầu',
+          enabled: record.text('status') == 'PENDING',
+        );
+      case SchoolOperation.reviewableParentLinks:
+        edit(
+          SchoolOperation.revokeParentLink,
+          'Thu hồi liên kết sai',
+          enabled: record.text('status') == 'APPROVED',
+        );
+        edit(
+          SchoolOperation.reviewParentLink,
+          'Duyệt / từ chối',
+          enabled: record.text('status') == 'PENDING',
+        );
       case SchoolOperation.users:
         edit(SchoolOperation.updateUser, 'Sửa tài khoản');
         edit(SchoolOperation.resetPassword, 'Đặt lại mật khẩu');
@@ -298,6 +315,7 @@ class _SchoolPageState extends State<SchoolPage> {
   }
 
   List<SchoolOperation> get createActions => switch (widget.operation) {
+    SchoolOperation.parentLinks => [SchoolOperation.createParentLink],
     SchoolOperation.users => [SchoolOperation.createUser],
     SchoolOperation.classes => [SchoolOperation.createClass],
     SchoolOperation.students ||
@@ -317,6 +335,21 @@ class _SchoolPageState extends State<SchoolPage> {
   };
 
   List<SchoolField> get filterFields => switch (widget.operation) {
+    SchoolOperation.parentLinks || SchoolOperation.reviewableParentLinks => [
+      const SchoolField(
+        'status',
+        'Trạng thái',
+        kind: FieldKind.choice,
+        required: false,
+        options: {
+          'PENDING': 'Chờ duyệt',
+          'APPROVED': 'Đã duyệt',
+          'REJECTED': 'Từ chối',
+          'CANCELLED': 'Đã hủy',
+          'REVOKED': 'Đã thu hồi',
+        },
+      ),
+    ],
     SchoolOperation.users => [
       const SchoolField(
         'role',
@@ -401,6 +434,7 @@ class _SchoolPageState extends State<SchoolPage> {
           'SETTLED': 'Đã chốt',
           'PENDING': 'Chưa chốt',
           'CANCELLED': 'Đã hủy',
+          'REVOKED': 'Đã thu hồi',
         },
       ),
     ],
@@ -504,6 +538,8 @@ class _SchoolPageState extends State<SchoolPage> {
           .where((op) => canExecute(op, widget.roles))
           .toList();
       final paged = [
+        SchoolOperation.parentLinks,
+        SchoolOperation.reviewableParentLinks,
         SchoolOperation.users,
         SchoolOperation.classes,
         SchoolOperation.students,
@@ -560,6 +596,8 @@ class _SchoolPageState extends State<SchoolPage> {
               children: [
                 if (paged &&
                         ![
+                          SchoolOperation.parentLinks,
+                          SchoolOperation.reviewableParentLinks,
                           SchoolOperation.exceptionHistory,
                           SchoolOperation.workflowDays,
                         ].contains(widget.operation) ||
@@ -795,10 +833,14 @@ class _SchoolPageState extends State<SchoolPage> {
                 if (!controller.loading &&
                     result != null &&
                     result.records.isEmpty &&
-                    paged)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('Không có dữ liệu phù hợp.'),
+                    (paged || widget.operation == SchoolOperation.children))
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      widget.operation == SchoolOperation.children
+                          ? 'Tài khoản chưa được liên kết với trẻ. Mở Chức năng → Liên kết trẻ để gửi yêu cầu cho nhà trường.'
+                          : 'Không có dữ liệu phù hợp.',
+                    ),
                   ),
                 for (final record
                     in (widget.operation == SchoolOperation.yearConfiguration

@@ -315,8 +315,6 @@ h1 { color: #28374e; }
 .parent-contact dl { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px 12px; margin: 0; font-size: 13px; }
 .parent-contact dt { color: #718098; }
 .parent-contact dd { margin: 0; overflow-wrap: anywhere; }
-.notification-details { margin: 0 24px 20px; color: #66758a; font-size: 13px; line-height: 1.6; }
-.notification-details summary { cursor: pointer; }
 .session-status { display: grid; justify-items: start; gap: 16px; }
 .parent-summary:focus-visible { outline: 3px solid #9771cf; outline-offset: 3px; border-radius: 4px; }
 .table-actions .button { font-size: 12px; padding: 8px 11px; }
@@ -423,7 +421,6 @@ h1 { color: #28374e; }
   .modal-body input, .modal-body select, .modal-body textarea { font-size: 16px; }
   .modal-body .workflow-fields { grid-template-columns: minmax(0, 1fr); }
   .credential-once { overflow-wrap: anywhere; }
-  .notification-details { margin: 0 18px 18px; }
   .parent-contact-list { padding: 16px; }
   .icon-button, .pagination button, .list-tabs button, .parent-summary,
   .calendar-weekdays label, .inline-choices label, .switch-line, .login-back { min-height: 44px; }

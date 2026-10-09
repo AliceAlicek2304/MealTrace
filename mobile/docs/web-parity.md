@@ -14,11 +14,12 @@ Chỉ triển khai chức năng đã có trên web, cho đủ vai trò. Dùng ch
 
 | Nhóm | Chức năng |
 | --- | --- |
-| Phiên và tài khoản | Đăng nhập/khôi phục/đăng xuất, thông tin hiện tại, đổi mật khẩu |
+| Phiên và tài khoản | Tự đăng ký phụ huynh bằng SĐT và OTP WhatsApp, chờ nhà trường liên kết trẻ; đăng nhập/khôi phục/đăng xuất, thông tin hiện tại, đổi mật khẩu |
 | Admin – tài khoản | Tìm/lọc/phân trang, tạo/sửa, vai trò/phạm vi, reset mật khẩu |
+| Import XLSX | Admin chọn lớp/ngày bắt đầu, tải file, xem trước/báo dòng lỗi và xác nhận nhập họ tên, ngày sinh, giới tính, mã trẻ tự tạo và ghi danh. Không đọc tên lớp hoặc tạo Parent/gửi WhatsApp. Một sheet, 500 trẻ, 5 MB. |
 | Lớp và trẻ | Tìm/lọc, tạo/sửa, ghi danh/chuyển lớp/ngừng học, lịch sử, liên kết phụ huynh và kết quả gửi tin |
 | Năm học | Danh sách, cấu hình, xem trước năm kế tiếp |
-| Phụ huynh | Con được liên kết, báo không ăn theo khoảng ngày, chọn nhanh tuần/tháng/năm học, sửa/hủy và lịch sử |
+| Phụ huynh | Yêu cầu liên kết bằng năm học, lớp và họ tên trẻ; lịch sử/hủy yêu cầu chờ; Admin/Teacher lọc năm học/lớp, duyệt hoặc từ chối danh sách đã chọn, thu hồi liên kết sai có lịch sử. Con được liên kết, báo không ăn theo khoảng ngày, chọn nhanh tuần/tháng/năm học, sửa/hủy và lịch sử |
 | Sổ suất | Danh sách phiên, tạo phiên, suất theo lớp, nguồn quyết định và lịch sử ngoại lệ trước chốt |
 | Chốt và điều chỉnh | Admin chốt; yêu cầu theo nhiều trẻ hoặc số lượng riêng bếp; đối chiếu, duyệt/từ chối và lịch sử phiên bản |
 | Lịch bữa ăn | Chọn năm, lịch tuần/ngày, xem trước và tạo hàng loạt, lịch sử |

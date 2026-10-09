@@ -8,4 +8,6 @@ public interface IAuthRepository
 {
     Task<IdentityAccount?> FindAccountByPhoneAsync(string? phone);
     Task<InspectorGrant?> FindInspectorGrantAsync(IdentityAccount user);
+    Task<ParentSignupOtp?> FindSignupOtpAsync(string phone);
+    void AddSignupOtp(ParentSignupOtp otp);
 }

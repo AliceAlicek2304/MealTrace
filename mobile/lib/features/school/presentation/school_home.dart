@@ -1,3 +1,5 @@
+import 'parent_link_review_page.dart';
+import 'student_import_page.dart';
 import 'package:flutter/material.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/school_models.dart';
@@ -43,6 +45,16 @@ class _SchoolHomeState extends State<SchoolHome> {
         icon: Icons.family_restroom_outlined,
       ),
       (
+        operation: SchoolOperation.parentLinks,
+        title: 'Liên kết trẻ',
+        icon: Icons.link_outlined,
+      ),
+      (
+        operation: SchoolOperation.reviewableParentLinks,
+        title: 'Yêu cầu liên kết trẻ',
+        icon: Icons.verified_user_outlined,
+      ),
+      (
         operation: SchoolOperation.users,
         title: 'Tài khoản',
         icon: Icons.manage_accounts_outlined,
@@ -58,6 +70,11 @@ class _SchoolHomeState extends State<SchoolHome> {
         operation: SchoolOperation.classes,
         title: 'Lớp',
         icon: Icons.school_outlined,
+      ),
+      (
+        operation: SchoolOperation.previewStudentImport,
+        title: 'Nhập trẻ từ Excel',
+        icon: Icons.upload_file_outlined,
       ),
       (
         operation: SchoolOperation.yearConfiguration,
@@ -96,13 +113,25 @@ class _SchoolHomeState extends State<SchoolHome> {
   Future<void> open(SchoolSection section) => Navigator.push<void>(
     context,
     MaterialPageRoute(
-      builder: (_) => SchoolPage(
-        operation: section.operation,
-        title: section.title,
-        repository: widget.repository,
-        roles: widget.auth.user!.roles,
-        onUnauthorized: widget.auth.invalidateSession,
-      ),
+      builder: (_) => section.operation == SchoolOperation.previewStudentImport
+          ? StudentImportPage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : section.operation == SchoolOperation.reviewableParentLinks
+          ? ParentLinkReviewPage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : SchoolPage(
+              operation: section.operation,
+              title: section.title,
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            ),
     ),
   );
 

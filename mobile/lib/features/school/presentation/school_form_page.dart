@@ -263,6 +263,9 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
     final disabled =
         busy ||
         !prerequisitesReady ||
+        (widget.form.operation == SchoolOperation.createParentLink &&
+            field.key == 'classId' &&
+            (values['schoolYear'] == null || values['schoolYear'] == '')) ||
         (field.key == 'sendRegistrationNotification' &&
             notifications?.summary.flag('enabled') != true);
     if (field.kind == FieldKind.toggle) {
@@ -346,6 +349,12 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                 );
                 if (picked != null && mounted) {
                   setState(() {
+                    if (widget.form.operation ==
+                            SchoolOperation.createParentLink &&
+                        field.key == 'schoolYear') {
+                      values['classId'] = null;
+                      referenceLabels.remove('classId');
+                    }
                     values[field.key] = multi
                         ? picked
                         : picked.isEmpty
@@ -469,6 +478,12 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (widget.form.operation == SchoolOperation.reviewParentLink ||
+                    widget.form.operation == SchoolOperation.cancelParentLink ||
+                    widget.form.operation == SchoolOperation.revokeParentLink ||
+                    widget.form.operation ==
+                        SchoolOperation.bulkReviewParentLinks)
+                  RecordDetails(record: SchoolRecord(widget.contextValues)),
                 Text(widget.form.help),
                 const SizedBox(height: 20),
                 if (!prerequisitesReady) ...[
@@ -479,8 +494,6 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                     child: const Text('Tải lại thông tin'),
                   ),
                 ],
-                if (notifications != null)
-                  RecordDetails(record: notifications!.summary),
                 if (widget.form.operation == SchoolOperation.reportAbsence)
                   Wrap(
                     spacing: 8,

@@ -469,12 +469,15 @@ public sealed class AuthenticationTests
         private readonly string? _postgresConnection;
         private readonly string? _schema;
         private bool _disposed;
+        private readonly MealTrace.Application.Abstractions.Notifications.IRegistrationOtpSender? _otpSender;
         private readonly TimeProvider? _clock;
         private readonly Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? _commands;
 
         public AuthTestFactory(bool postgres = false, TimeProvider? clock = null,
-            Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? commands = null)
+            Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? commands = null,
+            MealTrace.Application.Abstractions.Notifications.IRegistrationOtpSender? otpSender = null)
         {
+            _otpSender = otpSender;
             _clock = clock;
             _commands = commands;
             if (postgres)
@@ -515,6 +518,13 @@ public sealed class AuthenticationTests
             }));
             builder.ConfigureServices(services =>
             {
+                if (_otpSender is not null)
+                {
+                    services.RemoveAll<MealTrace.Application.Abstractions.Notifications.IRegistrationOtpSender>();
+                    services.AddSingleton(_otpSender);
+                    services.RemoveAll<MealTrace.Application.Features.Notifications.NotificationPolicy>();
+                    services.AddSingleton(new MealTrace.Application.Features.Notifications.NotificationPolicy(true, "0901234567"));
+                }
                 if (_clock is not null) { services.RemoveAll<TimeProvider>(); services.AddSingleton(_clock); }
                 services.RemoveAll<DbContextOptions<MealTraceDbContext>>();
                 services.AddDbContext<MealTraceDbContext>(options =>

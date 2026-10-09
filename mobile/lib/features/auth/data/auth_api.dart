@@ -1,3 +1,5 @@
+import '../domain/parent_otp_challenge.dart';
+import '../domain/parent_registration.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -45,6 +47,16 @@ class AuthApi {
           'Bạn đã thử quá nhiều lần. Vui lòng đợi rồi thử lại.',
         );
       }
+      if (path.startsWith('register') &&
+          (response.statusCode == 400 || response.statusCode == 409)) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final message = data is Map ? data['message'] : null;
+        throw AuthFailure(
+          message is String && message.length <= 500
+              ? message
+              : 'Không thể đăng ký tài khoản.',
+        );
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw const AuthFailure(
           'Không thể xử lý yêu cầu. Vui lòng thử lại sau.',
@@ -66,6 +78,38 @@ class AuthApi {
     } on TypeError {
       throw const AuthFailure('Phản hồi máy chủ không hợp lệ.');
     }
+  }
+
+  Future<ParentOtpChallenge> requestParentOtp(String phone) async {
+    final json = await _request(
+      'register/otp',
+      post: true,
+      body: {'phoneNumber': phone},
+    );
+    try {
+      return ParentOtpChallenge(
+        json['challengeId'] as String,
+        DateTime.parse(json['expiresAt'] as String),
+        DateTime.parse(json['resendAt'] as String),
+        json['message'] as String,
+      );
+    } catch (_) {
+      throw const AuthFailure('Phản hồi OTP không hợp lệ.');
+    }
+  }
+
+  Future<void> registerParent(ParentRegistration input) async {
+    await _request(
+      'register',
+      post: true,
+      body: {
+        'fullName': input.fullName.trim(),
+        'phoneNumber': input.normalizedPhone ?? input.phoneNumber,
+        'password': input.password,
+        if (input.challengeId != null) 'challengeId': input.challengeId!,
+        if (input.otpCode != null) 'otpCode': input.otpCode!,
+      },
+    );
   }
 
   Future<LoginSession> login(String identifier, String password) async {

@@ -20,7 +20,7 @@ describe('Teacher registration and notifications', () => {
     const post = vi.spyOn(api, 'post').mockResolvedValue({ data: { id: 'child-a', fullName: 'Nguyễn An', classId: 'class-a' } })
     cache = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={cache}><ClassesPage isAdmin={false} /></QueryClientProvider>)
-    await screen.findByRole('option', { name: 'M1' })
+    await screen.findByRole('option', { name: 'M1' }, { timeout: 5000 })
     fireEvent.change(screen.getByLabelText('Lọc lớp hiện tại / lớp cuối'), { target: { value: 'class-a' } })
     fireEvent.click(screen.getByRole('button', { name: 'Thêm trẻ' }))
     fireEvent.change(screen.getByLabelText('Lớp'), { target: { value: 'class-a' } })

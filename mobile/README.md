@@ -40,3 +40,31 @@ Token và thời hạn được lưu bằng flutter_secure_storage; không lưu 
 
 Với điện thoại thật, ví dụ: flutter run --dart-define=API_BASE_URL=http://<IP-LAN>:5184/api. Chạy BE để lắng nghe LAN và mở cổng firewall phù hợp; không đổi cấu hình production. Không đóng gói secret hoặc tài khoản thử vào app.
 Bản profile/release bắt buộc API HTTPS qua dart-define. Chưa cấu hình keystore phát hành; release không dùng debug signing key. Bản debug hiện dành cho phát triển/test.
+
+## Đăng ký phụ huynh
+
+Từ trang đăng nhập, chọn Đăng ký tài khoản phụ huynh. Nhập họ tên, SĐT Việt Nam, mật khẩu và xác nhận. POST /auth/register chỉ cấp PARENT trên BE; không lưu mật khẩu hoặc tạo phiên khi đăng ký. Thành công quay về đăng nhập với SĐT đã chuẩn hóa. Nhận OTP qua WhatsApp và nhập 6 chữ số trước khi tạo tài khoản. Mã dùng một lần trong 5 phút; gửi lại sau 60 giây, tối đa 5 lượt mỗi giờ mỗi SĐT. BE đánh dấu SĐT đã xác minh sau OTP đúng, không tự liên kết trẻ. Nhà trường liên kết tài khoản bằng SĐT qua Lớp và trẻ; tạo trẻ riêng vẫn không cần phụ huynh.
+
+OTP hiện dùng sandbox: chỉ số tester trong Notifications:Messaging:TestNumber, đã tham gia sandbox và còn cửa sổ hội thoại 24 giờ. Vonage ưu tiên, Twilio dự phòng gửi nội dung OTP thật trong phiên WhatsApp; không dùng ContentSid demo. Khi dùng thực tế cần cấu hình sender và template authentication được duyệt. Migration ParentSignupWhatsAppOtp tạo bảng challenge; OTP không trả qua API hoặc lưu trên thiết bị.
+
+## Phụ huynh yêu cầu liên kết trẻ
+
+Mở Chức năng → Liên kết trẻ. Chọn năm học và tên lớp, nhập họ tên trẻ, chọn quan hệ và ghi chú. Không cần mã lớp/mã trẻ; gửi yêu cầu chưa cấp quyền xem trẻ. Có thể xem lịch sử hoặc hủy yêu cầu đang chờ. Chỉ có danh mục lớp, không công khai danh sách trẻ. Nếu lớp có trẻ trùng họ tên, liên hệ giáo viên để đối chiếu và liên kết đúng trẻ.
+
+Admin/Giáo viên mở Chức năng → Yêu cầu liên kết trẻ, lọc năm học và tùy chọn lớp. Rà phụ huynh/SĐT/tên trẻ, chọn yêu cầu cần xử lý rồi ghi kết quả đối chiếu để duyệt hoặc từ chối cả danh sách (tối đa 100 mục trên trang). Giáo viên chỉ xử lý lớp được phân công hiện hành, không tự duyệt. Backend kiểm tra phiên bản, phạm vi năm học/lớp và trạng thái từng yêu cầu; một mục không hợp lệ thì toàn bộ lượt xử lý bị hủy. Sau duyệt, Parent tải lại Trẻ đã liên kết hoặc Báo vắng.
+
+Lịch sử / sửa liên kết cho phép thu hồi liên kết sai, bắt buộc ghi lý do. Giữ nguyên lịch sử duyệt, ghi người và thời điểm thu hồi riêng; gỡ liên kết và thu hồi phiên đăng nhập cũ của Parent. Migration ParentLinkRevocation bổ sung lịch sử thu hồi.
+
+## Nhập trẻ từ Excel (Admin)
+
+Chức năng → Nhập trẻ từ Excel. Chọn lớp có sẵn (hiện kèm năm học), ngày bắt đầu từ hôm nay và file XLSX. Ứng dụng mở bộ chọn file Android, tải multipart qua data repository rồi hiển thị thẻ xem trước chỉ gồm tên trẻ, SĐT và trạng thái Hợp lệ/Có lỗi; bấm thẻ để mở popup ngày sinh, giới tính, dòng file và lỗi cụ thể. Xác nhận chỉ bật khi danh sách không lỗi; có bước xác nhận trước khi ghi DB.
+
+Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ và ghi danh. Không đọc tên lớp trong file, không tạo tài khoản/liên kết Parent hoặc gửi WhatsApp. Ngày sinh/giới tính được xem trước và lưu DB; ô trống giữ null, ngày sinh tương lai hoặc dữ liệu sai chặn cả lượt nhập. SĐT và ghi chú được báo rõ là bỏ qua. Migration StudentBirthAndGender thêm trường nullable, giữ hồ sơ cũ. Một sheet, tối đa 500 trẻ, 5 MB. Tên trùng trong file/lớp yêu cầu kiểm tra hoặc thêm riêng; file có lỗi không được nhập một phần. Backend kiểm tra lại và lưu cùng giao dịch, chặn quyền Teacher/Parent/Kitchen.
+
+PDF và tự tạo/ghép Parent từ SĐT trong file chưa triển khai. Chức năng liên kết thủ công bằng SĐT và tạo trẻ không có Parent tiếp tục dùng được.
+
+Nếu build Android trên Windows gặp lỗi Kotlin cache do Pub cache và dự án ở hai ổ khác nhau, dùng:
+
+```powershell
+flutter build apk --debug --target-platform android-arm64 --android-project-arg=kotlin.incremental=false --android-project-arg=kotlin.compiler.execution.strategy=in-process
+```

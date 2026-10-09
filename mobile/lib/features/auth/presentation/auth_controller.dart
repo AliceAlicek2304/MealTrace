@@ -1,3 +1,5 @@
+import '../domain/parent_otp_challenge.dart';
+import '../domain/parent_registration.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../domain/auth_models.dart';
@@ -99,6 +101,54 @@ class AuthController extends ChangeNotifier {
       _status = error.unauthorized
           ? AuthStatus.signedOut
           : AuthStatus.restoreFailed;
+    } finally {
+      _finishOperation();
+    }
+  }
+
+  void clearMessage() {
+    if (_disposed || _busy) return;
+    _message = null;
+    _changed();
+  }
+
+  Future<ParentOtpChallenge?> requestParentOtp(String phone) async {
+    if (_disposed || _busy || _status != AuthStatus.signedOut) return null;
+    final normalized = ParentRegistration('', phone, '').normalizedPhone;
+    if (normalized == null) {
+      _message = 'SĐT Việt Nam không hợp lệ.';
+      _changed();
+      return null;
+    }
+    _busy = true;
+    _message = null;
+    _changed();
+    try {
+      final result = await _repository.requestParentOtp(normalized);
+      return _disposed ? null : result;
+    } on AuthFailure catch (error) {
+      if (!_disposed) _message = error.message;
+      return null;
+    } finally {
+      _finishOperation();
+    }
+  }
+
+  Future<bool> registerParent(ParentRegistration input) async {
+    if (_disposed || _busy || _status != AuthStatus.signedOut) return false;
+    _message = input.validate(requireOtp: true);
+    if (_message != null) {
+      _changed();
+      return false;
+    }
+    _busy = true;
+    _changed();
+    try {
+      await _repository.registerParent(input);
+      return !_disposed;
+    } on AuthFailure catch (error) {
+      if (!_disposed) _message = error.message;
+      return false;
     } finally {
       _finishOperation();
     }

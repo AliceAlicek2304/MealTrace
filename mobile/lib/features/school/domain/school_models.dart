@@ -1,4 +1,15 @@
 enum SchoolOperation {
+  previewStudentImport,
+  confirmStudentImport,
+  parentLinkClasses,
+  reviewLinkClasses,
+  bulkReviewParentLinks,
+  revokeParentLink,
+  parentLinks,
+  createParentLink,
+  cancelParentLink,
+  reviewableParentLinks,
+  reviewParentLink,
   users,
   scopes,
   createUser,
@@ -130,6 +141,10 @@ const kitchenRoles = ['ADMIN', 'KITCHEN_STAFF'];
 
 List<String> rolesFor(SchoolOperation op) => switch (op) {
   SchoolOperation.changePassword || SchoolOperation.years => const [],
+  SchoolOperation.parentLinkClasses ||
+  SchoolOperation.parentLinks ||
+  SchoolOperation.createParentLink ||
+  SchoolOperation.cancelParentLink ||
   SchoolOperation.children ||
   SchoolOperation.absences ||
   SchoolOperation.reportAbsence ||
@@ -140,6 +155,11 @@ List<String> rolesFor(SchoolOperation op) => switch (op) {
   SchoolOperation.portions ||
   SchoolOperation.amendments ||
   SchoolOperation.amendmentDetail => portionRoles,
+  SchoolOperation.reviewLinkClasses ||
+  SchoolOperation.bulkReviewParentLinks ||
+  SchoolOperation.revokeParentLink ||
+  SchoolOperation.reviewableParentLinks ||
+  SchoolOperation.reviewParentLink ||
   SchoolOperation.scopedStudents ||
   SchoolOperation.createStudent ||
   SchoolOperation.classStudents ||

@@ -3,6 +3,14 @@ import type { SchoolUser, UserDraft } from './model'
 
 export type CurrentUser = { id: string; fullName: string; email: string; phoneNumber?: string | null; roles: string[]; inspectorAccessUntil: string | null }
 export type LoginResponse = { accessToken: string; expiresAt: string; user: CurrentUser }
+export type ParentRegistration = { fullName: string; phoneNumber: string; password: string; challengeId?: string; otpCode?: string }
+export type ParentOtpChallenge = { challengeId: string; expiresAt: string; resendAt: string; message: string }
+export async function requestParentOtp(phoneNumber: string): Promise<ParentOtpChallenge> {
+  return (await api.post<ParentOtpChallenge>('/auth/register/otp', { phoneNumber })).data
+}
+export async function registerParent(input: ParentRegistration): Promise<void> {
+  await api.post('/auth/register', { fullName: input.fullName.trim(), phoneNumber: input.phoneNumber, password: input.password, challengeId: input.challengeId, otpCode: input.otpCode })
+}
 export type ScopeOptions = {
   classes: { id: string; name: string }[]
   students: { id: string; name: string; classId: string }[]

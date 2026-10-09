@@ -73,6 +73,8 @@ internal sealed class StudentAdministrationRepository(MealTraceDbContext db) : I
                 Id = x.Id,
                 StudentCode = x.StudentCode,
                 FullName = x.FullName,
+                DateOfBirth = x.DateOfBirth,
+                Gender = x.Gender,
                 Revision = x.Revision,
                 IsActive = db.Enrollments.Any(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)),
                 ClassId = db.Enrollments.Where(e => e.StudentId == x.Id && e.StartDate <= date && (e.EndDate == null || e.EndDate > date)).Select(e => (Guid?)e.ClassId).FirstOrDefault() ?? x.ClassId,

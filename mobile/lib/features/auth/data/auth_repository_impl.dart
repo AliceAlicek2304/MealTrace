@@ -1,3 +1,5 @@
+import '../domain/parent_otp_challenge.dart';
+import '../domain/parent_registration.dart';
 import 'dart:convert';
 
 import '../domain/auth_models.dart';
@@ -67,6 +69,21 @@ class AuthRepositoryImpl implements AuthRepository {
       if (error.unauthorized && !_closed) await clearLocalSession();
       rethrow;
     }
+  }
+
+  @override
+  Future<ParentOtpChallenge> requestParentOtp(String phone) async {
+    _ensureOpen();
+    final result = await _api.requestParentOtp(phone);
+    _ensureOpen();
+    return result;
+  }
+
+  @override
+  Future<void> registerParent(ParentRegistration input) async {
+    _ensureOpen();
+    await _api.registerParent(input);
+    _ensureOpen();
   }
 
   @override

@@ -8,6 +8,9 @@ Map<String, Object?> validSchoolValues() => {
   'studentId': schoolId,
   'requestId': schoolId,
   'classId': schoolId,
+  'items': [
+    {'id': schoolId, 'revision': 3},
+  ],
   'baseSettlementId': schoolId,
   'expectedEventId': null,
   'fullName': 'Nguyễn An',
@@ -34,7 +37,10 @@ Map<String, Object?> validSchoolValues() => {
   'to': schoolToday(),
   'date': schoolToday(),
   'mealType': 'Bữa trưa',
-  'studentCode': null,
+  'studentCode': 'HS-001',
+  'studentName': 'Nguyễn An',
+  'relationship': 'MOTHER',
+  'note': 'Đối chiếu hồ sơ',
   'sendRegistrationNotification': false,
   'willEat': true,
   'quantity': null,
@@ -53,6 +59,8 @@ SchoolResult schoolFixture(SchoolOperation operation) {
     ...validSchoolValues(),
     'studentCode': 'HS-001',
     'studentName': 'Nguyễn An',
+    'parentName': 'Mẹ An',
+    'parentPhone': '0901234567',
     'className': 'M1',
     'isActive': true,
     'isSettled': true,
@@ -66,7 +74,14 @@ SchoolResult schoolFixture(SchoolOperation operation) {
     'yearEndDate': '2099-05-31',
     'count': 29,
     'version': 1,
-    'status': operation == SchoolOperation.amendments ? 'PENDING' : 'ACTIVE',
+    'status':
+        [
+          SchoolOperation.amendments,
+          SchoolOperation.parentLinks,
+          SchoolOperation.reviewableParentLinks,
+        ].contains(operation)
+        ? 'PENDING'
+        : 'ACTIVE',
     'latestEventId': null,
     'cutoffAt': '2099-10-08T07:30:00+07:00',
     'isOpen': true,
@@ -107,6 +122,18 @@ SchoolResult schoolFixture(SchoolOperation operation) {
     'existingCount': 0,
   });
   final keys = switch (operation) {
+    SchoolOperation.parentLinks || SchoolOperation.reviewableParentLinks => [
+      'id',
+      'studentName',
+      'studentCode',
+      'status',
+      'relationship',
+      'note',
+      'parentName',
+      'parentPhone',
+      'className',
+      'revision',
+    ],
     SchoolOperation.students || SchoolOperation.scopedStudents => [
       'id',
       'fullName',
@@ -116,7 +143,10 @@ SchoolResult schoolFixture(SchoolOperation operation) {
       'className',
       'parents',
     ],
-    SchoolOperation.classes || SchoolOperation.assignedClasses => [
+    SchoolOperation.parentLinkClasses ||
+    SchoolOperation.reviewLinkClasses ||
+    SchoolOperation.classes ||
+    SchoolOperation.assignedClasses => [
       'id',
       'name',
       'schoolYear',

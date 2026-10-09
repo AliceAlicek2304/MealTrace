@@ -1,3 +1,4 @@
+import 'register_page.dart';
 import 'package:flutter/material.dart';
 import 'auth_controller.dart';
 
@@ -13,6 +14,23 @@ class _LoginPageState extends State<LoginPage> {
   final _identifier = TextEditingController();
   final _password = TextEditingController();
   bool _obscure = true;
+  String? _notice;
+
+  Future<void> _register() async {
+    widget.auth.clearMessage();
+    final phone = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => RegisterPage(auth: widget.auth)),
+    );
+    if (!mounted) return;
+    widget.auth.clearMessage();
+    if (phone != null) {
+      setState(() {
+        _identifier.text = phone;
+        _password.clear();
+        _notice = 'Đăng ký thành công. Đăng nhập bằng SĐT và mật khẩu vừa tạo.';
+      });
+    }
+  }
 
   Future<void> _submit() async {
     if (widget.auth.busy || !_form.currentState!.validate()) return;
@@ -105,6 +123,7 @@ class _LoginPageState extends State<LoginPage> {
                             ? 'Nhập mật khẩu.'
                             : null,
                       ),
+                      if (_notice != null) Text(_notice!),
                       if (auth.message != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 16),
@@ -128,9 +147,13 @@ class _LoginPageState extends State<LoginPage> {
                           auth.busy ? 'Đang đăng nhập…' : 'Đăng nhập',
                         ),
                       ),
+                      TextButton(
+                        onPressed: auth.busy ? null : _register,
+                        child: const Text('Đăng ký tài khoản phụ huynh'),
+                      ),
                       const SizedBox(height: 20),
                       const Text(
-                        'Dùng tài khoản đã được nhà trường cấp. Nếu quên mật khẩu, hãy liên hệ quản trị viên.',
+                        'Phụ huynh có thể tự đăng ký. Nếu quên mật khẩu, hãy liên hệ nhà trường.',
                         textAlign: TextAlign.center,
                       ),
                     ],

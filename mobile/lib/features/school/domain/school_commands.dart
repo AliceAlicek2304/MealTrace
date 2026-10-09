@@ -6,6 +6,7 @@ Map<String, Object?> prepareSchoolInput(
   Map<String, Object?> fields,
 ) {
   final input = Map<String, Object?>.from(fields);
+  if (operation == SchoolOperation.createParentLink) input.remove('schoolYear');
   if (operation == SchoolOperation.saveYear) input.remove('code');
   if (operation == SchoolOperation.createUser ||
       operation == SchoolOperation.updateUser) {
@@ -21,7 +22,9 @@ Map<String, Object?> prepareSchoolInput(
   if (operation == SchoolOperation.calendarDay && input['mode'] != 'OPEN') {
     input['mealTypes'] = <String>[];
   }
-  if (operation == SchoolOperation.reviewAmendment) {
+  if (operation == SchoolOperation.reviewAmendment ||
+      operation == SchoolOperation.reviewParentLink ||
+      operation == SchoolOperation.bulkReviewParentLinks) {
     input['approve'] = input['approve'] == 'true';
   }
   if (operation == SchoolOperation.requestAmendment) {
@@ -38,6 +41,17 @@ String? validateSchoolCommand(
   List<String> requiredBound,
 ) {
   String value(String key) => input[key]?.toString() ?? '';
+  if (operation == SchoolOperation.bulkReviewParentLinks) {
+    final selection = {...context, ...input};
+    final items = selection['items'];
+    if (((selection['classId']?.toString() ?? '').isEmpty &&
+            (selection['schoolYear']?.toString() ?? '').isEmpty) ||
+        items is! List ||
+        items.isEmpty ||
+        items.length > 100) {
+      return 'Chọn năm học hoặc lớp và từ 1 đến 100 yêu cầu.';
+    }
+  }
   if (operation == SchoolOperation.requestAmendment &&
       ((input['studentIds'] as List<Object?>).length > 200 ||
           (input['quantity'] is int && (input['quantity'] as int) > 200))) {

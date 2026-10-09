@@ -1,3 +1,4 @@
+import { ParentLinksPage } from './features/workflow/ParentLinksPage'
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users, School, ClipboardList, CalendarOff, Menu } from 'lucide-react'
@@ -96,7 +97,7 @@ export default function App() {
   if (restoring) return <main className="session-status" role="status">Đang khôi phục phiên đăng nhập…</main>
   if (restoreError) return <main className="session-status"><h1>Chưa kết nối được máy chủ</h1><p role="alert">{restoreError}</p><button className="button primary" onClick={() => setRestoreAttempt(value => value + 1)}>Thử lại</button><button className="button secondary" onClick={() => { setRestoreError(''); clearSession() }}>Đăng nhập lại</button></main>
   if (!user) return showLogin ? <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} /> : <LandingPage onLogin={() => setShowLogin(true)} />
-  const pageName = page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'calendar' ? 'Lịch bữa ăn' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
+  const pageName = page === 'links' ? 'Liên kết trẻ' : page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'calendar' ? 'Lịch bữa ăn' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
 
   const navigation = (id: string) => (
       <nav id={id} aria-label="Điều hướng chính" onClick={event => {
@@ -108,6 +109,7 @@ export default function App() {
         {canSeePortions && <button type="button" className={`nav ${page === 'portions' ? 'active' : ''}`} onClick={() => setPage('portions')}><ClipboardList size={18} /> Số suất</button>}
         {isParent && <button type="button" className={`nav ${page === 'absences' ? 'active' : ''}`} onClick={() => setPage('absences')}><CalendarOff size={18} /> Báo vắng</button>}
         {isMealStaff && <button type="button" className={`nav ${page === 'meals' ? 'active' : ''}`} onClick={() => setPage('meals')}><CalendarDays size={18} /> Ngày ăn</button>}
+        {(isParent || canRegisterStudents) && <button type="button" className={`nav ${page === 'links' ? 'active' : ''}`} onClick={() => setPage('links')}><Users size={18} /> Liên kết trẻ</button>}
         <button type="button" className={`nav ${page === 'profile' ? 'active' : ''}`} onClick={() => setPage('profile')}><UserRound size={18} /> Hồ sơ của tôi</button>
       </nav>
   )
@@ -129,6 +131,7 @@ export default function App() {
         : page === 'portions' && canSeePortions ? <PortionsPage roles={user.roles} />
         : page === 'absences' && isParent ? <AbsencesPage />
         : page === 'meals' && isMealStaff ? <MealDaysPage />
+        : page === 'links' && (isParent || canRegisterStudents) ? <ParentLinksPage roles={user.roles} />
         : <ProfilePage user={user} onPasswordChanged={clearSession} />}</main>
     </div>
   </div>

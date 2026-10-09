@@ -10,6 +10,44 @@ class ApiRoute {
 }
 
 const schoolRoutes = <SchoolOperation, ApiRoute>{
+  SchoolOperation.previewStudentImport: ApiRoute(
+    'POST',
+    '/admin/students/import/preview',
+  ),
+  SchoolOperation.confirmStudentImport: ApiRoute(
+    'POST',
+    '/admin/students/import/confirm',
+  ),
+  SchoolOperation.parentLinkClasses: ApiRoute(
+    'GET',
+    '/parent/link-requests/classes',
+  ),
+  SchoolOperation.reviewLinkClasses: ApiRoute(
+    'GET',
+    '/student-link-requests/classes',
+  ),
+  SchoolOperation.bulkReviewParentLinks: ApiRoute(
+    'POST',
+    '/student-link-requests/bulk-review',
+  ),
+  SchoolOperation.revokeParentLink: ApiRoute(
+    'POST',
+    '/student-link-requests/{id}/revoke',
+  ),
+  SchoolOperation.parentLinks: ApiRoute('GET', '/parent/link-requests'),
+  SchoolOperation.createParentLink: ApiRoute('POST', '/parent/link-requests'),
+  SchoolOperation.cancelParentLink: ApiRoute(
+    'POST',
+    '/parent/link-requests/{id}/cancel',
+  ),
+  SchoolOperation.reviewableParentLinks: ApiRoute(
+    'GET',
+    '/student-link-requests',
+  ),
+  SchoolOperation.reviewParentLink: ApiRoute(
+    'POST',
+    '/student-link-requests/{id}/review',
+  ),
   SchoolOperation.users: ApiRoute('GET', '/admin/users'),
   SchoolOperation.scopes: ApiRoute('GET', '/admin/scope-options'),
   SchoolOperation.createUser: ApiRoute('POST', '/admin/users'),
@@ -114,6 +152,8 @@ const schoolRoutes = <SchoolOperation, ApiRoute>{
 };
 
 const arrayOperations = {
+  SchoolOperation.parentLinkClasses,
+  SchoolOperation.reviewLinkClasses,
   SchoolOperation.assignedClasses,
   SchoolOperation.classStudents,
   SchoolOperation.enrollments,
@@ -123,6 +163,8 @@ const arrayOperations = {
   SchoolOperation.calendarHistory,
 };
 const pagedOperations = {
+  SchoolOperation.parentLinks,
+  SchoolOperation.reviewableParentLinks,
   SchoolOperation.users,
   SchoolOperation.classes,
   SchoolOperation.students,
@@ -136,6 +178,13 @@ const pagedOperations = {
 };
 
 List<String> queryFields(SchoolOperation operation) => switch (operation) {
+  SchoolOperation.parentLinks || SchoolOperation.reviewableParentLinks => [
+    'status',
+    'page',
+    'pageSize',
+    'classId',
+    'schoolYear',
+  ],
   SchoolOperation.users => ['page', 'pageSize', 'classId', 'search', 'role'],
   SchoolOperation.scopes => [
     'search',
@@ -208,15 +257,43 @@ class SchoolRepositoryImpl implements SchoolRepository {
     final uri = Uri.parse(
       '$_baseUrl$path',
     ).replace(queryParameters: query.isEmpty ? null : query);
-    final request = http.Request(route.method, uri)
-      ..headers.addAll({
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      });
-    if (route.method != 'GET' && input.isNotEmpty) {
-      request.headers['Content-Type'] = 'application/json';
-      request.body = jsonEncode(input);
+    final uploading =
+        operation == SchoolOperation.previewStudentImport ||
+        operation == SchoolOperation.confirmStudentImport;
+    final http.BaseRequest request;
+    if (uploading) {
+      final bytes = input['fileBytes'];
+      final filename = input['fileName']?.toString() ?? '';
+      if (bytes is! List<int> ||
+          bytes.isEmpty ||
+          bytes.length > 5 * 1024 * 1024 ||
+          !filename.toLowerCase().endsWith('.xlsx') ||
+          input['classId'] is! String ||
+          input['startDate'] is! String) {
+        throw const SchoolFailure(
+          'Chọn lớp, ngày bắt đầu và file XLSX tối đa 5 MB.',
+        );
+      }
+      request = http.MultipartRequest(route.method, uri)
+        ..fields.addAll({
+          'classId': input['classId'] as String,
+          'startDate': input['startDate'] as String,
+        })
+        ..files.add(
+          http.MultipartFile.fromBytes('file', bytes, filename: filename),
+        );
+    } else {
+      final regular = http.Request(route.method, uri);
+      if (route.method != 'GET' && input.isNotEmpty) {
+        regular.headers['Content-Type'] = 'application/json';
+        regular.body = jsonEncode(input);
+      }
+      request = regular;
     }
+    request.headers.addAll({
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+    });
     try {
       final response = await _client
           .send(request)
@@ -270,6 +347,7 @@ class SchoolRepositoryImpl implements SchoolRepository {
         throw const FormatException();
       }
       final records = switch (operation) {
+        SchoolOperation.previewStudentImport => summary.records('rows'),
         SchoolOperation.portions => summary.records('classes'),
         SchoolOperation.calendar => summary.records('days'),
         _ => summary.records('items'),
