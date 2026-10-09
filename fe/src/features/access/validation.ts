@@ -7,13 +7,20 @@ export function validateUserDraft(draft: UserDraft, users: SchoolUser[], current
   if (!name) return 'Vui lòng nhập họ tên.'
   if (!email && !draft.phoneNumber?.trim()) return 'Cần SĐT hoặc email đăng nhập.'
   if (draft.phoneNumber?.trim() && !normalizePhone(draft.phoneNumber)) return 'SĐT không hợp lệ.'
-  if (email && !isValidEmail(email)) return 'Email không hợp lệ.'
-  if (email && isDuplicateEmail(email, users, currentId)) return 'Email này đã thuộc một tài khoản khác.'
+  const emailError = validateEmail(email, users, currentId)
+  if (emailError) return emailError
   if (draft.phoneNumber && isDuplicatePhone(draft.phoneNumber, users, currentId)) return 'SĐT này đã thuộc một tài khoản khác.'
   if (!draft.roles.length && !draft.inspectorAccessUntil) return 'Chọn ít nhất một vai trò hoặc cấp quyền thanh tra có hạn.'
   if (draft.roles.includes('TEACHER') && !draft.classIds.length) return 'Giáo viên cần được phân công ít nhất một lớp.'
   if (draft.inspectorAccessUntil && new Date(`${draft.inspectorAccessUntil}T23:59:59`).getTime() < now.getTime()) return 'Ngày hết hạn quyền thanh tra phải là hôm nay hoặc sau đó.'
   // The server checks the last active admin against all accounts, not one page.
+  return null
+}
+
+function validateEmail(email: string, users: SchoolUser[], currentId: string | null): string | null {
+  if (!email) return null
+  if (!isValidEmail(email)) return 'Email không hợp lệ.'
+  if (isDuplicateEmail(email, users, currentId)) return 'Email này đã thuộc một tài khoản khác.'
   return null
 }
 

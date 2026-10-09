@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -50,5 +50,33 @@ describe('Meal decision UI', () => {
     expect((screen.getByRole('button', { name: 'Lưu ngoại lệ' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText('Đã hết thời gian ghi ngoại lệ. Bản suất giữ nguyên.')).toBeTruthy()
     expect(post).not.toHaveBeenCalled()
+  })
+})
+
+describe('Current portion query failures and incomplete snapshots', () => {
+  const decisions = { items: [student], total: 1, canEdit: false, isSettled: true, isCancelled: false,
+    cancellationReason: null, cutoffAt: '2026-10-01T00:30:00Z', classes: [{ id: 'class', name: 'M1' }] }
+  const room = { classId: 'class', className: 'M1', studentIds: [], isSettled: true, version: 2, count: 0, kitchenAdjustment: 0 }
+
+  it('shows unavailable current data on failure and recovers through the retry action', async () => {
+    let failPortions = true
+    vi.spyOn(api, 'get').mockImplementation(async url => {
+      if (url.endsWith('/decisions')) return { data: decisions }
+      if (failPortions) throw new Error('Temporary network failure')
+      return { data: { classes: [room] } }
+    })
+    show()
+    await screen.findByText('Không tải được')
+    expect(screen.queryByText('Không có suất')).toBeNull()
+    failPortions = false
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }))
+    expect(await screen.findByText('Không có suất')).toBeTruthy()
+  })
+
+  it('does not infer a missing child has no portion when the historical roster is incomplete', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async url => ({ data: url.endsWith('/decisions') ? decisions : { classes: [{ ...room, count: 2 }] } }))
+    show()
+    expect(await screen.findByText('Chưa đủ dữ liệu')).toBeTruthy()
+    expect(screen.queryByText('Không có suất')).toBeNull()
   })
 })

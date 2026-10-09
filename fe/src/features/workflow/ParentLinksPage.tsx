@@ -7,7 +7,7 @@ import { Pagination } from '../../components/Pagination'
 type LinkRequest = { id: string; studentCode: string; studentName: string; relationship: string; note: string; status: string; requestedAt: string; reviewReason: string | null; revision: number; parentName: string; parentPhone: string | null; className: string | null; classId: string | null; revokedAt: string | null; revocationReason: string | null }
 const statuses: Record<string, string> = { PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối', CANCELLED: 'Đã hủy', REVOKED: 'Đã thu hồi' }
 const relationships: Record<string, string> = { FATHER: 'Cha', MOTHER: 'Mẹ', GUARDIAN: 'Người giám hộ' }
-const sortSchoolYearsNewestFirst = (years: string[]) => years.sort((a, b) => b.localeCompare(a, 'vi', { numeric: true }))
+const sortSchoolYearsNewestFirst = (years: string[]) => years.toSorted((a, b) => b.localeCompare(a, 'vi', { numeric: true }))
 const getModalTitle = (mode: NonNullable<ParentLinksPageState['modal']>) => {
   const titles = { bulk: 'Duyệt theo danh sách lớp', revoke: 'Thu hồi liên kết', create: 'Yêu cầu liên kết trẻ', cancel: 'Hủy yêu cầu', review: 'Đối chiếu và duyệt liên kết' }
   return titles[mode]
@@ -68,7 +68,8 @@ export function ParentLinksPage({ roles }: Readonly<{ roles: string[] }>) {
     {query.isError && <div role="alert">{apiErrorMessage(query.error)} <button type="button" onClick={() => void query.refetch()}>Thử lại</button></div>}
     {query.data?.items.length === 0 && <p>Chưa có yêu cầu liên kết.</p>}
     <div className="link-request-list">{query.data?.items.map(item => <article className="link-request-card" key={item.id}>
-      {review && (classId || year) && item.status === 'PENDING' && <label className="link-selection"><input type="checkbox" aria-label={`Chọn ${item.studentName} - ${item.parentName}`} checked={Object.hasOwn(checked, item.id)} disabled={busy || query.isFetching} onChange={e => setChecked(previous => { const next = { ...previous }; if (e.target.checked) next[item.id] = item.revision; else delete next[item.id]; return next })} />Chọn yêu cầu</label>}
+      {review && (classId || year) && item.status === 'PENDING' && <label className="link-selection"><input type="checkbox" aria-label={`Chọn ${item.studentName} - ${item.parentName}`} checked={Object.hasOwn(checked, item.id)} disabled={busy || query.isFetching} onChange={e => setChecked(previous => { const next = { ...previous }; if (e.target.checked) { next[item.id] = item.revision } else { delete next[item.id] }
+        return next })} />Chọn yêu cầu</label>}
       <h2>{item.studentName}</h2><span className="badge">{statuses[item.status]}</span>
       <dl><dt>Mã trẻ</dt><dd>{item.studentCode}</dd><dt>Quan hệ</dt><dd>{relationships[item.relationship]}</dd>
         {review && <><dt>Phụ huynh</dt><dd>{item.parentName} · {item.parentPhone || 'Chưa có số điện thoại'}</dd><dt>Lớp</dt><dd>{item.className || 'Chưa có lớp hiện tại'}</dd></>}

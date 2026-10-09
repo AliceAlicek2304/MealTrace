@@ -136,7 +136,7 @@ type NavigationProps = {
   onNavigate: (page: NonNullable<ReturnType<typeof usePageNavigation>[0]>) => void
 }
 
-function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate }: NavigationProps) {
+function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate }: Readonly<NavigationProps>) {
   const items = [
     { id: 'accounts', label: 'Tài khoản', icon: Users, visible: isAdmin },
     { id: 'classes', label: 'Lớp và trẻ', icon: School, visible: canRegisterStudents },
@@ -155,7 +155,7 @@ function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions,
   </nav>
 }
 
-function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onPasswordChanged }: {
+function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onPasswordChanged }: Readonly<{
   page: ReturnType<typeof usePageNavigation>[0]
   user: CurrentUser
   isAdmin: boolean
@@ -164,7 +164,7 @@ function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions,
   isParent: boolean
   isMealStaff: boolean
   onPasswordChanged: () => void
-}) {
+}>) {
   switch (page) {
     case 'accounts': if (isAdmin) return <AccountsPage />; break
     case 'classes': if (canRegisterStudents) return <ClassesPage isAdmin={isAdmin} />; break

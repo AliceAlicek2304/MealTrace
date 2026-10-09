@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../../lib/api'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
+import { QueryState } from '../../components/QueryState'
 import { currentStudentPortion, type CurrentClassPortion } from './currentPortion'
 
 type Decision = { studentId: string; studentCode: string; fullName: string; classId: string; className: string;
@@ -21,6 +22,14 @@ type Event = { id: string; action: Action; reason: string | null; recordedAt: st
 type History = { items: Event[]; total: number }
 const sourceLabel: Record<string, string> = { DEFAULT: 'Mặc định có suất', PARENT_ABSENCE: 'Phụ huynh đăng ký không ăn / báo vắng', STAFF_EAT: 'Ngoại lệ: có suất', STAFF_ABSENT: 'Ngoại lệ: không có suất' }
 const actionLabel: Record<Action, string> = { EAT: 'Dự kiến có suất', ABSENT: 'Dự kiến không có suất', DEFAULT: 'Khôi phục mặc định' }
+
+function CurrentPortionCell({ student, room, loading, error }: Readonly<{ student: Decision; room?: CurrentClassPortion; loading: boolean; error: boolean }>) {
+  if (loading) return 'Đang tải…'
+  if (error) return 'Không tải được'
+  const current = currentStudentPortion(student.studentId, room)
+  if (current === null) return 'Chưa đủ dữ liệu'
+  return <><strong>{current ? 'Có suất' : 'Không có suất'}</strong><small>Bản {room?.version}{current !== student.willEat ? ' · Đã điều chỉnh' : ''}</small></>
+}
 
 export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
   const cache = useQueryClient()
@@ -57,10 +66,12 @@ export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
     setTarget({ student, kind }); setHistoryPage(1); setReason(''); setAction(student.willEat ? 'ABSENT' : 'EAT')
   }
   const historyContent = <>
-    {history.isPending ? <p>Đang tải lịch sử…</p> : history.isError ? <p className="error">{apiErrorMessage(history.error)}</p> : !history.data?.items.length ? <p className="form-help">Chưa có ngoại lệ.</p> :
-      history.data.items.map(event => <div className="entry" key={event.id}><strong>{actionLabel[event.action]}</strong>
+    <QueryState loading={history.isPending} error={history.isError} loadingMessage="Đang tải lịch sử…" errorMessage={apiErrorMessage(history.error)}>
+      {!history.data?.items.length && <p className="form-help">Chưa có ngoại lệ.</p>}
+      {history.data?.items.map(event => <div className="entry" key={event.id}><strong>{actionLabel[event.action]}</strong>
         <small>{event.actorName || (event.isLegacy ? 'Dữ liệu cũ: chưa ghi người xử lý' : 'Chưa có tên người xử lý')} · {schoolDateTime(event.recordedAt)}</small>
         <p>{event.reason || 'Chưa ghi lý do'}</p></div>)}
+    </QueryState>
     <Pagination page={historyPage} total={history.data?.total ?? 0} pageSize={25} busy={history.isFetching || save.isPending} onChange={setHistoryPage} />
   </>
   return <section className="panel workflow-lists"><div className="panel-head"><div><h2>{decisions.data?.isSettled ? 'Nguồn trước điều chỉnh và suất hiện hành' : 'Nguồn dự kiến ăn và ngoại lệ'}</h2>
@@ -69,27 +80,24 @@ export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
       <label className="field">Lớp<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1) }}><option value="">Tất cả lớp được xem</option>
         {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div></FilterPanel>
     <SearchFeedback waiting={searchWaiting} fetching={decisions.isFetching} />
-    {decisions.isPending ? <p className="empty compact">Đang tải…</p> : decisions.isError ? <p className="empty compact error">{apiErrorMessage(decisions.error)}</p> : <>
+    <QueryState loading={decisions.isPending} error={decisions.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(decisions.error)}>
       {!canEdit && <p className="empty compact">{decisions.data?.isCancelled ? `Phiên đã hủy: ${decisions.data.cancellationReason ?? 'Theo lịch trường'}` : 'Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.'}</p>}
       {decisions.data?.isSettled && <div className="workflow-form">
-        {applied.isPending ? <p>Đang tải suất hiện hành…</p> : applied.isError ? <p className="error">Không tải được suất hiện hành. <button type="button" className="button secondary" onClick={() => void applied.refetch()}>Thử lại</button></p> : <>
+        <QueryState loading={applied.isPending} error={applied.isError} loadingMessage="Đang tải suất hiện hành…" errorMessage="Không tải được suất hiện hành." onRetry={() => void applied.refetch()}>
           <p><strong>Đang gửi bếp: {filteredRooms?.reduce((sum, room) => sum + (room.count ?? room.studentIds.length), 0) ?? 0} suất</strong> · {classId ? 'Lớp đã chọn' : 'Các lớp được xem'} (không phụ thuộc ô tìm trẻ).</p>
           {filteredRooms?.some(room => room.kitchenAdjustment !== 0) && <p>Điều chỉnh số lượng bếp không gắn trẻ: {filteredRooms.reduce((sum, room) => sum + room.kitchenAdjustment, 0)} suất. Trạng thái suất từng trẻ giữ riêng, không tự thay đổi tiền ăn.</p>}
-        </>}
+        </QueryState>
       </div>}
       {!decisions.data?.items.length && <p className="empty compact">{searchTerm || classId ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ ghi danh tại ngày ăn.'}</p>}
       <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">{decisions.data?.isSettled ? 'Suất tại giờ chốt' : 'Suất dự kiến'}</th>{decisions.data?.isSettled && <th scope="col">Suất hiện hành</th>}<th scope="col">{decisions.data?.isSettled ? 'Nguồn tại giờ chốt / lý do' : 'Nguồn / lý do'}</th><th scope="col">Thao tác</th></tr></thead><tbody>
       {decisions.data?.items.map(student => {
         const room = appliedRooms.get(student.classId)
-        const current = currentStudentPortion(student.studentId, room)
-        return <tr key={student.studentId}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td>{student.willEat ? 'Có suất' : 'Không có suất'}</td>{decisions.data.isSettled && <td>{applied.isPending ? 'Đang tải…' : applied.isError ? 'Không tải được' : current === null ? 'Chưa đủ dữ liệu' : <>
-          <strong>{current ? 'Có suất' : 'Không có suất'}</strong><small>Bản {room?.version}{current !== student.willEat ? ' · Đã điều chỉnh' : ''}</small>
-        </>}</td>}<td>{sourceLabel[student.source] ?? student.source}
+        return <tr key={student.studentId}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td>{student.willEat ? 'Có suất' : 'Không có suất'}</td>{decisions.data.isSettled && <td><CurrentPortionCell student={student} room={room} loading={applied.isPending} error={applied.isError} /></td>}<td>{sourceLabel[student.source] ?? student.source}
         {student.latestReason && <small>{student.latestReason}</small>}</td>
         <td><div className="table-actions"><button type="button" className="button secondary" disabled={!canEdit || decisions.isFetching} onClick={() => open(student, 'edit')}>Ghi ngoại lệ</button>
           <button type="button" className="button secondary" onClick={() => open(student, 'history')}>{decisions.data.isSettled ? 'Lịch sử ngoại lệ trước chốt' : 'Lịch sử'}</button></div></td></tr>})}
       </tbody></ResponsiveTable></div>
-    </>}
+    </QueryState>
     <Pagination page={page} total={decisions.data?.total ?? 0} pageSize={25} busy={searchWaiting || decisions.isFetching} onChange={setPage} />
     {target && <Modal title={`${target.kind === 'edit' ? 'Ngoại lệ' : 'Lịch sử'}: ${target.student.fullName}`} description={`${target.student.studentCode} · ${target.student.className}`} busy={save.isPending} onClose={() => setTarget(null)}>
       {target.kind === 'edit' && <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!save.isPending && canEdit) save.mutate() }}>

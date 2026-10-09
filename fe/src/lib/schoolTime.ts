@@ -1,5 +1,15 @@
 export const schoolTimeZone = 'Asia/Ho_Chi_Minh'
 
+export function earlierSchoolDate(left: string, right: string): string {
+  if (left < right) return left
+  return right
+}
+
+export function laterSchoolDate(left: string, right: string): string {
+  if (left > right) return left
+  return right
+}
+
 export function schoolToday(now: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: schoolTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
   const part = (type: string) => parts.find(value => value.type === type)!.value

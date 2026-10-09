@@ -1,6 +1,6 @@
 import { FilterPanel } from '../../components/FilterPanel'
 import { ResponsiveTable } from '../../components/ResponsiveTable'
-import { schoolToday } from '../../lib/schoolTime'
+import { schoolToday, earlierSchoolDate, laterSchoolDate } from '../../lib/schoolTime'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { SearchFeedback } from '../../components/SearchFeedback'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -84,7 +84,7 @@ export function AbsencesPage() {
         {children.data?.map(child => <option key={child.studentId} value={child.studentId}>{child.fullName} · {child.className}</option>)}</select></label>
         <label className="field">Từ ngày<input type="date" required min={child?.yearStartDate && child.yearStartDate > localToday() ? child.yearStartDate : localToday()} max={child?.yearEndDate ?? undefined} value={fromDate} onChange={e => { setFromDate(e.target.value); if (toDate < e.target.value) setToDate(e.target.value) }} /></label>
         <label className="field">Đến ngày<input type="date" required min={fromDate} max={child?.yearEndDate ?? undefined} value={toDate} onChange={e => setToDate(e.target.value)} /></label></div>
-      <div className="form-actions">{(['week', 'month'] as const).map((period, index) => <button type="button" className="button secondary" key={period} disabled={!child?.yearEndDate || !fromDate} onClick={() => { const end = periodEnd(fromDate, period); setToDate(end > child!.yearEndDate! ? child!.yearEndDate! : end) }}>{['1 tuần', '1 tháng'][index]}</button>)}
+      <div className="form-actions">{(['week', 'month'] as const).map((period, index) => <button type="button" className="button secondary" key={period} disabled={!child?.yearEndDate || !fromDate} onClick={() => { const end = periodEnd(fromDate, period); setToDate(earlierSchoolDate(end, child!.yearEndDate!)) }}>{['1 tuần', '1 tháng'][index]}</button>)}
         <button type="button" className="button secondary" disabled={!child?.yearEndDate} onClick={() => setToDate(child!.yearEndDate!)}>Đến hết năm học</button></div>
       {child && <p className="form-help">Năm học {child.schoolYear}: {child.yearStartDate && child.yearEndDate ? `${child.yearStartDate} đến ${child.yearEndDate}` : 'Chưa thiết lập ngày bắt đầu/kết thúc. Liên hệ nhà trường.'}</p>}
       <p className="form-help">Tính cả ngày bắt đầu và kết thúc. Có thể sửa khoảng ngày hoặc hủy khi muốn ăn lại; phiên đã qua giờ chốt giữ nguyên.</p>
@@ -105,10 +105,10 @@ export function AbsencesPage() {
     {cancelTarget && <Modal title={`Hủy đăng ký: ${cancelTarget.studentName}`} busy={cancel.isPending} onClose={() => setCancelTarget(null)}><div className="workflow-form"><p>Hủy khoảng không ăn từ {cancelTarget.fromDate} đến {cancelTarget.toDate}? Số suất đã qua giờ chốt giữ nguyên; lịch sử đăng ký vẫn được lưu.</p><div className="form-actions"><button type="button" className="button secondary" disabled={cancel.isPending} onClick={() => setCancelTarget(null)}>Quay lại</button><button type="button" className="button danger" disabled={cancel.isPending} onClick={() => cancel.mutate(cancelTarget.id)}>Xác nhận hủy</button></div></div></Modal>}
     {editing && <Modal title={`Cập nhật: ${editing.studentName}`} description="Bản cũ được giữ trong lịch sử. Số suất đã qua giờ chốt không thay đổi." busy={update.isPending} onClose={() => setEditing(null)}>
       <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!update.isPending) update.mutate() }}>
-        <label className="field">Từ ngày<input type="date" required disabled={update.isPending} min={editing.fromDate < localToday() ? editing.fromDate : localToday()} value={editFrom} onChange={e => setEditFrom(e.target.value)} /></label>
+        <label className="field">Từ ngày<input type="date" required disabled={update.isPending} min={earlierSchoolDate(editing.fromDate, localToday())} value={editFrom} onChange={e => setEditFrom(e.target.value)} /></label>
         <p className="form-help">Nếu ngày bắt đầu đã qua, giữ nguyên ngày đó hoặc chọn một ngày từ hôm nay.</p>
         <p className="form-help">{editYear ? `Năm học ${editYear.code}: ${editYear.startDate} đến ${editYear.endDate}` : 'Nhà trường chưa thiết lập mốc năm học. Bạn vẫn có thể hủy đăng ký để ăn lại.'}</p>
-        <label className="field">Đến ngày<input type="date" required disabled={update.isPending} min={editFrom > localToday() ? editFrom : localToday()} max={editYear?.endDate} value={editTo} onChange={e => setEditTo(e.target.value)} /></label>
+        <label className="field">Đến ngày<input type="date" required disabled={update.isPending} min={laterSchoolDate(editFrom, localToday())} max={editYear?.endDate} value={editTo} onChange={e => setEditTo(e.target.value)} /></label>
         <label className="field">Lý do<textarea required maxLength={500} disabled={update.isPending} value={editReason} onChange={e => setEditReason(e.target.value)} /></label>
         <div className="form-actions"><button type="button" className="button secondary" disabled={update.isPending} onClick={() => setEditing(null)}>Hủy</button><button type="submit" className="button primary" disabled={update.isPending || !editReason.trim() || !editYear}>Lưu cập nhật</button></div>
       </form>
