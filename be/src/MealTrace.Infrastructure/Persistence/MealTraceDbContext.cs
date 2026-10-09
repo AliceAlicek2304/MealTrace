@@ -10,6 +10,7 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    public DbSet<StudentImportBatch> StudentImportBatches => Set<StudentImportBatch>();
     public DbSet<ParentLinkRequest> ParentLinkRequests => Set<ParentLinkRequest>();
     public DbSet<ParentSignupOtp> ParentSignupOtps => Set<ParentSignupOtp>();
     public DbSet<AccountPasswordResetAudit> AccountPasswordResetAudits => Set<AccountPasswordResetAudit>();
@@ -43,6 +44,8 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.ApplyConfiguration(new Configurations.StudentImportBatchConfiguration());
+        model.ApplyConfiguration(new Configurations.StudentImportBatchItemConfiguration());
         model.ApplyConfiguration(new Configurations.ParentLinkRequestConfiguration());
         model.Entity<ParentSignupOtp>(entity =>
         {
@@ -90,6 +93,9 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
 
     private void PrepareEnrollments()
     {
+        if (ChangeTracker.Entries().Any(x => (x.State is EntityState.Modified or EntityState.Deleted) &&
+            (x.Entity is StudentImportBatch or StudentImportBatchItem)))
+            throw new InvalidOperationException("Import history is append-only.");
         if (ChangeTracker.Entries().Any(x => (x.State is EntityState.Modified or EntityState.Deleted) &&
             (x.Entity is PortionSettlement or SettlementStudent or SettlementDecision or PortionAmendment or PortionAmendmentStudent or PortionAmendmentResolution)))
             throw new InvalidOperationException("Settlement snapshots and amendments are append-only.");

@@ -252,7 +252,11 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
       }
       if (mounted) Navigator.pop(context, true);
     } on SchoolFailure catch (failure) {
-      if (mounted) setState(() => error = failure.message);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -279,15 +283,24 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
     }
     if (field.kind == FieldKind.choice) {
       return DropdownButtonFormField<String>(
-        initialValue: value as String?,
+        initialValue: value as String? ?? (field.required ? null : ''),
         isExpanded: true,
         decoration: InputDecoration(labelText: field.label),
-        items: field.options.entries
-            .map((x) => DropdownMenuItem(value: x.key, child: Text(x.value)))
-            .toList(),
+        items: [
+          if (!field.required && !field.options.containsKey(''))
+            DropdownMenuItem(
+              value: '',
+              child: Text(field.key == 'gender' ? 'Chưa có' : 'Chưa chọn'),
+            ),
+          ...field.options.entries.map(
+            (x) => DropdownMenuItem(value: x.key, child: Text(x.value)),
+          ),
+        ],
         onChanged: disabled
             ? null
-            : (value) => setState(() => values[field.key] = value),
+            : (value) => setState(
+                () => values[field.key] = value == '' ? null : value,
+              ),
         validator: (value) =>
             field.required && value == null ? 'Vui lòng chọn.' : null,
       );
@@ -396,26 +409,45 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
         labelText: '${field.label}${field.required ? ' *' : ''}',
         counterText: '',
         suffixIcon: field.kind == FieldKind.date
-            ? IconButton(
-                tooltip: 'Chọn ngày',
-                onPressed: disabled
-                    ? null
-                    : () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate:
-                              DateTime.tryParse(editor.text) ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (date != null && mounted) {
-                          setState(
-                            () => editor.text =
-                                '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
-                          );
-                        }
-                      },
-                icon: const Icon(Icons.calendar_month),
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!field.required && editor.text.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Xóa ${field.label.toLowerCase()}',
+                      onPressed: disabled
+                          ? null
+                          : () => setState(() {
+                              editor.clear();
+                              values[field.key] = null;
+                            }),
+                      icon: const Icon(Icons.clear),
+                    ),
+                  IconButton(
+                    tooltip: 'Chọn ${field.label.toLowerCase()}',
+                    onPressed: disabled
+                        ? null
+                        : () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate:
+                                  DateTime.tryParse(editor.text) ??
+                                  DateTime.now(),
+                              firstDate: DateTime(1900),
+                              lastDate: field.key == 'dateOfBirth'
+                                  ? DateTime.parse(schoolToday())
+                                  : DateTime(2100),
+                            );
+                            if (date != null && mounted) {
+                              setState(
+                                () => editor.text =
+                                    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.calendar_month),
+                  ),
+                ],
               )
             : null,
       ),

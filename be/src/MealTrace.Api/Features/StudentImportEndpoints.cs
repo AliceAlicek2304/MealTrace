@@ -26,6 +26,10 @@ public static class StudentImportEndpoints
             .Accepts<StudentImportUpload>("multipart/form-data").Produces<StudentImportPreview>().WithName("PreviewStudentImport");
         group.MapPost("/confirm", (HttpContext context, StudentImportService service, CancellationToken ct) => Handle(context, service, true, ct))
             .Accepts<StudentImportUpload>("multipart/form-data").Produces<StudentImportResult>().WithName("ConfirmStudentImport");
+        group.MapGet("/history", async (Guid? classId, int? page, int? pageSize, StudentImportService service, CancellationToken ct) =>
+            (await service.HistoryAsync(classId, page, pageSize, ct)).ToHttpResult()).Produces<StudentImportHistory>();
+        group.MapGet("/history/{id:guid}", async (Guid id, StudentImportService service, CancellationToken ct) =>
+            (await service.BatchAsync(id, ct)).ToHttpResult()).Produces<StudentImportBatchDetail>();
         return app;
     }
 
@@ -42,7 +46,7 @@ public static class StudentImportEndpoints
             !DateOnly.TryParseExact(form["startDate"], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var startDate))
             return Results.BadRequest(new MessageResponse("Cần file XLSX, lớp và ngày bắt đầu hợp lệ."));
         await using var file = form.Files[0].OpenReadStream();
-        return confirm ? (await service.ImportAsync(file, classId, startDate, ct)).ToHttpResult() :
+        return confirm ? (await service.ImportAsync(file, classId, startDate, ct, form.Files[0].FileName)).ToHttpResult() :
             (await service.PreviewAsync(file, classId, startDate, ct)).ToHttpResult();
     }
 

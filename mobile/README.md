@@ -68,3 +68,23 @@ Nếu build Android trên Windows gặp lỗi Kotlin cache do Pub cache và dự
 ```powershell
 flutter build apk --debug --target-platform android-arm64 --android-project-arg=kotlin.incremental=false --android-project-arg=kotlin.compiler.execution.strategy=in-process
 ```
+
+
+## E2E Android với API thật
+
+`integration_test/student_profile_e2e_test.dart` chạy đăng nhập Admin → tạo trẻ với ngày sinh/giới tính → sửa hồ sơ/xóa ngày sinh → đọc lại từ API để kiểm tra dữ liệu đã lưu. Dùng HTTP thật và secure storage thật, không gửi WhatsApp.
+
+Cần Android emulator hoặc điện thoại có USB debugging, BE đang chạy và một DB kiểm thử riêng có Admin cùng lớp đã tạo. Test tạo trẻ mang tên duy nhất và giữ dữ liệu để đối chiếu; không chạy trên DB nhà trường thực tế.
+
+Tạo `mobile/e2e.local.json` (đã bỏ qua Git) với các khóa `API_BASE_URL`, `E2E_ADMIN_IDENTIFIER`, `E2E_ADMIN_PASSWORD`, `E2E_CLASS_NAME`, `E2E_ISOLATED_DATABASE`. Khóa cuối đặt chuỗi `true`; tên lớp phải khớp chính xác lớp dùng thử. Emulator dùng `http://10.0.2.2:5184/api`; điện thoại dùng địa chỉ LAN của máy chạy BE. Không đặt thông tin đăng nhập vào code hoặc commit file cấu hình này.
+
+Trong `mobile/`:
+
+```powershell
+flutter devices
+flutter test integration_test/student_profile_e2e_test.dart -d <device-id> --dart-define-from-file=e2e.local.json
+```
+
+Nếu gặp lỗi Kotlin incremental do pub cache và dự án khác ổ đĩa, cấu hình hai thuộc tính `kotlin.incremental=false` và `kotlin.compiler.execution.strategy=in-process` trong Gradle user properties trên máy kiểm thử. Đây là cấu hình build local; không sửa các kiểm tra bảo mật hoặc cấu hình phát hành.
+
+Test E2E này là luồng Admin đầu tiên; không thay thế nghiệm thu OTP/WhatsApp trên điện thoại hoặc kiểm tra toàn bộ vai trò. `flutter test` thông thường chỉ chạy bộ unit/widget trong `test/`.

@@ -1,3 +1,4 @@
+import { displayBirth, displayGender } from './StudentProfileFields'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ClassPicker } from '../../components/ClassPicker'
@@ -7,9 +8,6 @@ import { Modal } from '../../components/Modal'
 
 type Preview = { sheetName: string; ignoredColumns: string[]; canImport: boolean; rows: { row: number; fullName: string; dateOfBirth?: string | null; gender?: string | null; parentPhoneNumber?: string | null; error: string | null }[] }
 type ImportRow = Preview['rows'][number]
-
-function displayBirth(value?: string | null) { return value ? value.split('-').reverse().join('/') : 'Chưa có' }
-function displayGender(value?: string | null) { return ({ MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác' } as Record<string, string>)[value ?? ''] ?? 'Chưa có' }
 
 export function StudentImportForm({ initialClassId = '', onDone, onBusy }: { initialClassId?: string; onDone: () => void; onBusy: (busy: boolean) => void }) {
   const client = useQueryClient()
@@ -29,7 +27,7 @@ export function StudentImportForm({ initialClassId = '', onDone, onBusy }: { ini
     onMutate: () => onBusy(true),
     onSuccess: async result => {
       if ('created' in result) {
-        await Promise.all(['students', 'classes', 'scope-options'].map(key => client.invalidateQueries({ queryKey: [key] })))
+        await Promise.all(['students', 'classes', 'scope-options', 'student-import-history'].map(key => client.invalidateQueries({ queryKey: [key] })))
         toast.success(`Đã nhập ${result.created} trẻ và ghi danh vào lớp.`)
         onDone()
       } else {

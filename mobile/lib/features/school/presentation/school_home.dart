@@ -1,3 +1,4 @@
+import 'student_import_history_page.dart';
 import 'parent_link_review_page.dart';
 import 'student_import_page.dart';
 import 'package:flutter/material.dart';
@@ -72,6 +73,11 @@ class _SchoolHomeState extends State<SchoolHome> {
         icon: Icons.school_outlined,
       ),
       (
+        operation: SchoolOperation.studentImportHistory,
+        title: 'Lịch sử nhập trẻ',
+        icon: Icons.history_outlined,
+      ),
+      (
         operation: SchoolOperation.previewStudentImport,
         title: 'Nhập trẻ từ Excel',
         icon: Icons.upload_file_outlined,
@@ -113,7 +119,13 @@ class _SchoolHomeState extends State<SchoolHome> {
   Future<void> open(SchoolSection section) => Navigator.push<void>(
     context,
     MaterialPageRoute(
-      builder: (_) => section.operation == SchoolOperation.previewStudentImport
+      builder: (_) => section.operation == SchoolOperation.studentImportHistory
+          ? StudentImportHistoryPage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : section.operation == SchoolOperation.previewStudentImport
           ? StudentImportPage(
               repository: widget.repository,
               roles: widget.auth.user!.roles,

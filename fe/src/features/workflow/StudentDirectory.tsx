@@ -1,3 +1,4 @@
+import { StudentProfileFields, displayBirth, displayGender } from './StudentProfileFields'
 import { FilterPanel } from '../../components/FilterPanel'
 import { RecordActions } from '../../components/RecordActions'
 import { ResponsiveTable } from '../../components/ResponsiveTable'
@@ -14,13 +15,13 @@ import { ArrowRightLeft, History, Pencil, UserRoundMinus, UserRoundPlus } from '
 
 type Page<T> = { items: T[]; total: number; earliestChangeDate?: string }
 type Room = { id: string; name: string; schoolYear: string; studentCount: number }
-type Student = { id: string; studentCode: string; fullName: string; revision: number; isActive: boolean; className: string;
+type Student = { id: string; studentCode: string; fullName: string; dateOfBirth?: string | null; gender?: string | null; revision: number; isActive: boolean; className: string;
   parents: { id: string; fullName: string; email: string | null; phoneNumber: string | null }[] }
 type Enrollment = { id: string; className: string; schoolYear: string; startDate: string; endDate: string | null; reason: string; endReason: string | null }
 type Editor = { kind: 'class'; room: Room } | { kind: 'student' | 'enrollment'; student: Student }
 
-export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStudents, initialClassId, isAdmin = true }: {
-  onLink: (student: { id: string; fullName: string }) => void; view: 'classes' | 'students'; onCreate: () => void; onImport?: () => void;
+export function StudentDirectory({ onLink, view, onCreate, onImport, onImportHistory, onViewStudents, initialClassId, isAdmin = true }: {
+  onLink: (student: { id: string; fullName: string }) => void; view: 'classes' | 'students'; onCreate: () => void; onImport?: () => void; onImportHistory?: () => void;
   onViewStudents: (classId: string) => void; initialClassId: string; isAdmin?: boolean
 }) {
   const cache = useQueryClient()
@@ -37,11 +38,14 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStude
   const [parentStatus, setParentStatus] = useState('')
   const [editor, setEditor] = useState<Editor | null>(null)
   const [name, setName] = useState('')
+  const [birth, setBirth] = useState('')
+  const [gender, setGender] = useState('')
   const [targetClass, setTargetClass] = useState('')
   const [date, setDate] = useState('')
   const [reason, setReason] = useState('')
   const [withdraw, setWithdraw] = useState(false)
   const [historyTarget, setHistoryTarget] = useState<Student | null>(null)
+  const [profileTarget, setProfileTarget] = useState<Student | null>(null)
   const [parentsTarget, setParentsTarget] = useState<Student | null>(null)
   const classes = useQuery({ queryKey: ['classes', 'admin', classSearchTerm, classPage], enabled: !classSearchWaiting && view === 'classes',
     queryFn: async () => (await api.get<Page<Room>>('/admin/classes', { params: { search: classSearchTerm, page: classPage } })).data })
@@ -52,13 +56,14 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStude
   const save = useMutation({ mutationFn: async () => {
     if (!editor) return
     if (editor.kind === 'class') return api.put(`/admin/classes/${editor.room.id}`, { name })
-    if (editor.kind === 'student') return api.put(`/admin/students/${editor.student.id}`, { fullName: name, revision: editor.student.revision })
+    if (editor.kind === 'student') return api.put(`/admin/students/${editor.student.id}`, { fullName: name, updateProfile: true, dateOfBirth: birth || null, gender: gender || null, revision: editor.student.revision })
     return api.post(`/admin/students/${editor.student.id}/enrollments`, { classId: withdraw ? null : targetClass, effectiveDate: date, reason, revision: editor.student.revision })
   }, onSuccess: async () => { setEditor(null); toast.success('Đã lưu thay đổi.');
     await Promise.all(['classes', 'students', 'scope-options', 'enrollments', 'portions', 'parent-students'].map(key => cache.invalidateQueries({ queryKey: [key] }))) },
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   function open(next: Editor) {
     setEditor(next); setName(next.kind === 'class' ? next.room.name : next.student.fullName)
+    setBirth(next.kind === 'class' ? '' : next.student.dateOfBirth ?? ''); setGender(next.kind === 'class' ? '' : next.student.gender ?? '')
     setTargetClass(''); setReason(''); setWithdraw(false); setDate(students.data?.earliestChangeDate ?? '')
   }
   return <>
@@ -75,7 +80,7 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStude
       </>}
       <Pagination page={classPage} total={classes.data?.total ?? 0} pageSize={20} busy={classSearchWaiting || classes.isFetching} onChange={setClassPage} />
     </section>}
-    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>{isAdmin ? 'Danh sách trẻ' : 'Trẻ trong lớp phụ trách'}</h2><div className="student-directory-actions">{isAdmin && onImport && <button type="button" className="button secondary" onClick={onImport}>Nhập trẻ từ Excel</button>}<button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div></div><FilterPanel activeCount={[searchTerm, classId, status, parentStatus].filter(Boolean).length}><div className="list-toolbar"><ClassPicker compact assignedOnly={!isAdmin} value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
+    {view === 'students' && <section className="panel workflow-lists"><div className="panel-head"><h2>{isAdmin ? 'Danh sách trẻ' : 'Trẻ trong lớp phụ trách'}</h2><div className="student-directory-actions">{isAdmin && onImportHistory && <button type="button" className="button secondary" onClick={onImportHistory}>Lịch sử nhập</button>}{isAdmin && onImport && <button type="button" className="button secondary" onClick={onImport}>Nhập trẻ từ Excel</button>}<button type="button" className="button primary" onClick={onCreate}>Thêm trẻ</button></div></div><FilterPanel activeCount={[searchTerm, classId, status, parentStatus].filter(Boolean).length}><div className="list-toolbar"><ClassPicker compact assignedOnly={!isAdmin} value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc lớp hiện tại / lớp cuối" />
       <label className="field">Tìm trẻ<input placeholder="Mã trẻ hoặc họ tên" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
         <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label>
         <label className="field">Liên kết phụ huynh<select value={parentStatus} onChange={e => { setParentStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="UNLINKED">Chưa liên kết</option><option value="LINKED">Đã liên kết</option></select></label></div></FilterPanel>
@@ -83,7 +88,7 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStude
       {students.isPending ? <p className="empty compact">Đang tải…</p> : students.isError ? <p className="empty compact error">{apiErrorMessage(students.error)}</p> : <>
         {!students.data?.items.length && <p className="empty compact">{searchTerm || classId || status || parentStatus ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ.'}</p>}
         <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
-        {students.data?.items.map(student => <tr key={student.id}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
+        {students.data?.items.map(student => <tr key={student.id}><td><button type="button" className="parent-summary" aria-label={`Xem hồ sơ ${student.fullName}`} onClick={() => setProfileTarget(student)}><strong>{student.fullName}</strong></button><small>{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
           <td>{student.parents.length ? <button type="button" className="parent-summary" aria-label={`Xem ${student.parents.length} phụ huynh của ${student.fullName}`} onClick={() => setParentsTarget(student)}>
             {student.parents[0].fullName}{student.parents.length > 1 && <span aria-hidden="true"> …</span>}
           </button> : <span className="muted">Chưa liên kết</span>}</td>
@@ -99,6 +104,7 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStude
     {editor && <Modal title={editor.kind === 'class' ? 'Sửa lớp' : editor.kind === 'student' ? 'Sửa hồ sơ trẻ' : `Ghi danh: ${editor.student.fullName}`} busy={save.isPending} onClose={() => setEditor(null)}>
       <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!save.isPending) save.mutate() }}>
         {editor.kind !== 'enrollment' ? <><label className="field">{editor.kind === 'class' ? 'Tên lớp' : 'Họ tên trẻ'}<input required maxLength={editor.kind === 'class' ? 100 : 150} value={name} onChange={e => setName(e.target.value)} /></label>
+          {editor.kind === 'student' && <StudentProfileFields birth={birth} gender={gender} onBirth={setBirth} onGender={setGender} />}
           <p className="form-help">{editor.kind === 'class' ? `Niên khóa: ${editor.room.schoolYear}` : `Mã cố định: ${editor.student.studentCode}`}</p></> : <>
           <label className="field">Thao tác<select value={withdraw ? 'withdraw' : 'enroll'} onChange={e => setWithdraw(e.target.value === 'withdraw')}><option value="enroll">Chuyển lớp / ghi danh lại</option><option value="withdraw">Ngừng học</option></select></label>
           {!withdraw && <ClassPicker required value={targetClass} onChange={setTargetClass} label="Lớp tiếp nhận" />}
@@ -109,6 +115,7 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onViewStude
         <div className="form-actions"><button type="button" className="button secondary" disabled={save.isPending} onClick={() => setEditor(null)}>Hủy</button><button type="submit" className="button primary" disabled={save.isPending}>Lưu thay đổi</button></div>
       </form>
     </Modal>}
+    {profileTarget && <Modal title="Hồ sơ trẻ" description={profileTarget.studentCode} onClose={() => setProfileTarget(null)}><dl className="student-import-detail"><div><dt>Họ tên</dt><dd>{profileTarget.fullName}</dd></div><div><dt>Ngày sinh</dt><dd>{displayBirth(profileTarget.dateOfBirth)}</dd></div><div><dt>Giới tính</dt><dd>{displayGender(profileTarget.gender)}</dd></div><div><dt>Lớp</dt><dd>{profileTarget.className}</dd></div></dl></Modal>}
     {parentsTarget && <Modal title={`Phụ huynh: ${parentsTarget.fullName}`} description={parentsTarget.studentCode} onClose={() => setParentsTarget(null)}>
       <div className="parent-contact-list">{parentsTarget.parents.map(parent => <article className="parent-contact" key={parent.id}>
         <h3>{parent.fullName}</h3><dl><dt>SĐT</dt><dd>{parent.phoneNumber || 'Chưa có'}</dd><dt>Email</dt><dd>{parent.email || 'Chưa có'}</dd></dl>

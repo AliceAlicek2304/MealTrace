@@ -3,6 +3,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
+import 'student_import_history_page.dart';
 
 class StudentImportPage extends StatefulWidget {
   const StudentImportPage({
@@ -144,9 +145,12 @@ class _StudentImportPageState extends State<StudentImportPage> {
       }
     } catch (_) {
       if (mounted) {
-        setState(
-          () =>
-              error = 'Không đọc được file. Chọn XLSX không rỗng, tối đa 5 MB.',
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không đọc được file. Chọn XLSX không rỗng, tối đa 5 MB.',
+            ),
+          ),
         );
       }
     } finally {
@@ -219,8 +223,10 @@ class _StudentImportPageState extends State<StudentImportPage> {
       if (mounted) {
         setState(() {
           preview = null;
-          error = failure.message;
         });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -231,82 +237,132 @@ class _StudentImportPageState extends State<StudentImportPage> {
   Widget build(BuildContext context) => PopScope(
     canPop: !busy,
     child: Scaffold(
-      appBar: AppBar(title: const Text('Nhập trẻ từ Excel')),
+      appBar: AppBar(
+        title: const Text('Nhập trẻ từ Excel'),
+        actions: [
+          IconButton(
+            tooltip: 'Lịch sử nhập trẻ',
+            icon: const Icon(Icons.history),
+            onPressed: busy
+                ? null
+                : () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StudentImportHistoryPage(
+                        repository: widget.repository,
+                        roles: widget.roles,
+                        onUnauthorized: widget.onUnauthorized,
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: preview == null
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: busy ? null : () => setState(reset),
+                        child: const Text('Chọn lại file'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: busy || !preview!.summary.flag('canImport')
+                            ? null
+                            : () => send(true),
+                        child: Text('Nhập ${preview!.records.length} trẻ'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text(
-              'Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Admin chọn lớp và ngày bắt đầu. Không tạo phụ huynh hoặc gửi WhatsApp. Một sheet, tối đa 500 trẻ, 5 MB.',
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: classId,
-              decoration: const InputDecoration(labelText: 'Lớp nhận trẻ'),
-              items: classes
-                  .map(
-                    (room) => DropdownMenuItem(
-                      value: room.text('id'),
-                      child: Text(
-                        '${room.text('name')} · ${room.text('schoolYear')}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: busy
-                  ? null
-                  : (value) => setState(() {
-                      classId = value;
-                      reset();
-                    }),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      final today = DateTime.parse(schoolToday());
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.parse(startDate),
-                        firstDate: today,
-                        lastDate: DateTime(2100),
-                      );
-                      if (date != null && mounted) {
-                        setState(() {
-                          startDate = date.toIso8601String().substring(0, 10);
-                          reset();
-                        });
-                      }
-                    },
-              icon: const Icon(Icons.event),
-              label: Text('Ngày bắt đầu: $startDate'),
-            ),
-            OutlinedButton.icon(
-              onPressed: busy || !widget.roles.contains('ADMIN')
-                  ? null
-                  : chooseFile,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Chọn file XLSX'),
-            ),
-            if (filename != null) Text(filename!, softWrap: true),
-            FilledButton(
-              onPressed: busy || bytes == null || classId == null
-                  ? null
-                  : () => send(false),
-              child: const Text('Xem trước danh sách'),
-            ),
-            if (busy) const LinearProgressIndicator(),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
+            if (preview == null) ...[
+              const Text(
+                'Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Admin chọn lớp và ngày bắt đầu. Không tạo phụ huynh hoặc gửi WhatsApp. Một sheet, tối đa 500 trẻ, 5 MB.',
               ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: classId,
+                decoration: const InputDecoration(labelText: 'Lớp nhận trẻ'),
+                items: classes
+                    .map(
+                      (room) => DropdownMenuItem(
+                        value: room.text('id'),
+                        child: Text(
+                          '${room.text('name')} · ${room.text('schoolYear')}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: busy
+                    ? null
+                    : (value) => setState(() {
+                        classId = value;
+                        reset();
+                      }),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        final today = DateTime.parse(schoolToday());
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.parse(startDate),
+                          firstDate: today,
+                          lastDate: DateTime(2100),
+                        );
+                        if (date != null && mounted) {
+                          setState(() {
+                            startDate = date.toIso8601String().substring(0, 10);
+                            reset();
+                          });
+                        }
+                      },
+                icon: const Icon(Icons.event),
+                label: Text('Ngày bắt đầu: $startDate'),
+              ),
+              OutlinedButton.icon(
+                onPressed: busy || !widget.roles.contains('ADMIN')
+                    ? null
+                    : chooseFile,
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Chọn file XLSX'),
+              ),
+              if (filename != null) Text(filename!, softWrap: true),
+              FilledButton(
+                onPressed: busy || bytes == null || classId == null
+                    ? null
+                    : () => send(false),
+                child: const Text('Xem trước danh sách'),
+              ),
+              if (busy) const LinearProgressIndicator(),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+            ],
             if (preview != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -315,9 +371,16 @@ class _StudentImportPageState extends State<StudentImportPage> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              Text(
-                'Các cột không nhập: ${preview!.summary.values('ignoredColumns').join(', ')}.',
+              Text('Ngày bắt đầu: ${startDate.split('-').reversed.join('/')}'),
+              ExpansionTile(
+                title: const Text('Thông tin bổ sung'),
+                children: [
+                  Text(
+                    'Các cột không nhập: ${preview!.summary.values('ignoredColumns').join(', ')}.',
+                  ),
+                ],
               ),
+              if (busy) const LinearProgressIndicator(),
               if (!preview!.summary.flag('canImport'))
                 const Text(
                   'Có dòng lỗi hoặc trùng. Sửa file rồi xem trước lại; chưa lưu trẻ nào.',
@@ -354,12 +417,6 @@ class _StudentImportPageState extends State<StudentImportPage> {
                     ),
                   ),
                 ),
-              FilledButton(
-                onPressed: busy || !preview!.summary.flag('canImport')
-                    ? null
-                    : () => send(true),
-                child: Text('Nhập ${preview!.records.length} trẻ'),
-              ),
             ],
           ],
         ),

@@ -1,4 +1,6 @@
 enum SchoolOperation {
+  studentImportHistory,
+  studentImportBatch,
   previewStudentImport,
   confirmStudentImport,
   parentLinkClasses,

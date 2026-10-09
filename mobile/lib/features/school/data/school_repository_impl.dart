@@ -10,6 +10,14 @@ class ApiRoute {
 }
 
 const schoolRoutes = <SchoolOperation, ApiRoute>{
+  SchoolOperation.studentImportHistory: ApiRoute(
+    'GET',
+    '/admin/students/import/history',
+  ),
+  SchoolOperation.studentImportBatch: ApiRoute(
+    'GET',
+    '/admin/students/import/history/{id}',
+  ),
   SchoolOperation.previewStudentImport: ApiRoute(
     'POST',
     '/admin/students/import/preview',
@@ -163,6 +171,7 @@ const arrayOperations = {
   SchoolOperation.calendarHistory,
 };
 const pagedOperations = {
+  SchoolOperation.studentImportHistory,
   SchoolOperation.parentLinks,
   SchoolOperation.reviewableParentLinks,
   SchoolOperation.users,
@@ -194,6 +203,7 @@ List<String> queryFields(SchoolOperation operation) => switch (operation) {
     'selectedClassIds',
     'selectedStudentIds',
   ],
+  SchoolOperation.studentImportHistory => ['classId', 'page', 'pageSize'],
   SchoolOperation.classes => ['search', 'page', 'pageSize'],
   SchoolOperation.students || SchoolOperation.scopedStudents => [
     'classId',

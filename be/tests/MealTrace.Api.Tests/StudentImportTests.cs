@@ -58,7 +58,20 @@ public sealed class StudentImportTests
         }
         var confirmed = await client.PostAsync("/api/admin/students/import/confirm", Upload(bytes, seed.ClassId));
         Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
-        Assert.Equal(2, (await confirmed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("created").GetInt32());
+        var result = await confirmed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, result.GetProperty("created").GetInt32());
+        var batchId = result.GetProperty("batchId").GetGuid();
+        var history = await client.GetFromJsonAsync<JsonElement>($"/api/admin/students/import/history?classId={seed.ClassId}&pageSize=1");
+        Assert.Equal(1, history.GetProperty("total").GetInt32());
+        Assert.Single(history.GetProperty("items").EnumerateArray());
+        Assert.Equal(batchId, history.GetProperty("items")[0].GetProperty("id").GetGuid());
+        Assert.Equal("test.xlsx", history.GetProperty("items")[0].GetProperty("fileName").GetString());
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/admin/students/import/history/{batchId}");
+        Assert.Equal(2, detail.GetProperty("rows").GetArrayLength());
+        Assert.Equal("2024-01-01", detail.GetProperty("rows")[0].GetProperty("dateOfBirth").GetString());
+        Assert.Equal(0, (await client.GetFromJsonAsync<JsonElement>($"/api/admin/students/import/history?classId={Guid.NewGuid()}")).GetProperty("total").GetInt32());
+        Assert.Empty((await client.GetFromJsonAsync<JsonElement>("/api/admin/students/import/history?page=2&pageSize=1")).GetProperty("items").EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/admin/students/import/history/{Guid.NewGuid()}")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/admin/students/import/confirm", Upload(bytes, seed.ClassId))).StatusCode);
         // One existing name makes the whole new batch invalid; the other row must not be partially saved.
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/admin/students/import/confirm", Upload(Workbook(["Nguyễn An", "Lê Châu"]), seed.ClassId))).StatusCode);
@@ -70,6 +83,13 @@ public sealed class StudentImportTests
         Assert.All(students, student => { Assert.StartsWith("HS-", student.StudentCode); Assert.Equal(seed.ClassId, student.ClassId); Assert.Equal(seed.ClassId, Assert.Single(student.Enrollments).ClassId); });
         Assert.Equal(0, await finalDb.ParentStudents.CountAsync());
         Assert.Equal(2, await finalDb.Users.CountAsync());
+        Assert.Single(await finalDb.StudentImportBatches.ToListAsync());
+        var child = students[0]; child.FullName = "Hồ sơ đã sửa"; await finalDb.SaveChangesAsync();
+        var unchanged = await client.GetFromJsonAsync<JsonElement>($"/api/admin/students/import/history/{batchId}");
+        Assert.DoesNotContain("Hồ sơ đã sửa", unchanged.GetRawText());
+        client.DefaultRequestHeaders.Authorization = new("Bearer", await LoginAsync(client, seed.TeacherEmail, seed.Password));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/students/import/history")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/admin/students/import/history/{batchId}")).StatusCode);
     }
 
     [Theory]
@@ -94,6 +114,7 @@ public sealed class StudentImportTests
         Assert.Equal(scenario == "anonymous" ? HttpStatusCode.Unauthorized : scenario == "teacher" ? HttpStatusCode.Forbidden : HttpStatusCode.BadRequest, response.StatusCode);
         using var scope = factory.Services.CreateScope();
         Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().Students.CountAsync());
+        Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().StudentImportBatches.CountAsync());
     }
 
     [Fact]
@@ -158,6 +179,7 @@ public sealed class StudentImportTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         using var scope = factory.Services.CreateScope();
         Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().Students.CountAsync());
+        Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().StudentImportBatches.CountAsync());
     }
 
     private static byte[] Workbook(string[] names, bool formula = false, string header = "Họ tên", bool external = false,

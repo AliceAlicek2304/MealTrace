@@ -46,6 +46,21 @@ const roleLabels = {
   'PARENT': 'Phụ huynh',
 };
 const reasonField = SchoolField('reason', 'Lý do', maxLength: 500);
+const studentProfileFields = [
+  SchoolField(
+    'dateOfBirth',
+    'Ngày sinh',
+    kind: FieldKind.date,
+    required: false,
+  ),
+  SchoolField(
+    'gender',
+    'Giới tính',
+    kind: FieldKind.choice,
+    required: false,
+    options: {'MALE': 'Nam', 'FEMALE': 'Nữ', 'OTHER': 'Khác'},
+  ),
+];
 const classField = SchoolField(
   'classId',
   'Lớp',
@@ -271,6 +286,7 @@ final schoolForms = <SchoolOperation, SchoolForm>{
     'Thêm trẻ',
     [
       SchoolField('fullName', 'Họ tên trẻ'),
+      ...studentProfileFields,
       classField,
       SchoolField(
         'studentCode',
@@ -286,7 +302,7 @@ final schoolForms = <SchoolOperation, SchoolForm>{
   SchoolOperation.editStudent: const SchoolForm(
     SchoolOperation.editStudent,
     'Sửa hồ sơ trẻ',
-    [SchoolField('fullName', 'Họ tên trẻ')],
+    [SchoolField('fullName', 'Họ tên trẻ'), ...studentProfileFields],
     bound: ['revision'],
   ),
   SchoolOperation.changeEnrollment: const SchoolForm(

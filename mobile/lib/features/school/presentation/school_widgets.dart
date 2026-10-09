@@ -4,6 +4,13 @@ import 'school_controller.dart';
 import 'school_forms.dart';
 
 const fieldLabels = <String, String>{
+  'dateOfBirth': 'Ngày sinh',
+  'gender': 'Giới tính',
+  'fileName': 'File',
+  'sheetName': 'Sheet',
+  'importedAt': 'Thời gian nhập',
+  'importedByName': 'Người nhập',
+  'row': 'Dòng trong file',
   'requestCount': 'Số yêu cầu',
   'selectedRequests': 'Yêu cầu đã chọn',
   'revocationReason': 'Lý do thu hồi',
@@ -114,6 +121,9 @@ const fieldLabels = <String, String>{
 };
 const valueLabels = {
   ...roleLabels,
+  'MALE': 'Nam',
+  'FEMALE': 'Nữ',
+  'OTHER': 'Khác',
   'ACTIVE': 'Hoạt động',
   'SUSPENDED': 'Tạm khóa',
   'PENDING': 'Chờ duyệt',
@@ -235,6 +245,22 @@ class RecordDetails extends StatelessWidget {
               ),
             ),
           ),
+        );
+      }
+      if (entry.key == 'notification' && value is SchoolRecord) {
+        final message = switch (value.text('status')) {
+          'ACCEPTED' =>
+            'Yêu cầu gửi tin đã được tiếp nhận. Hãy kiểm tra WhatsApp của phụ huynh.',
+          'UNKNOWN' =>
+            'Hồ sơ đã lưu; chưa xác định được kết quả gửi tin. Nhờ quản trị viên kiểm tra trước khi gửi lại.',
+          'RATE_LIMITED' =>
+            'Hồ sơ đã lưu; đợi ít nhất 60 giây trước lần gửi tiếp theo.',
+          _ =>
+            'Hồ sơ đã lưu nhưng chưa gửi được tin. Liên hệ quản trị viên để được hỗ trợ.',
+        };
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(message),
         );
       }
       if (value is SchoolRecord) {

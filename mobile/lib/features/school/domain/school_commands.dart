@@ -6,6 +6,7 @@ Map<String, Object?> prepareSchoolInput(
   Map<String, Object?> fields,
 ) {
   final input = Map<String, Object?>.from(fields);
+  if (operation == SchoolOperation.editStudent) input['updateProfile'] = true;
   if (operation == SchoolOperation.createParentLink) input.remove('schoolYear');
   if (operation == SchoolOperation.saveYear) input.remove('code');
   if (operation == SchoolOperation.createUser ||
@@ -109,6 +110,12 @@ String? validateSchoolCommand(
   if (operation == SchoolOperation.reportAbsence &&
       value('fromDate').compareTo(schoolToday()) < 0) {
     return 'Ngày bắt đầu phải từ hôm nay.';
+  }
+  if ((operation == SchoolOperation.createStudent ||
+          operation == SchoolOperation.editStudent) &&
+      value('dateOfBirth').isNotEmpty &&
+      value('dateOfBirth').compareTo(schoolToday()) > 0) {
+    return 'Ngày sinh không được ở tương lai.';
   }
   if (operation == SchoolOperation.createStudent &&
       value('startDate').compareTo(schoolToday()) < 0) {

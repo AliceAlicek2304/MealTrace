@@ -206,3 +206,14 @@ input[type='checkbox'] { accent-color: #247a50; }
 }
 .student-import-preview .import-row-error { background: #fff3f0; }
 .student-import-preview h3 { margin-top: 1rem; }
+
+.import-history-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.import-history-card { width: 100%; min-width: 0; text-align: left; font: inherit; color: inherit; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; border: 1px solid #e8ded1; border-radius: 14px; background: #fffefa; padding: 16px; cursor: pointer; }
+.import-history-card > span:not(.status), .import-history-card > small { grid-column: 1 / -1; overflow-wrap: anywhere; }
+.import-history-card strong { overflow-wrap: anywhere; }
+.import-history-card .status { align-self: start; white-space: nowrap; }
+@media (max-width: 760px) {
+  .student-directory-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .student-directory-actions .button { white-space: normal; }
+  .student-directory-actions .primary { grid-column: 1 / -1; }
+}

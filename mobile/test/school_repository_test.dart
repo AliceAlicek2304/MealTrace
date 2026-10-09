@@ -206,7 +206,11 @@ void main() {
         final input = formInput(form, values, values);
         expect(
           input.keys.toSet(),
-          {...form.bound, ...form.fields.map((field) => field.key)}.difference(
+          {
+            ...form.bound,
+            ...form.fields.map((field) => field.key),
+            if (form.operation == SchoolOperation.editStudent) 'updateProfile',
+          }.difference(
             form.operation == SchoolOperation.saveYear
                 ? {'code'}
                 : form.operation == SchoolOperation.createParentLink

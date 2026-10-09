@@ -28,3 +28,6 @@ Chỉ triển khai chức năng đã có trên web, cho đủ vai trò. Dùng ch
 Admin, Giáo viên, Bếp và Phụ huynh chỉ thấy menu/thao tác phù hợp; phạm vi dữ liệu do BE kiểm tra. Không thêm giao diện nguyên liệu, công thức hoặc dinh dưỡng chưa có trên web. Import Excel đang chờ thống nhất mẫu và không nằm trong đợt này.
 
 Kiểm chứng tự động gồm contract request/route đối chiếu nguồn BE, HTTP và lỗi, quyền menu, form, chống gửi lặp, preview/tạo, phân trang chọn nhiều và hết hạn phiên. Widget được kiểm tra ở độ rộng 320/390/768 px. Chưa nghiệm thu trên Android thật hoặc xác nhận giao tin WhatsApp trong đợt này; việc build APK không chứng minh các luồng đó đã chạy với dữ liệu thật.
+
+
+Hồ sơ trẻ: tạo/sửa ngày sinh và giới tính tùy chọn; có thể xóa thông tin đã nhập. Import XLSX: chọn file → xem trước thẻ → xác nhận; lịch sử import Admin có lọc lớp/phân trang và danh sách trẻ tại thời điểm nhập. Không lưu SĐT xem trước hoặc gửi tin từ import.

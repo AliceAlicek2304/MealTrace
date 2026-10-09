@@ -8,6 +8,8 @@ import { AcademicYears } from './AcademicYears'
 import { SchoolYearPicker } from '../../components/SchoolYearPicker'
 import { toast } from 'sonner'
 import { StudentImportForm } from './StudentImportForm'
+import { StudentProfileFields } from './StudentProfileFields'
+import { StudentImportHistory } from './StudentImportHistory'
 
 type Student = { id: string; fullName: string; classId: string }
 type NotificationResult = { status: string; message: string; providerMessageId: string | null }
@@ -28,11 +30,14 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
 
   const [tab, setTab] = useState<'students' | 'classes' | 'years'>('students')
   const [importing, setImporting] = useState(false)
+  const [importHistory, setImportHistory] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
   const [creating, setCreating] = useState<'class' | 'student' | null>(null)
   const [name, setName] = useState('')
   const [schoolYear, setSchoolYear] = useState('')
   const [studentName, setStudentName] = useState('')
+  const [birth, setBirth] = useState('')
+  const [gender, setGender] = useState('')
   const [studentCode, setStudentCode] = useState('')
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
   const [startDate, setStartDate] = useState(today)
@@ -48,7 +53,7 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
   const addClass = useMutation({ mutationFn: () => api.post('/classes', { name, schoolYear }),
     onSuccess: async () => { setCreating(null); setName(''); toast.success('Đã tạo lớp.'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['classes'] }), queryClient.invalidateQueries({ queryKey: ['scope-options'] }), queryClient.invalidateQueries({ queryKey: ['admin-academic-years'] })]) },
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
-  const addStudent = useMutation({ mutationFn: () => api.post<Student>('/students', { fullName: studentName, classId, studentCode: studentCode || null, startDate }),
+  const addStudent = useMutation({ mutationFn: () => api.post<Student>('/students', { fullName: studentName, classId, studentCode: studentCode || null, startDate, dateOfBirth: birth || null, gender: gender || null }),
     onSuccess: async () => { setCreating(null); setStudentName(''); setStudentCode(''); toast.success('Đã thêm trẻ và ghi danh vào lớp. Có thể liên kết phụ huynh sau khi có SĐT.'); await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['students'] }), queryClient.invalidateQueries({ queryKey: ['classes'] }),
       queryClient.invalidateQueries({ queryKey: ['scope-options'] })]) },
@@ -81,7 +86,8 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
       <button type="button" aria-pressed={tab === 'years'} onClick={() => setTab('years')}>Năm học</button>
     </div>}
     {importing && isAdmin && <Modal title="Nhập trẻ từ Excel" busy={importBusy} onClose={() => setImporting(false)}><StudentImportForm initialClassId={classId} onDone={() => setImporting(false)} onBusy={setImportBusy} /></Modal>}
-    {isAdmin && tab === 'years' ? <AcademicYears /> : <StudentDirectory onImport={() => setImporting(true)} isAdmin={isAdmin} view={isAdmin ? tab as 'classes' | 'students' : 'students'} onCreate={() => { setCreating(isAdmin && tab === 'classes' ? 'class' : 'student'); setName(''); setStudentName(''); setStudentCode(''); setStartDate(today) }} onViewStudents={id => { setClassId(id); setTab('students') }} initialClassId={classId} onLink={openParent} />}
+    {importHistory && isAdmin && <Modal wide title="Lịch sử nhập trẻ" onClose={() => setImportHistory(false)}><StudentImportHistory /></Modal>}
+    {isAdmin && tab === 'years' ? <AcademicYears /> : <StudentDirectory onImportHistory={() => setImportHistory(true)} onImport={() => setImporting(true)} isAdmin={isAdmin} view={isAdmin ? tab as 'classes' | 'students' : 'students'} onCreate={() => { setCreating(isAdmin && tab === 'classes' ? 'class' : 'student'); setName(''); setStudentName(''); setStudentCode(''); setBirth(''); setGender(''); setStartDate(today) }} onViewStudents={id => { setClassId(id); setTab('students') }} initialClassId={classId} onLink={openParent} />}
     {creating === 'class' && <Modal title="Tạo lớp" busy={addClass.isPending} onClose={() => setCreating(null)}><form className="workflow-form" onSubmit={submitClass}>
         <label className="field">Tên lớp<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
         <SchoolYearPicker value={schoolYear} onChange={setSchoolYear} />
@@ -91,6 +97,7 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
         <p className="form-help">Chưa cần SĐT hoặc tài khoản phụ huynh. Trẻ vẫn được ghi danh vào lớp; bạn có thể dùng “Liên kết phụ huynh” khi đã có thông tin.</p>
         <ClassPicker assignedOnly={!isAdmin} required value={classId} onChange={setClassId} />
         <label className="field">Họ tên trẻ<input required maxLength={150} value={studentName} onChange={e => setStudentName(e.target.value)} /></label>
+        <StudentProfileFields birth={birth} gender={gender} onBirth={setBirth} onGender={setGender} />
         <label className="field">Mã trẻ (bỏ trống để tự tạo)<input maxLength={40} value={studentCode} onChange={e => setStudentCode(e.target.value)} placeholder="HS-2026-0012" /></label>
         <label className="field">Ngày bắt đầu học<input type="date" required min={today} value={startDate} onChange={e => setStartDate(e.target.value)} /></label>
         <button type="submit" className="button primary" disabled={addStudent.isPending}>Lưu trẻ</button>

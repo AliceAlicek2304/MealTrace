@@ -131,10 +131,13 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
         var name = input.FullName?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 150 || !await repository.ClassExistsAsync(input))
             return Result.Invalid("Tên trẻ hoặc lớp không hợp lệ.");
+        if (input.DateOfBirth > SchoolTime.Today(clock.GetUtcNow()) || input.Gender is not (null or "MALE" or "FEMALE" or "OTHER"))
+            return Result.Invalid("Ngày sinh hoặc giới tính không hợp lệ.");
         var student = new Student
         {
             FullName = name,
-
+            DateOfBirth = input.DateOfBirth,
+            Gender = input.Gender,
             ClassId = input.ClassId
         };
         if (!string.IsNullOrWhiteSpace(input.StudentCode))

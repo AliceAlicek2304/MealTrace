@@ -92,7 +92,11 @@ public sealed class StudentAdministrationService(IStudentAdministrationRepositor
         var name = input.FullName?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 150)
             return Result.Invalid("Họ tên trẻ không hợp lệ.");
+        if (input.DateOfBirth > SchoolTime.Today(clock.GetUtcNow()) || input.Gender is not (null or "MALE" or "FEMALE" or "OTHER"))
+            return Result.Invalid("Ngày sinh hoặc giới tính không hợp lệ.");
         student.FullName = name;
+        if (input.UpdateProfile || input.DateOfBirth.HasValue) student.DateOfBirth = input.DateOfBirth;
+        if (input.UpdateProfile || input.Gender is not null) student.Gender = input.Gender;
         student.Revision++;
         await unitOfWork.SaveChangesAsync();
         return Result.Success(Unit.Value);
