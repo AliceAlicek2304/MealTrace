@@ -88,3 +88,7 @@ flutter test integration_test/student_profile_e2e_test.dart -d <device-id> --dar
 Nếu gặp lỗi Kotlin incremental do pub cache và dự án khác ổ đĩa, cấu hình hai thuộc tính `kotlin.incremental=false` và `kotlin.compiler.execution.strategy=in-process` trong Gradle user properties trên máy kiểm thử. Đây là cấu hình build local; không sửa các kiểm tra bảo mật hoặc cấu hình phát hành.
 
 Test E2E này là luồng Admin đầu tiên; không thay thế nghiệm thu OTP/WhatsApp trên điện thoại hoặc kiểm tra toàn bộ vai trò. `flutter test` thông thường chỉ chạy bộ unit/widget trong `test/`.
+
+## Smoke test đăng nhập với BE đang chạy
+
+`tool/mobile_auth_live.dart` nằm trong package Flutter để Dart analyzer phân giải được dependency `http`. Từ thư mục `mobile/`, đặt `AUTH_LIVE_IDENTIFIER` và `AUTH_LIVE_PASSWORD` trong process environment; có thể đặt `API_BASE_URL` để đổi API (mặc định `http://localhost:5184/api`), rồi chạy `dart run tool/mobile_auth_live.dart`. Script kiểm tra mật khẩu sai, đăng nhập, lấy user hiện tại, đăng xuất và xác nhận token đã hết hiệu lực. BE thu hồi mọi JWT của tài khoản khi đăng xuất, vì vậy chỉ dùng tài khoản thử dành riêng. Không ghi thông tin đăng nhập hoặc token ra log.
