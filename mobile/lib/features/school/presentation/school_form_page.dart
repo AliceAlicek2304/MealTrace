@@ -371,12 +371,18 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
       maxLength: field.maxLength,
       maxLines: field.kind == FieldKind.lines || field.key == 'reason' ? 3 : 1,
       readOnly: field.kind == FieldKind.date,
-      keyboardType: switch (field.kind) {
-        FieldKind.integer => TextInputType.number,
-        FieldKind.email => TextInputType.emailAddress,
-        FieldKind.phone => TextInputType.phone,
-        _ => TextInputType.text,
-      },
+      keyboardType: field.kind == FieldKind.lines || field.key == 'reason'
+          ? TextInputType.multiline
+          : switch (field.kind) {
+              FieldKind.integer => TextInputType.number,
+              FieldKind.email => TextInputType.emailAddress,
+              FieldKind.phone => TextInputType.phone,
+              _ => TextInputType.text,
+            },
+      textInputAction: field.kind == FieldKind.lines || field.key == 'reason'
+          ? TextInputAction.newline
+          : TextInputAction.next,
+      onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
       decoration: InputDecoration(
         labelText: '${field.label}${field.required ? ' *' : ''}',
         counterText: '',
@@ -433,8 +439,30 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
     canPop: !busy,
     child: Scaffold(
       appBar: AppBar(title: Text(widget.form.title)),
+      bottomNavigationBar: preview == null
+          ? AnimatedPadding(
+              duration: const Duration(milliseconds: 150),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                child: SafeArea(
+                  top: false,
+                  minimum: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: FilledButton(
+                    onPressed: busy || confirming || !prerequisitesReady
+                        ? null
+                        : submit,
+                    child: Text(busy ? 'Đang xử lý…' : widget.form.title),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(20),
           child: Form(
             key: key,
@@ -516,12 +544,6 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                         ),
                       ),
                     ),
-                  FilledButton(
-                    onPressed: busy || confirming || !prerequisitesReady
-                        ? null
-                        : submit,
-                    child: Text(busy ? 'Đang xử lý…' : widget.form.title),
-                  ),
                 ] else ...[
                   RecordDetails(record: preview!.summary),
                   for (final record in preview!.records)

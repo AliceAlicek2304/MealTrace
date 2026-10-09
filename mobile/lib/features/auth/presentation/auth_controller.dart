@@ -70,24 +70,31 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  Future<void> restore() async {
+  Future<void> restore({bool preserveSessionView = false}) async {
     if (_disposed || _busy) return;
+    final preserve = preserveSessionView && _status == AuthStatus.signedIn;
     _busy = true;
-    _status = AuthStatus.restoring;
-    _user = null;
+    if (!preserve) {
+      _status = AuthStatus.restoring;
+      _user = null;
+      _expiryTimer?.cancel();
+    }
     _message = null;
-    _expiryTimer?.cancel();
     _changed();
     try {
       final session = await _repository.restore();
       if (_disposed) return;
       if (session == null) {
+        _expiryTimer?.cancel();
+        _user = null;
         _status = AuthStatus.signedOut;
       } else {
         _accept(session);
       }
     } on AuthFailure catch (error) {
       if (_disposed) return;
+      _expiryTimer?.cancel();
+      _user = null;
       _message = error.message;
       _status = error.unauthorized
           ? AuthStatus.signedOut

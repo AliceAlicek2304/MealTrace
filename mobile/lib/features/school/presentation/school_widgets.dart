@@ -166,7 +166,6 @@ class RecordDetails extends StatelessWidget {
     final primary = entries
         .where(
           (entry) => [
-            'studentCode',
             'className',
             'schoolYear',
             'date',
@@ -278,7 +277,30 @@ class RecordDetails extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final entry in compact ? primary : entries) row(entry),
+        if (!compact)
+          for (final entry in entries) row(entry)
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final entry in primary)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${fieldLabels[entry.key]}: ${displayValue(entry.value)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+            ],
+          ),
         if (compact && record.records('parents').isNotEmpty)
           TextButton(
             onPressed: () => showDialog<void>(

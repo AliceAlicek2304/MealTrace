@@ -37,6 +37,7 @@ app/dependencies.dart lắp ráp client và cấp token hiện hành cho data qu
 
 - Login gửi identifier/password, chỉ lưu token/expiry sau khi response hợp lệ. Không lưu mật khẩu hoặc log dữ liệu xác thực.
 - Restore đọc phiên, kiểm tra hạn và /auth/me. Token hết hạn/401 bị xóa; mất mạng giữ dữ liệu đã lưu nhưng không vào màn hình tài khoản, có thử lại.
+- Resume xác minh /auth/me trong khi giữ navigator của phiên hiện tại; chỉ giữ form khi xác minh thành công và quyền không đổi. Key navigator gồm trạng thái, user ID và quyền. Quyền thay đổi hoặc lỗi xác minh sẽ đóng màn hình con. Timer hết hạn vẫn hoạt động trong quá trình xác minh.
 - Expiry chuyển khỏi signedIn trước khi chờ storage. Nếu có thao tác đang chạy, xử lý expiry sau khi thao tác kết thúc; không tạo vòng polling.
 - Dispose bỏ qua response đến muộn, hủy timer, đóng HTTP client. Chặn submit khi busy; UI có validation và kiểm tra ở controller.
 - Logout xóa local rồi gọi BE. API BE hiện thu hồi toàn bộ phiên của tài khoản qua security stamp; không phải chỉ một thiết bị. Khi BE không phản hồi, báo đã xóa local nhưng chưa thu hồi remote.

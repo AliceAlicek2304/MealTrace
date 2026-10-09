@@ -120,53 +120,63 @@ void main() {
     });
   }
   for (final role in ['ADMIN', 'TEACHER', 'KITCHEN_STAFF', 'PARENT']) {
-    testWidgets('$role sees only its allowed home sections and drawer', (
-      tester,
-    ) async {
-      size(tester, 390);
-      final session = sessionJson();
-      session['user'] = {
-        ...userJson,
-        'roles': [role],
-      };
-      final auth = createController(
-        AuthApi(
-          MockClient(
-            (request) async => jsonResponse(
-              request.url.path.endsWith('/me')
-                  ? session['user'] as Map<String, Object?>
-                  : session,
+    testWidgets(
+      '$role sees only its allowed home shortcuts and function sheet',
+      (tester) async {
+        size(tester, 390);
+        final session = sessionJson();
+        session['user'] = {
+          ...userJson,
+          'roles': [role],
+        };
+        final auth = createController(
+          AuthApi(
+            MockClient(
+              (request) async => jsonResponse(
+                request.url.path.endsWith('/me')
+                    ? session['user'] as Map<String, Object?>
+                    : session,
+              ),
             ),
+            'https://example.test/api',
           ),
-          'https://example.test/api',
-        ),
-        MemoryStore(),
-      );
-      await auth.restore();
-      await auth.login('0349079940', 'password');
-      await tester.pumpWidget(
-        MealTraceApp(
-          controller: auth,
-          schoolRepository: FakeSchoolRepository(),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Xin chào, Nguyễn An'), findsOneWidget);
-      expect(
-        find.text('Tài khoản'),
-        role == 'ADMIN' ? findsOneWidget : findsNothing,
-      );
-      expect(
-        find.text('Báo vắng / Không ăn'),
-        role == 'PARENT' ? findsOneWidget : findsNothing,
-      );
-      await tester.tap(find.byIcon(Icons.menu));
-      await tester.pumpAndSettle();
-      expect(find.byType(Drawer), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      auth.dispose();
-    });
+          MemoryStore(),
+        );
+        await auth.restore();
+        await auth.login('0349079940', 'password');
+        await tester.pumpWidget(
+          MealTraceApp(
+            controller: auth,
+            schoolRepository: FakeSchoolRepository(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Xin chào, Nguyễn An'), findsOneWidget);
+        expect(
+          find.text('Tài khoản'),
+          role == 'ADMIN' ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.text('Báo vắng / Không ăn'),
+          role == 'PARENT' ? findsOneWidget : findsNothing,
+        );
+        expect(find.byType(NavigationBar), findsOneWidget);
+        await tester.tap(find.text('Chức năng'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsOneWidget);
+        expect(
+          find.text('Tài khoản'),
+          role == 'ADMIN' ? findsWidgets : findsNothing,
+        );
+        expect(
+          find.text('Báo vắng / Không ăn'),
+          role == 'PARENT' ? findsWidgets : findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        auth.dispose();
+      },
+    );
   }
   testWidgets(
     'Parent registration is available with no phone and notifications stay opt-in',
@@ -374,6 +384,15 @@ void main() {
   ) async {
     size(tester, 390);
     await tester.runAsync(() async {
+      final icons = File(
+        'C:/Flutter/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+      );
+      if (await icons.exists()) {
+        await (FontLoader('MaterialIcons')..addFont(
+              icons.readAsBytes().then((bytes) => ByteData.sublistView(bytes)),
+            ))
+            .load();
+      }
       final file = File('C:/Windows/Fonts/segoeui.ttf');
       if (await file.exists()) {
         final loader = FontLoader('MealTraceVisualTest')
@@ -388,6 +407,7 @@ void main() {
       RepaintBoundary(
         key: capture,
         child: MaterialApp(
+          debugShowCheckedModeBanner: false,
           theme: mealTraceTheme.copyWith(
             textTheme: mealTraceTheme.textTheme.apply(
               fontFamily: 'MealTraceVisualTest',

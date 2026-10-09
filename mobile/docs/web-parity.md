@@ -2,6 +2,16 @@
 
 Chỉ triển khai chức năng đã có trên web, cho đủ vai trò. Dùng chung BE và quy tắc nghiệp vụ; đây là giao diện Flutter native, không phải WebView.
 
+## Trải nghiệm Android
+
+- Điều hướng dưới: Trang chủ, Suất ăn (Phụ huynh: Không ăn), Chức năng và Hồ sơ. Chức năng mở bottom sheet theo quyền; màn hình chi tiết dùng nút Back. Back từ tab phụ về Trang chủ trước khi thoát.
+- Trang chủ ưu tiên truy cập nhanh, không tải mọi API để dựng dashboard. Tab công việc chỉ tải khi mở lần đầu và giữ state khi chuyển tab; có kéo xuống để tải lại.
+- Danh sách tìm kiếm trực tiếp sau khi ngừng gõ, bộ lọc nâng cao thu gọn; thao tác tạo/yêu cầu dùng nút nổi khi chỉ có một hành động. Thẻ hiện nhãn thông tin chính, mã định danh và dữ liệu phụ mở thêm.
+- Form một cột, bàn phím theo loại dữ liệu, nút lưu cố định trên bàn phím. Khi trở lại từ nền và xác minh phiên thành công với quyền không đổi, giữ màn hình/form đang nhập; quyền thay đổi hoặc xác minh thất bại đóng các màn hình được bảo vệ.
+- Material 3 với màu xanh chủ đạo, nền trung tính; kiểm tra cả cỡ chữ hệ thống lớn. Đây là thay đổi UI/điều hướng, không thay đổi API hoặc quy tắc chốt/duyệt.
+
+## Chức năng
+
 | Nhóm | Chức năng |
 | --- | --- |
 | Phiên và tài khoản | Đăng nhập/khôi phục/đăng xuất, thông tin hiện tại, đổi mật khẩu |

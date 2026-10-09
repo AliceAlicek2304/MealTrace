@@ -1,6 +1,6 @@
 # MealTrace Mobile
 
-Ứng dụng Flutter chỉ dành cho Android, dùng chung REST API trong `be/`. Có đăng nhập, tài khoản và các luồng đã có trên web cho Admin, Giáo viên, Bếp và Phụ huynh. Giao diện native tạm theo bố cục responsive web: menu bên trái, danh sách thẻ, bộ lọc thu gọn và form tiếng Việt. Xem [phạm vi](docs/web-parity.md).
+Ứng dụng Flutter chỉ dành cho Android, dùng chung REST API trong `be/`. Có đăng nhập, tài khoản và các luồng đã có trên web cho Admin, Giáo viên, Bếp và Phụ huynh. Giao diện riêng cho mobile: điều hướng dưới, truy cập nhanh theo vai trò, danh sách thẻ, tìm kiếm trực tiếp, bộ lọc nâng cao và form tiếng Việt có nút lưu cố định. Xem [phạm vi](docs/web-parity.md).
 
 ## Cấu trúc
 

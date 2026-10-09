@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
@@ -14,6 +15,7 @@ class SchoolPage extends StatefulWidget {
     required this.roles,
     required this.onUnauthorized,
     this.contextValues = const {},
+    this.embedded = false,
   });
   final SchoolOperation operation;
   final String title;
@@ -21,6 +23,7 @@ class SchoolPage extends StatefulWidget {
   final List<String> roles;
   final Future<void> Function() onUnauthorized;
   final Map<String, Object?> contextValues;
+  final bool embedded;
   @override
   State<SchoolPage> createState() => _SchoolPageState();
 }
@@ -30,6 +33,7 @@ class _SchoolPageState extends State<SchoolPage> {
   final search = TextEditingController();
   final filters = <String, Object?>{};
   int page = 1;
+  Timer? searchDebounce;
   @override
   void initState() {
     super.initState();
@@ -43,12 +47,14 @@ class _SchoolPageState extends State<SchoolPage> {
 
   @override
   void dispose() {
+    searchDebounce?.cancel();
     controller.dispose();
     search.dispose();
     super.dispose();
   }
 
   Future<void> load() async {
+    searchDebounce?.cancel();
     if (widget.operation == SchoolOperation.calendar &&
         filters['code'] == null &&
         widget.contextValues['code'] == null) {
@@ -494,6 +500,9 @@ class _SchoolPageState extends State<SchoolPage> {
     builder: (context, _) {
       final result = controller.result;
       final summary = result?.summary;
+      final availableActions = createActions
+          .where((op) => canExecute(op, widget.roles))
+          .toList();
       final paged = [
         SchoolOperation.users,
         SchoolOperation.classes,
@@ -517,7 +526,17 @@ class _SchoolPageState extends State<SchoolPage> {
           ) ??
           25;
       return Scaffold(
+        floatingActionButton: availableActions.length == 1
+            ? FloatingActionButton.extended(
+                onPressed: controller.loading
+                    ? null
+                    : () => openForm(availableActions.single),
+                icon: const Icon(Icons.add),
+                label: Text(schoolForms[availableActions.single]!.title),
+              )
+            : null,
         appBar: AppBar(
+          automaticallyImplyLeading: !widget.embedded,
           title: Text(widget.title),
           actions: [
             IconButton(
@@ -531,8 +550,58 @@ class _SchoolPageState extends State<SchoolPage> {
           child: RefreshIndicator(
             onRefresh: load,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                availableActions.length == 1 ? 96 : 16,
+              ),
               children: [
+                if (paged &&
+                        ![
+                          SchoolOperation.exceptionHistory,
+                          SchoolOperation.workflowDays,
+                        ].contains(widget.operation) ||
+                    widget.operation == SchoolOperation.yearConfiguration)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: TextField(
+                      controller: search,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText: 'Tìm trong ${widget.title.toLowerCase()}',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: IconButton(
+                          tooltip: 'Xóa tìm kiếm',
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            searchDebounce?.cancel();
+                            search.clear();
+                            page = 1;
+                            load();
+                          },
+                        ),
+                      ),
+                      onChanged: (_) {
+                        searchDebounce?.cancel();
+                        searchDebounce = Timer(
+                          const Duration(milliseconds: 350),
+                          () {
+                            if (!mounted) return;
+                            page = 1;
+                            load();
+                          },
+                        );
+                      },
+                      onSubmitted: (_) {
+                        searchDebounce?.cancel();
+                        FocusScope.of(context).unfocus();
+                        page = 1;
+                        load();
+                      },
+                    ),
+                  ),
                 if (widget.operation == SchoolOperation.calendar)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
@@ -572,27 +641,14 @@ class _SchoolPageState extends State<SchoolPage> {
                       ),
                     ),
                   ),
-                if (paged ||
-                    widget.operation == SchoolOperation.calendar ||
-                    widget.operation == SchoolOperation.yearConfiguration)
+                if (filterFields.isNotEmpty)
                   Card(
                     child: ExpansionTile(
                       title: Text(
-                        'Tìm kiếm & bộ lọc${filters.values.where((x) => x != null && x != '').isNotEmpty ? ' · đang áp dụng' : ''}',
+                        'Bộ lọc${filters.entries.where((x) => x.key != 'code' && x.value != null && x.value != '').isNotEmpty ? ' · đang áp dụng' : ''}',
                       ),
                       childrenPadding: const EdgeInsets.all(16),
                       children: [
-                        if (widget.operation != SchoolOperation.calendar)
-                          TextField(
-                            controller: search,
-                            decoration: const InputDecoration(
-                              labelText: 'Tìm kiếm',
-                            ),
-                            onSubmitted: (_) {
-                              page = 1;
-                              load();
-                            },
-                          ),
                         for (final field in filterFields)
                           Padding(
                             padding: const EdgeInsets.only(top: 12),
@@ -633,42 +689,41 @@ class _SchoolPageState extends State<SchoolPage> {
                       ],
                     ),
                   ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final operation in createActions.where(
-                      (op) => canExecute(op, widget.roles),
-                    ))
-                      FilledButton(
-                        onPressed: controller.loading
-                            ? null
-                            : () => openForm(
-                                operation,
-                                null,
-                                widget.operation == SchoolOperation.calendar
-                                    ? {
-                                        'weekdays':
-                                            summary
-                                                    ?.values('weekdays')
-                                                    .isNotEmpty ==
-                                                true
-                                            ? summary!.values('weekdays')
-                                            : ['1', '2', '3', '4', '5'],
-                                        'mealTypes':
-                                            summary
-                                                    ?.values('mealTypes')
-                                                    .isNotEmpty ==
-                                                true
-                                            ? summary!.values('mealTypes')
-                                            : ['Bữa trưa'],
-                                      }
-                                    : null,
-                              ),
-                        child: Text(schoolForms[operation]!.title),
-                      ),
-                  ],
-                ),
+                if (availableActions.length > 1)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final operation in availableActions)
+                        FilledButton(
+                          onPressed: controller.loading
+                              ? null
+                              : () => openForm(
+                                  operation,
+                                  null,
+                                  widget.operation == SchoolOperation.calendar
+                                      ? {
+                                          'weekdays':
+                                              summary
+                                                      ?.values('weekdays')
+                                                      .isNotEmpty ==
+                                                  true
+                                              ? summary!.values('weekdays')
+                                              : ['1', '2', '3', '4', '5'],
+                                          'mealTypes':
+                                              summary
+                                                      ?.values('mealTypes')
+                                                      .isNotEmpty ==
+                                                  true
+                                              ? summary!.values('mealTypes')
+                                              : ['Bữa trưa'],
+                                        }
+                                      : null,
+                                ),
+                          child: Text(schoolForms[operation]!.title),
+                        ),
+                    ],
+                  ),
                 if (widget.operation == SchoolOperation.portions &&
                     summary != null)
                   Wrap(
@@ -805,7 +860,9 @@ class _SchoolPageState extends State<SchoolPage> {
                         icon: const Icon(Icons.chevron_left),
                       ),
                       Flexible(
-                        child: Text('Trang $page · ${result.total} mục'),
+                        child: Text(
+                          'Trang $page / ${(result.total / pageSize).ceil().clamp(1, 999999)} · ${result.total} mục',
+                        ),
                       ),
                       IconButton(
                         tooltip: 'Trang sau',

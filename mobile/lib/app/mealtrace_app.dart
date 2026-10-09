@@ -51,7 +51,7 @@ class _MealTraceAppState extends State<MealTraceApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
         _auth?.status == AuthStatus.signedIn) {
-      _auth?.restore();
+      _auth?.restore(preserveSessionView: true);
     }
   }
 
@@ -68,7 +68,12 @@ class _MealTraceAppState extends State<MealTraceApp>
   Widget build(BuildContext context) {
     final auth = _auth;
     return MaterialApp(
-      key: ValueKey(auth?.status),
+      key: ValueKey((
+        auth?.status,
+        auth?.user?.id,
+        auth?.user?.roles.join(','),
+        auth?.user?.inspectorAccessUntil,
+      )),
       title: 'MealTrace',
       locale: const Locale('vi'),
       supportedLocales: const [Locale('vi')],
