@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Toaster } from 'sonner'
 import { X } from 'lucide-react'
 
-type Props = { title: string; description?: string; children: ReactNode; onClose: () => void; busy?: boolean; wide?: boolean; drawer?: boolean }
+type Props = Readonly<{ title: string; description?: string; children: ReactNode; onClose: () => void; busy?: boolean; wide?: boolean; drawer?: boolean }>
 
 let openDialogs = 0
 let originalBodyOverflow = ''
@@ -11,6 +11,10 @@ let originalBodyOverflow = ''
 export function Modal({ title, description, children, onClose, busy = false, wide = false, drawer = false }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const backdropPress = useRef(false)
+  const closeRef = useRef(onClose)
+  const busyRef = useRef(busy)
+  closeRef.current = onClose
+  busyRef.current = busy
   const titleId = useId()
   const descriptionId = useId()
   useLayoutEffect(() => {
@@ -19,7 +23,20 @@ export function Modal({ title, description, children, onClose, busy = false, wid
     openDialogs++
     document.body.style.overflow = 'hidden'
     dialog.showModal()
-    return () => { dialog.close(); openDialogs--; if (openDialogs === 0) document.body.style.overflow = originalBodyOverflow }
+    const closeOnBackdrop = (event: MouseEvent) => {
+      const bounds = dialog.getBoundingClientRect()
+      const outside = event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom
+      if (backdropPress.current && event.target === dialog && outside && !busyRef.current) closeRef.current()
+      backdropPress.current = false
+    }
+    const trackBackdropPress = (event: PointerEvent) => { backdropPress.current = event.target === dialog }
+    dialog.addEventListener('pointerdown', trackBackdropPress)
+    dialog.addEventListener('click', closeOnBackdrop)
+    return () => {
+      dialog.removeEventListener('pointerdown', trackBackdropPress)
+      dialog.removeEventListener('click', closeOnBackdrop)
+      dialog.close(); openDialogs--; if (openDialogs === 0) document.body.style.overflow = originalBodyOverflow
+    }
   }, [])
   return createPortal(<dialog ref={dialogRef} className={`app-modal ${wide ? 'app-modal-wide' : ''} ${drawer ? 'mobile-drawer' : ''}`}
     aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} aria-busy={busy}
@@ -31,13 +48,7 @@ export function Modal({ title, description, children, onClose, busy = false, wid
       }
     }}
     onCancel={event => { event.preventDefault(); if (!busy) onClose() }}
-    onPointerDown={event => { backdropPress.current = event.target === event.currentTarget }}
-    onClick={event => {
-      const bounds = event.currentTarget.getBoundingClientRect()
-      const outside = event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom
-      if (backdropPress.current && event.target === event.currentTarget && outside && !busy) onClose()
-      backdropPress.current = false
-    }}>
+    >
     <header className="modal-header"><div><h2 id={titleId}>{title}</h2>{description && <p id={descriptionId}>{description}</p>}</div>
       <button type="button" className="icon-button" aria-label={drawer ? 'Đóng menu' : 'Đóng cửa sổ'} disabled={busy} onClick={onClose}><X size={20} /></button></header>
     <div className="modal-body">{children}</div>

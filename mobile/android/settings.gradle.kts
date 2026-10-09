@@ -23,4 +23,5 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
 }
 
+rootProject.name = "mealtrace_mobile"
 include(":app")

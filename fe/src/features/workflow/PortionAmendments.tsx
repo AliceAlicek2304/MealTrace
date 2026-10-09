@@ -23,7 +23,7 @@ const sources: Record<string, string> = { DEFAULT: 'Mặc định', PARENT_ABSEN
   STAFF_ABSENT: 'Ngoại lệ không có suất', APPROVED_AMENDMENT: 'Điều chỉnh đã duyệt', LEGACY_OR_CURRENT_ENROLLMENT: 'Nguồn cũ hoặc ghi danh theo ngày' }
 const time = (value: string) => schoolDateTime(value)
 
-function SnapshotView({ title, snapshot }: { title: string; snapshot: Snapshot }) {
+function SnapshotView({ title, snapshot }: Readonly<{ title: string; snapshot: Snapshot }>) {
   return <details className="entry"><summary>{title} · bản {snapshot.version} · {snapshot.count} suất</summary>
     <p>Số trẻ có suất: {snapshot.students.length} · Điều chỉnh riêng cho bếp: {snapshot.kitchenAdjustment > 0 ? "+" : ""}{snapshot.kitchenAdjustment}</p><p className="workflow-names">{snapshot.students.map(x => x.studentName).join(', ') || 'Không có trẻ ăn'}</p>
     {snapshot.decisions.length > 0 && <div className="table-wrap"><ResponsiveTable><thead><tr><th>Trẻ</th><th>Suất</th><th>Nguồn đã lưu</th></tr></thead>
@@ -31,7 +31,7 @@ function SnapshotView({ title, snapshot }: { title: string; snapshot: Snapshot }
   </details>
 }
 
-export function PortionAmendments({ mealId, rooms, roles }: { mealId: string; rooms: Room[]; roles: string[] }) {
+export function PortionAmendments({ mealId, rooms, roles }: Readonly<{ mealId: string; rooms: Room[]; roles: string[] }>) {
   const cache = useQueryClient()
   const isAdmin = roles.includes('ADMIN')
   const [pickedClass, setPickedClass] = useState('')
@@ -61,12 +61,12 @@ export function PortionAmendments({ mealId, rooms, roles }: { mealId: string; ro
       cache.invalidateQueries({ queryKey: ['portions', mealId] }), cache.invalidateQueries({ queryKey: ['meal-days'] }),
       cache.invalidateQueries({ queryKey: ['workflow-days'] }), cache.invalidateQueries({ queryKey: ['meal-day', mealId] }), cache.invalidateQueries({ queryKey: ['portion-amendment-detail', mealId] })])
   }
-  const request = useMutation({ mutationFn: async () => {
+  const request = useMutation({ mutationFn: () => {
     if (target?.kind !== 'request' || target.baseId !== data?.current.id) throw new Error('Chưa chọn phiếu.')
     return api.post(endpoint, { classId: target.classId, studentIds: target.children.map(x => x.studentId), quantity: target.quantity, baseSettlementId: target.baseId, willEat: target.willEat, reason })
   }, onSuccess: async () => { setTarget(null); setSelected([]); setSelectedBase(''); toast.success('Đã gửi yêu cầu. Số suất chỉ thay đổi khi Admin duyệt.'); await refresh() },
     onError: async error => { toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }); await refresh() } })
-  const review = useMutation({ mutationFn: async (approve: boolean) => {
+  const review = useMutation({ mutationFn: (approve: boolean) => {
     if (target?.kind !== 'review') throw new Error('Chưa chọn yêu cầu.')
     return api.post(`${endpoint}/${target.request.id}/review`, { approve, reason })
   }, onSuccess: async (_, approve) => { setTarget(null); toast.success(approve ? 'Đã duyệt và lưu bản suất mới cho bếp.' : 'Đã từ chối yêu cầu.'); await refresh() },
@@ -112,7 +112,7 @@ export function PortionAmendments({ mealId, rooms, roles }: { mealId: string; ro
           <button type="button" className="button primary" disabled={searchWaiting || query.isFetching || (!willEat && (quantityOnly ? quantity : selected.length) > data.current.count) || (quantityOnly ? !Number.isInteger(quantity) || quantity < 1 || quantity > 200 : !selected.length || selected.length > 200 || selectedBase !== data.current.id)} onClick={() => { setReason(''); setTarget({ kind: 'request', children: quantityOnly ? [] : [...selected], quantity: quantityOnly ? quantity : selected.length, willEat, baseId: data.current.id, baseVersion: data.current.version, classId, beforeCount: data.current.count }) }}>Tạo phiếu {willEat ? 'tăng' : 'giảm'} {quantityOnly ? quantity : selected.length} suất</button>
         </div>
         {!willEat && (quantityOnly ? quantity : selected.length) > data.current.count && <p className="error">Số suất giảm vượt tổng đang gửi bếp.</p>}
-        <div className="amendment-preview" role="status" aria-label="Dự kiến gửi bếp"><span>Dự kiến gửi bếp</span><strong>{data.current.count} → {Number.isInteger(previewCount) ? previewCount : '—'} suất</strong><small>Chỉ áp dụng sau khi duyệt.</small></div>
+        <output className="amendment-preview" aria-label="Dự kiến gửi bếp"><span>Dự kiến gửi bếp</span><strong>{data.current.count} → {Number.isInteger(previewCount) ? previewCount : '—'} suất</strong><small>Chỉ áp dụng sau khi duyệt.</small></output>
         {quantityOnly ? <p className="muted">Chỉ thay đổi số lượng gửi bếp. Không thay đổi trạng thái ăn hoặc tiền ăn của từng trẻ.</p> : <>
           <p>Đã chọn {selected.length} trẻ (giữ lựa chọn khi tìm kiếm/chuyển trang). <button type="button" className="button secondary" disabled={query.isFetching || searchWaiting || selectionStale || !unselectedInPage.length || selected.length + unselectedInPage.length > 200} onClick={() => { setSelectedBase(data.current.id); setSelected(previous => [...previous, ...unselectedInPage]) }}>Chọn trẻ phù hợp trong trang</button> <button type="button" className="button secondary" onClick={() => { setSelected([]); setSelectedBase('') }}>Bỏ chọn</button></p>
           {selected.length > 0 && <div className="selected-children" aria-label="Trẻ đã chọn">{selected.map(child => <button type="button" className="button secondary" key={child.studentId} aria-label={`Bỏ chọn ${child.studentName}`} onClick={() => setSelected(previous => previous.filter(x => x.studentId !== child.studentId))}>{child.studentName} ×</button>)}</div>}

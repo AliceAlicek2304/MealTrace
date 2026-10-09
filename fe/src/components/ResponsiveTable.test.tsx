@@ -5,10 +5,10 @@ import { ResponsiveTable } from './ResponsiveTable'
 
 describe('ResponsiveTable', () => {
   it('keeps each value associated with its heading and preserves row actions', () => {
-    const { rerender } = render(<ResponsiveTable><thead><tr><th>Ngày ăn</th><th /></tr></thead><tbody><tr><td>2026-10-09</td><td><button>Xem phiên</button></td></tr></tbody></ResponsiveTable>)
+    const { rerender } = render(<ResponsiveTable><thead><tr><th>Ngày ăn</th><th /></tr></thead><tbody><tr><td>2026-10-09</td><td><button type="button">Xem phiên</button></td></tr></tbody></ResponsiveTable>)
     expect(screen.getByText('2026-10-09').dataset.label).toBe('Ngày ăn')
     expect(screen.getByRole('button', { name: 'Xem phiên' }).closest('td')?.dataset.label).toBe('Thao tác')
-    rerender(<ResponsiveTable><thead><tr><th>Lý do</th><th /></tr></thead><tbody><tr><td>Nghỉ học</td><td><button>Xem phiên</button></td></tr></tbody></ResponsiveTable>)
+    rerender(<ResponsiveTable><thead><tr><th>Lý do</th><th /></tr></thead><tbody><tr><td>Nghỉ học</td><td><button type="button">Xem phiên</button></td></tr></tbody></ResponsiveTable>)
     expect(screen.getByText('Nghỉ học').dataset.label).toBe('Lý do')
   })
   it('shows empty and loading messages once without a misleading column label', () => {

@@ -9,6 +9,7 @@ import { api, apiErrorMessage } from '../../lib/api'
 import { toast } from 'sonner'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
+import { QueryState } from '../../components/QueryState'
 
 type Child = { studentId: string; fullName: string; className: string; schoolYear: string; yearStartDate: string | null; yearEndDate: string | null }
 type Year = { code: string; startDate: string; endDate: string }
@@ -65,7 +66,12 @@ export function AbsencesPage() {
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   function submit(event: FormEvent) { event.preventDefault(); if (!report.isPending) report.mutate() }
   function openEdit(item: Absence) { setEditing(item); setEditFrom(item.fromDate); setEditTo(item.toDate); setEditReason(item.reason) }
-  const statusOf = (item: Absence) => item.cancelledAt ? 'CANCELLED' : item.toDate < localToday() ? 'EXPIRED' : item.fromDate > localToday() ? 'UPCOMING' : 'ACTIVE'
+  const statusOf = (item: Absence) => {
+    if (item.cancelledAt) return 'CANCELLED'
+    if (item.toDate < localToday()) return 'EXPIRED'
+    if (item.fromDate > localToday()) return 'UPCOMING'
+    return 'ACTIVE'
+  }
   const statusLabels: Record<string, string> = { CANCELLED: 'Đã hủy / thay thế', EXPIRED: 'Đã hết hạn', UPCOMING: 'Sắp áp dụng', ACTIVE: 'Đang hiệu lực' }
   const rows = absences.data?.items ?? []
 
@@ -91,10 +97,10 @@ export function AbsencesPage() {
         <label className="field">Trẻ<select value={filterStudent} onChange={e => { setFilterStudent(e.target.value); setPage(1) }}><option value="">Tất cả trẻ</option>{absences.data?.students.map(child => <option key={child.studentId} value={child.studentId}>{child.name}</option>)}</select></label>
         <label className="field">Trạng thái<select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option>{Object.entries(statusLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label></div></FilterPanel>
       <SearchFeedback waiting={searchWaiting} fetching={absences.isFetching} />
-    {absences.isPending ? <p className="empty compact">Đang tải…</p> : absences.isError ? <p className="empty compact error">Không tải được đăng ký.</p> : <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ</th><th scope="col">Từ ngày</th><th scope="col">Đến ngày</th><th scope="col">Lý do</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>{rows.map(item =>
+    <QueryState loading={absences.isPending} error={absences.isError} loadingMessage="Đang tải…" errorMessage="Không tải được đăng ký."><div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ</th><th scope="col">Từ ngày</th><th scope="col">Đến ngày</th><th scope="col">Lý do</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>{rows.map(item =>
       <tr key={item.id}><td><strong>{item.studentName}</strong></td><td>{item.fromDate}</td><td>{item.toDate}</td><td>{item.reason}</td><td>{statusLabels[statusOf(item)]}</td>
         <td>{!item.cancelledAt && item.toDate >= localToday() ? <div className="table-actions"><button type="button" className="button secondary" onClick={() => openEdit(item)} disabled={cancel.isPending}>Sửa</button><button type="button" className="button danger" onClick={() => setCancelTarget(item)} disabled={cancel.isPending}>Hủy / Ăn lại</button></div> : '—'}</td></tr>)}
-      {!rows.length && <tr><td colSpan={6} className="empty compact">{searchTerm || filterStudent || filterStatus ? 'Không có đăng ký phù hợp bộ lọc.' : 'Chưa có đăng ký không ăn.'}</td></tr>}</tbody></ResponsiveTable></div>}
+      {!rows.length && <tr><td colSpan={6} className="empty compact">{searchTerm || filterStudent || filterStatus ? 'Không có đăng ký phù hợp bộ lọc.' : 'Chưa có đăng ký không ăn.'}</td></tr>}</tbody></ResponsiveTable></div></QueryState>
       <Pagination page={page} total={absences.data?.total ?? 0} pageSize={25} busy={searchWaiting || absences.isFetching} onChange={setPage} /></section>
     {cancelTarget && <Modal title={`Hủy đăng ký: ${cancelTarget.studentName}`} busy={cancel.isPending} onClose={() => setCancelTarget(null)}><div className="workflow-form"><p>Hủy khoảng không ăn từ {cancelTarget.fromDate} đến {cancelTarget.toDate}? Số suất đã qua giờ chốt giữ nguyên; lịch sử đăng ký vẫn được lưu.</p><div className="form-actions"><button type="button" className="button secondary" disabled={cancel.isPending} onClick={() => setCancelTarget(null)}>Quay lại</button><button type="button" className="button danger" disabled={cancel.isPending} onClick={() => cancel.mutate(cancelTarget.id)}>Xác nhận hủy</button></div></div></Modal>}
     {editing && <Modal title={`Cập nhật: ${editing.studentName}`} description="Bản cũ được giữ trong lịch sử. Số suất đã qua giờ chốt không thay đổi." busy={update.isPending} onClose={() => setEditing(null)}>

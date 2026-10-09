@@ -1,7 +1,7 @@
 import { ResponsiveTable } from '../../components/ResponsiveTable'
 import { FilterPanel } from '../../components/FilterPanel'
 import { schoolDateTime } from '../../lib/schoolTime'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../../lib/api'
@@ -18,10 +18,31 @@ type Plan = { date: string; mealType: string; action: string }
 type Preview = { items: Plan[]; previewToken: string; createCount: number; restoreCount: number; existingCount: number }
 type Edit = { code: string; revision: number; kind: 'schedule' | 'day'; date?: string }
 type Audit = { id: string; date: string | null; kind: string; reason: string; actorName: string; recordedAt: string }
+function CalendarLoadState({ loading, error, children }: Readonly<{ loading: boolean; error: string | null; children: ReactNode }>) {
+  if (loading) return <p>Đang tải lịch…</p>
+  if (error) return <p className="error">{error}</p>
+  return <>{children}</>
+}
 const weekdays = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
 const actionLabel: Record<string, string> = { CREATE: 'Tạo mới', RESTORE: 'Khôi phục phiên', EXISTS: 'Đã có — bỏ qua', CLOSED: 'Ngày nghỉ — bỏ qua', LOCKED: 'Qua giờ chốt / đã khóa — bỏ qua', OTHER_YEAR: 'Phiên thuộc năm khác — bỏ qua' }
 const auditLabel: Record<string, string> = { SCHEDULE: 'Lịch tuần', OPEN: 'Ngày có ăn', CLOSED: 'Ngày nghỉ', DEFAULT: 'Trở về lịch tuần', GENERATE: 'Tạo phiên hàng loạt' }
 const splitTypes = (text: string) => text.split('\n').map(x => x.trim()).filter(Boolean)
+function matchesDayStatus(day: CalendarDay, status: string): boolean {
+  if (!status) return true
+  if (status === 'OPEN') return day.isOpen
+  if (status === 'CLOSED') return !day.isOpen
+  return day.isException
+}
+function sessionStatusLabel(session: CalendarDay['sessions'][number]): string {
+  if (session.isCancelled) return 'Đã hủy'
+  if (session.isSettled) return 'Đã chốt'
+  return 'Đã tạo phiên'
+}
+function calendarDayLabel(data: Calendar, day: CalendarDay): string {
+  if (!data.revision && !day.isException) return 'Chưa cấu hình lịch tuần'
+  if (day.isOpen) return day.mealTypes.join(', ')
+  return 'Không tổ chức ăn'
+}
 function rangeEnd(from: string, period: 'week' | 'month') {
   const value = new Date(`${from}T00:00:00Z`)
   if (!Number.isFinite(value.getTime())) return from
@@ -51,7 +72,7 @@ export function MealCalendarPage() {
     queryFn: async () => (await api.get<Audit[]>(`/admin/meal-calendar/${encodeURIComponent(code)}/history`)).data })
   const data = calendar.data
   const currentRange = range ?? (data ? { from: data.from, to: data.to } : { from: '', to: '' })
-  const visibleDays = data?.days.filter(day => !dayStatus || (dayStatus === 'OPEN' ? day.isOpen : dayStatus === 'CLOSED' ? !day.isOpen : day.isException)) ?? []
+  const visibleDays = data?.days.filter(day => matchesDayStatus(day, dayStatus)) ?? []
   async function refresh() {
     await Promise.all(['meal-calendar', 'calendar-history', 'workflow-days', 'meal-days', 'portions', 'meal-decisions', 'meal-day'].map(key => cache.invalidateQueries({ queryKey: [key] })))
   }
@@ -82,24 +103,29 @@ export function MealCalendarPage() {
     const to = period === 'year' ? data.endDate : rangeEnd(from, period)
     setRange({ from, to: to > data.endDate ? data.endDate : to }); setDayPage(1)
   }
+  let historyContent
+  if (history.isPending) historyContent = <p>Đang tải…</p>
+  else if (history.isError) historyContent = <p className="error">{apiErrorMessage(history.error)}</p>
+  else if (!history.data?.length) historyContent = <p>Chưa có thay đổi.</p>
+  else historyContent = history.data.map(item => <div className="entry" key={item.id}><strong>{auditLabel[item.kind]} {item.date}</strong><small>{item.actorName} · {schoolDateTime(item.recordedAt)}</small><p>{item.reason}</p></div>)
   return <><div className="eyebrow">LỊCH VẬN HÀNH</div><h1>Lịch bữa ăn</h1><p className="lead">Thiết lập lịch tuần một lần, tạo phiên theo tuần/tháng/năm học và xử lý ngày nghỉ hoặc học bù. Tạo phiên trước không chốt số suất trước.</p>
     <section className="panel list-toolbar"><SchoolYearPicker configuredOnly value={code} onChange={value => { setCode(value); setRange(null); setDayPage(1); setDayStatus('') }} />
-      {data && <FilterPanel activeCount={[range, dayStatus].filter(Boolean).length}><div className="list-toolbar"><label className="field">Từ ngày<input type="date" required min={data.startDate} max={data.endDate} value={currentRange.from} onChange={e => { const value = e.target.value; if (value < data.startDate || value > data.endDate) return; setRange({ from: value, to: value > currentRange.to ? value : currentRange.to }); setDayPage(1) }} /></label>
-        <label className="field">Đến ngày<input type="date" required min={currentRange.from} max={data.endDate} value={currentRange.to} onChange={e => { const value = e.target.value; if (value < currentRange.from || value > data.endDate) return; setRange({ from: currentRange.from, to: value }); setDayPage(1) }} /></label>
+      {data && <FilterPanel activeCount={[range, dayStatus].filter(Boolean).length}><div className="list-toolbar"><label className="field">Từ ngày<input type="date" required min={data.startDate} max={data.endDate} value={currentRange.from} onChange={e => { const value = e.target.value; if (value < data.startDate || value > data.endDate) { return }; setRange({ from: value, to: value > currentRange.to ? value : currentRange.to }); setDayPage(1) }} /></label>
+        <label className="field">Đến ngày<input type="date" required min={currentRange.from} max={data.endDate} value={currentRange.to} onChange={e => { const value = e.target.value; if (value < currentRange.from || value > data.endDate) { return }; setRange({ from: currentRange.from, to: value }); setDayPage(1) }} /></label>
         <label className="field">Lọc ngày<select value={dayStatus} onChange={e => { setDayStatus(e.target.value); setDayPage(1) }}><option value="">Tất cả ngày</option><option value="OPEN">Có tổ chức ăn</option><option value="CLOSED">Không tổ chức ăn</option><option value="EXCEPTION">Ngày đặc biệt</option></select></label>
         <div className="table-actions"><button type="button" className="button secondary" onClick={() => setPeriod('week')}>1 tuần</button><button type="button" className="button secondary" onClick={() => setPeriod('month')}>1 tháng</button><button type="button" className="button secondary" onClick={() => setPeriod('year')}>Cả năm học</button></div></div></FilterPanel>}
     </section>
-    {code && (calendar.isPending ? <p>Đang tải lịch…</p> : calendar.isError ? <p className="error">{apiErrorMessage(calendar.error)}</p> : data && <>
+    {code && <CalendarLoadState loading={calendar.isPending} error={calendar.isError ? apiErrorMessage(calendar.error) : null}>{data && <>
       <section className="panel workflow-lists"><div className="panel-head"><div><h2>Lịch bữa ăn · {code}</h2><p>{data.revision ? `${data.weekdays.map(x => weekdays[x]).join(', ') || 'Chỉ mở ngày đặc biệt'} · ${data.mealTypes.join(', ')}` : 'Chưa thiết lập lịch tuần.'}</p></div>
         <div className="table-actions"><button type="button" className="button secondary" onClick={openSchedule}>{data.revision ? 'Sửa lịch tuần' : 'Thiết lập lịch tuần'}</button>
           <button type="button" className="button secondary" onClick={() => setHistoryOpen(true)}>Lịch sử</button>
           <button type="button" className="button primary" disabled={!data.revision || calendar.isFetching || preview.isPending || !currentRange.from || !currentRange.to || currentRange.to < currentRange.from} onClick={() => preview.mutate({ code, input: { ...currentRange, expectedRevision: data.revision } })}>Tạo lịch hàng loạt</button></div></div>
         <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Ngày</th><th scope="col">Thứ</th><th scope="col">Lịch phục vụ</th><th scope="col">Phiên đã tạo</th><th scope="col">Ghi chú</th><th scope="col">Thao tác</th></tr></thead><tbody>{visibleDays.slice((dayPage - 1) * 31, dayPage * 31).map(day => <tr key={day.date}>
-          <td><strong>{day.date}</strong></td><td>{weekdays[new Date(`${day.date}T00:00:00Z`).getUTCDay()]}</td><td>{!data.revision && !day.isException ? 'Chưa cấu hình lịch tuần' : day.isOpen ? day.mealTypes.join(', ') : 'Không tổ chức ăn'}{day.isException && <small>Ngày đặc biệt</small>}</td>
-          <td>{day.sessions.length ? day.sessions.map(session => <div key={session.id}>{session.mealType}<small>{session.isCancelled ? 'Đã hủy' : session.isSettled ? 'Đã chốt' : 'Đã tạo phiên'}</small></div>) : '—'}</td><td>{day.reason ?? '—'}</td>
+          <td><strong>{day.date}</strong></td><td>{weekdays[new Date(`${day.date}T00:00:00Z`).getUTCDay()]}</td><td>{calendarDayLabel(data, day)}{day.isException && <small>Ngày đặc biệt</small>}</td>
+          <td>{day.sessions.length ? day.sessions.map(session => <div key={session.id}>{session.mealType}<small>{sessionStatusLabel(session)}</small></div>) : '—'}</td><td>{day.reason ?? '—'}</td>
           <td><button type="button" className="button secondary" disabled={!data.revision || day.locked || calendar.isFetching} onClick={() => openDay(day)}>{day.locked ? 'Đã khóa ngày' : 'Sửa ngày'}</button></td>
         </tr>)}{!visibleDays.length && <tr><td colSpan={6} className="empty compact">Không có ngày phù hợp.</td></tr>}</tbody></ResponsiveTable></div><Pagination page={dayPage} total={visibleDays.length} pageSize={31} busy={calendar.isFetching} onChange={setDayPage} /></section>
-    </>)}
+    </>}</CalendarLoadState>}
     {edit && <Modal title={edit.kind === 'schedule' ? 'Thiết lập lịch tuần' : `Chỉnh ngày ${edit.date}`} description="Bắt buộc lý do. Phiên đã chốt hoặc qua giờ chốt giữ nguyên; lỗi lưu giữ dữ liệu bạn nhập." busy={save.isPending} onClose={() => setEdit(null)}>
       <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!save.isPending) save.mutate() }}>
         {edit.kind === 'schedule' ? <fieldset className="calendar-weekdays"><legend>Các thứ có tổ chức ăn</legend>{[1, 2, 3, 4, 5, 6, 0].map(value => <label key={value}><input type="checkbox" disabled={save.isPending} checked={checkedDays.includes(value)} onChange={e => setCheckedDays(previous => e.target.checked ? [...previous, value] : previous.filter(x => x !== value))} />{weekdays[value]}</label>)}</fieldset> :
@@ -115,7 +141,7 @@ export function MealCalendarPage() {
         <div className="form-actions"><button type="button" className="button secondary" disabled={generate.isPending} onClick={() => setPreviewDialog(null)}>Đóng</button><button type="button" className="button primary" disabled={generate.isPending || !(previewDialog.data.createCount + previewDialog.data.restoreCount)} onClick={() => generate.mutate()}>Xác nhận tạo lịch</button></div>
       </div></Modal>}
     {historyOpen && <Modal title="Lịch sử thay đổi lịch bữa ăn" description="50 thay đổi gần nhất của năm học." onClose={() => setHistoryOpen(false)}><div className="workflow-form">
-      {history.isPending ? <p>Đang tải…</p> : history.isError ? <p className="error">{apiErrorMessage(history.error)}</p> : !history.data?.length ? <p>Chưa có thay đổi.</p> : history.data.map(item => <div className="entry" key={item.id}><strong>{auditLabel[item.kind]} {item.date}</strong><small>{item.actorName} · {schoolDateTime(item.recordedAt)}</small><p>{item.reason}</p></div>)}
+      {historyContent}
     </div></Modal>}
   </>
 }

@@ -7,8 +7,14 @@ import { Pagination } from '../../components/Pagination'
 type LinkRequest = { id: string; studentCode: string; studentName: string; relationship: string; note: string; status: string; requestedAt: string; reviewReason: string | null; revision: number; parentName: string; parentPhone: string | null; className: string | null; classId: string | null; revokedAt: string | null; revocationReason: string | null }
 const statuses: Record<string, string> = { PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối', CANCELLED: 'Đã hủy', REVOKED: 'Đã thu hồi' }
 const relationships: Record<string, string> = { FATHER: 'Cha', MOTHER: 'Mẹ', GUARDIAN: 'Người giám hộ' }
+const sortSchoolYearsNewestFirst = (years: string[]) => years.sort((a, b) => b.localeCompare(a, 'vi', { numeric: true }))
+const getModalTitle = (mode: NonNullable<ParentLinksPageState['modal']>) => {
+  const titles = { bulk: 'Duyệt theo danh sách lớp', revoke: 'Thu hồi liên kết', create: 'Yêu cầu liên kết trẻ', cancel: 'Hủy yêu cầu', review: 'Đối chiếu và duyệt liên kết' }
+  return titles[mode]
+}
+type ParentLinksPageState = { modal: 'create' | 'review' | 'cancel' | 'bulk' | 'revoke' | null }
 
-export function ParentLinksPage({ roles }: { roles: string[] }) {
+export function ParentLinksPage({ roles }: Readonly<{ roles: string[] }>) {
   const parent = roles.includes('PARENT')
   const staff = roles.some(x => ['ADMIN', 'TEACHER'].includes(x))
   const [review, setReview] = useState(!parent)
@@ -31,7 +37,7 @@ export function ParentLinksPage({ roles }: { roles: string[] }) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (busy) return
+    if (busy) { return }
     const data = new FormData(event.currentTarget)
     setBusy(true); setError('')
     try {
@@ -43,7 +49,7 @@ export function ParentLinksPage({ roles }: { roles: string[] }) {
       setChecked({})
       setModal(null)
       await cache.invalidateQueries()
-    } catch (failure) { setError(apiErrorMessage(failure)) }
+    } catch (error_) { setError(apiErrorMessage(error_)) }
     finally { setBusy(false) }
   }
   function open(mode: 'create' | 'review' | 'cancel' | 'bulk' | 'revoke', item: LinkRequest | null = null) { setSelected(item); setError(''); setModal(mode) }
@@ -51,15 +57,15 @@ export function ParentLinksPage({ roles }: { roles: string[] }) {
   return <section>
     <h1>Liên kết trẻ</h1>
     <p>Chọn năm học và lớp của trẻ, nhập họ tên trẻ và gửi yêu cầu để giáo viên đối chiếu. Chỉ sau khi được duyệt, phụ huynh mới có quyền xem và báo vắng cho trẻ.</p>
-    {parent && staff && <div className="actions"><button className="button secondary" onClick={() => { setReview(false); setStatus(''); setPage(1); setChecked({}) }}>Yêu cầu của tôi</button><button className="button secondary" onClick={() => { setReview(true); setStatus('PENDING'); setPage(1); setChecked({}) }}>Cần nhà trường duyệt</button></div>}
-    {!review && <button className="button primary" onClick={() => open('create')}>Yêu cầu liên kết trẻ</button>}
-    {review && <div className="panel link-class-panel"><label className="field">Năm học<select value={year} onChange={e => { setYear(e.target.value); setClassId(''); setPage(1); setChecked({}) }}><option value="">Tất cả năm học</option>{[...new Set(classes.data?.map(x => x.schoolYear) ?? [])].sort().reverse().map(x => <option key={x}>{x}</option>)}</select></label><label className="field">Lớp phụ trách<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1); setChecked({}) }}><option value="">Tất cả lớp được phân công</option>{classes.data?.filter(x => !year || x.schoolYear === year).map(x => <option key={x.id} value={x.id}>{x.name} · {x.schoolYear}</option>)}</select></label>
-      {classes.isError && <p role="alert">{apiErrorMessage(classes.error)} <button onClick={() => void classes.refetch()}>Thử lại</button></p>}
-      <div className="actions"><button className="button secondary" disabled={(!classId && !year) || query.isFetching || busy} onClick={() => setChecked(Object.fromEntries((query.data?.items ?? []).filter(x => x.status === 'PENDING').map(x => [x.id, x.revision])))}>Chọn yêu cầu chờ trên trang</button><button className="button secondary" onClick={() => setChecked({})} disabled={busy}>Bỏ chọn</button><button className="button primary" disabled={(!classId && !year) || !Object.keys(checked).length || query.isFetching || busy} onClick={() => open('bulk')}>Xử lý {Object.keys(checked).length} yêu cầu đã chọn</button></div>
+    {parent && staff && <div className="actions"><button type="button" className="button secondary" onClick={() => { setReview(false); setStatus(''); setPage(1); setChecked({}) }}>Yêu cầu của tôi</button><button type="button" className="button secondary" onClick={() => { setReview(true); setStatus('PENDING'); setPage(1); setChecked({}) }}>Cần nhà trường duyệt</button></div>}
+    {!review && <button type="button" className="button primary" onClick={() => open('create')}>Yêu cầu liên kết trẻ</button>}
+    {review && <div className="panel link-class-panel"><label className="field">Năm học<select value={year} onChange={e => { setYear(e.target.value); setClassId(''); setPage(1); setChecked({}) }}><option value="">Tất cả năm học</option>{sortSchoolYearsNewestFirst([...new Set(classes.data?.map(x => x.schoolYear) ?? [])]).map(x => <option key={x}>{x}</option>)}</select></label><label className="field">Lớp phụ trách<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1); setChecked({}) }}><option value="">Tất cả lớp được phân công</option>{classes.data?.filter(x => !year || x.schoolYear === year).map(x => <option key={x.id} value={x.id}>{x.name} · {x.schoolYear}</option>)}</select></label>
+      {classes.isError && <p role="alert">{apiErrorMessage(classes.error)} <button type="button" onClick={() => void classes.refetch()}>Thử lại</button></p>}
+      <div className="actions"><button type="button" className="button secondary" disabled={(!classId && !year) || query.isFetching || busy} onClick={() => setChecked(Object.fromEntries((query.data?.items ?? []).filter(x => x.status === 'PENDING').map(x => [x.id, x.revision])))}>Chọn yêu cầu chờ trên trang</button><button type="button" className="button secondary" onClick={() => setChecked({})} disabled={busy}>Bỏ chọn</button><button type="button" className="button primary" disabled={(!classId && !year) || !Object.keys(checked).length || query.isFetching || busy} onClick={() => open('bulk')}>Xử lý {Object.keys(checked).length} yêu cầu đã chọn</button></div>
       <p>Rà danh sách trẻ, tên phụ huynh và SĐT; bỏ chọn trường hợp chưa rõ. Mỗi lượt xử lý tối đa 100 yêu cầu đã chọn.</p></div>}
     <label className="field">Trạng thái<select value={status} onChange={e => { setStatus(e.target.value); setPage(1); setChecked({}) }}><option value="">Tất cả</option>{Object.entries(statuses).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label>
-    {query.isPending && <p role="status">Đang tải…</p>}
-    {query.isError && <div role="alert">{apiErrorMessage(query.error)} <button onClick={() => void query.refetch()}>Thử lại</button></div>}
+    {query.isPending && <output aria-live="polite">Đang tải…</output>}
+    {query.isError && <div role="alert">{apiErrorMessage(query.error)} <button type="button" onClick={() => void query.refetch()}>Thử lại</button></div>}
     {query.data?.items.length === 0 && <p>Chưa có yêu cầu liên kết.</p>}
     <div className="link-request-list">{query.data?.items.map(item => <article className="link-request-card" key={item.id}>
       {review && (classId || year) && item.status === 'PENDING' && <label className="link-selection"><input type="checkbox" aria-label={`Chọn ${item.studentName} - ${item.parentName}`} checked={Object.hasOwn(checked, item.id)} disabled={busy || query.isFetching} onChange={e => setChecked(previous => { const next = { ...previous }; if (e.target.checked) next[item.id] = item.revision; else delete next[item.id]; return next })} />Chọn yêu cầu</label>}
@@ -70,18 +76,18 @@ export function ParentLinksPage({ roles }: { roles: string[] }) {
         {item.note && <><dt>Ghi chú</dt><dd>{item.note}</dd></>}{item.reviewReason && <><dt>Kết quả đối chiếu</dt><dd>{item.reviewReason}</dd></>}
         {item.revocationReason && <><dt>Lý do thu hồi</dt><dd>{item.revocationReason}</dd></>}
       </dl>
-      {item.status === 'PENDING' && <button className="button secondary" onClick={() => open(review ? 'review' : 'cancel', item)}>{review ? 'Duyệt / từ chối' : 'Hủy yêu cầu'}</button>}
-      {review && item.status === 'APPROVED' && <button className="button secondary" onClick={() => open('revoke', item)}>Thu hồi liên kết sai</button>}
+      {item.status === 'PENDING' && <button type="button" className="button secondary" onClick={() => open(review ? 'review' : 'cancel', item)}>{review ? 'Duyệt / từ chối' : 'Hủy yêu cầu'}</button>}
+      {review && item.status === 'APPROVED' && <button type="button" className="button secondary" onClick={() => open('revoke', item)}>Thu hồi liên kết sai</button>}
     </article>)}</div>
     {query.data && <Pagination page={page} pageSize={pageSize} total={query.data.total} onChange={next => { setPage(next); setChecked({}) }} busy={query.isFetching} />}
-    {modal && <Modal title={modal === 'bulk' ? 'Duyệt theo danh sách lớp' : modal === 'revoke' ? 'Thu hồi liên kết' : modal === 'create' ? 'Yêu cầu liên kết trẻ' : modal === 'cancel' ? 'Hủy yêu cầu' : 'Đối chiếu và duyệt liên kết'} busy={busy} onClose={() => setModal(null)}><form className="workflow-form" onSubmit={submit}>
+    {modal && <Modal title={getModalTitle(modal)} busy={busy} onClose={() => setModal(null)}><form className="workflow-form" onSubmit={submit}>
       {selected && <p><strong>{selected.studentName}</strong> · {selected.studentCode}</p>}
-      {modal === 'create' && <><label className="field">Năm học của trẻ<select required value={formYear} onChange={e => setFormYear(e.target.value)}><option value="">Chọn năm học</option>{[...new Set(classes.data?.map(x => x.schoolYear) ?? [])].sort().reverse().map(x => <option key={x}>{x}</option>)}</select></label><label className="field">Lớp của trẻ<select name="classId" required key={formYear} defaultValue=""><option value="">Chọn lớp</option>{classes.data?.filter(x => x.schoolYear === formYear).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label className="field">Họ tên trẻ<input name="studentName" required maxLength={150} /></label><label className="field">Quan hệ<select name="relationship" required>{Object.entries(relationships).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label className="field">Ghi chú để nhà trường đối chiếu<textarea name="note" maxLength={500} /></label></>}
+      {modal === 'create' && <><label className="field">Năm học của trẻ<select required value={formYear} onChange={e => setFormYear(e.target.value)}><option value="">Chọn năm học</option>{sortSchoolYearsNewestFirst([...new Set(classes.data?.map(x => x.schoolYear) ?? [])]).map(x => <option key={x}>{x}</option>)}</select></label><label className="field">Lớp của trẻ<select name="classId" required key={formYear} defaultValue=""><option value="">Chọn lớp</option>{classes.data?.filter(x => x.schoolYear === formYear).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label className="field">Họ tên trẻ<input name="studentName" required maxLength={150} /></label><label className="field">Quan hệ<select name="relationship" required>{Object.entries(relationships).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label className="field">Ghi chú để nhà trường đối chiếu<textarea name="note" maxLength={500} /></label></>}
       {(modal === 'review' || modal === 'bulk') && <><p>Đối chiếu danh tính và quan hệ phụ huynh {selected?.parentName} với hồ sơ nhà trường trước khi cấp quyền truy cập trẻ.</p><label className="field">Quyết định<select name="approve"><option value="false">Từ chối</option><option value="true">Duyệt liên kết</option></select></label><label className="field">Kết quả đối chiếu / lý do<textarea name="reason" required maxLength={500} /></label></>}
       {modal === 'bulk' && <><p><strong>{room?.name || year} · {Object.keys(checked).length} yêu cầu</strong>. Chỉ các yêu cầu bạn đã chọn được xử lý. Nếu danh sách vừa thay đổi, hệ thống yêu cầu tải lại toàn bộ lượt duyệt.</p><ul>{query.data?.items.filter(x => Object.hasOwn(checked, x.id)).map(x => <li key={x.id}>{x.studentName} — {x.parentName} — {x.parentPhone}</li>)}</ul></>}
       {modal === 'revoke' && <><p>Gỡ quyền truy cập trẻ của {selected?.parentName} và thu hồi phiên đăng nhập hiện có. Lịch sử duyệt được giữ; phụ huynh có thể gửi yêu cầu đúng để duyệt lại.</p><label className="field">Lý do thu hồi<textarea name="reason" required maxLength={500} /></label></>}
       {modal === 'cancel'  && <p>Hủy yêu cầu đang chờ duyệt này?</p>}
-      {error && <p role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy ? 'Đang xử lý…' : 'Xác nhận'}</button>
+      {error && <p role="alert">{error}</p>}<button type="submit" className="button primary" disabled={busy}>{busy ? 'Đang xử lý…' : 'Xác nhận'}</button>
     </form></Modal>}
   </section>
 }

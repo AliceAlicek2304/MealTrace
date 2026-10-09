@@ -4,9 +4,9 @@ import { getScopeOptions } from '../features/access/authApi'
 import { Pagination } from './Pagination'
 import { api } from '../lib/api'
 
-export function ClassPicker({ value, onChange, label = 'Lớp', required = false, disabled = false, compact = false, assignedOnly = false, showSchoolYear = false }: {
+export function ClassPicker({ value, onChange, label = 'Lớp', required = false, disabled = false, compact = false, assignedOnly = false, showSchoolYear = false }: Readonly<{
   value: string; onChange: (id: string) => void; label?: string; required?: boolean; disabled?: boolean; compact?: boolean; assignedOnly?: boolean; showSchoolYear?: boolean
-}) {
+}>) {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const query = useQuery({ queryKey: ['scope-options', assignedOnly ? 'assigned-classes' : 'classes', search, page, value],

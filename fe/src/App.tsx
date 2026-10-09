@@ -16,7 +16,11 @@ import { PortionsPage } from './features/workflow/PortionsPage'
 import { MealCalendarPage } from './features/workflow/MealCalendarPage'
 import { LandingPage } from './features/landing/LandingPage'
 
-const mealRoles = ['ADMIN', 'KITCHEN_STAFF']
+const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
+const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
+  links: 'Liên kết trẻ', accounts: 'Tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
+  portions: 'Số suất', absences: 'Báo vắng', meals: 'Ngày ăn', profile: 'Hồ sơ',
+}
 
 export default function App() {
   const queryClient = useQueryClient()
@@ -30,7 +34,7 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(() => !!pageFromHash())
   const isAdmin = user?.roles.includes('ADMIN') ?? false
   const canRegisterStudents = isAdmin || (user?.roles.includes('TEACHER') ?? false)
-  const isMealStaff = user?.roles.some(role => mealRoles.includes(role)) ?? false
+  const isMealStaff = user?.roles.some(role => mealRoles.has(role)) ?? false
   const canSeePortions = user?.roles.some(role => ['ADMIN', 'TEACHER', 'KITCHEN_STAFF'].includes(role)) ?? false
   const isParent = user?.roles.includes('PARENT') ?? false
 
@@ -94,45 +98,82 @@ export default function App() {
     setPage(requested && canOpenPage(requested, result.user.roles) ? requested : defaultPage(result.user.roles), true)
   }
 
-  if (restoring) return <main className="session-status" role="status">Đang khôi phục phiên đăng nhập…</main>
-  if (restoreError) return <main className="session-status"><h1>Chưa kết nối được máy chủ</h1><p role="alert">{restoreError}</p><button className="button primary" onClick={() => setRestoreAttempt(value => value + 1)}>Thử lại</button><button className="button secondary" onClick={() => { setRestoreError(''); clearSession() }}>Đăng nhập lại</button></main>
-  if (!user) return showLogin ? <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} /> : <LandingPage onLogin={() => setShowLogin(true)} />
-  const pageName = page === 'links' ? 'Liên kết trẻ' : page === 'accounts' ? 'Tài khoản' : page === 'classes' ? 'Lớp và trẻ' : page === 'calendar' ? 'Lịch bữa ăn' : page === 'portions' ? 'Số suất' : page === 'absences' ? 'Báo vắng' : page === 'meals' ? 'Ngày ăn' : 'Hồ sơ'
+  if (restoring) return <output className="session-status" aria-live="polite">Đang khôi phục phiên đăng nhập…</output>
+  if (restoreError) return <main className="session-status"><h1>Chưa kết nối được máy chủ</h1><p role="alert">{restoreError}</p><button type="button" className="button primary" onClick={() => setRestoreAttempt(value => value + 1)}>Thử lại</button><button type="button" className="button secondary" onClick={() => { setRestoreError(''); clearSession() }}>Đăng nhập lại</button></main>
+  if (!user) {
+    if (showLogin) return <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} />
+    return <LandingPage onLogin={() => setShowLogin(true)} />
+  }
+  const pageName = page ? pageLabels[page] : pageLabels.profile
 
-  const navigation = (id: string) => (
-      <nav id={id} aria-label="Điều hướng chính" onClick={event => {
-        if ((event.target as HTMLElement).closest('button')) setMenuOpen(false)
-      }}>
-        {isAdmin && <button type="button" className={`nav ${page === 'accounts' ? 'active' : ''}`} onClick={() => setPage('accounts')}><Users size={18} /> Tài khoản</button>}
-        {canRegisterStudents && <button type="button" className={`nav ${page === 'classes' ? 'active' : ''}`} onClick={() => setPage('classes')}><School size={18} /> Lớp và trẻ</button>}
-        {isAdmin && <button type="button" className={`nav ${page === 'calendar' ? 'active' : ''}`} onClick={() => setPage('calendar')}><CalendarDays size={18} /> Lịch bữa ăn</button>}
-        {canSeePortions && <button type="button" className={`nav ${page === 'portions' ? 'active' : ''}`} onClick={() => setPage('portions')}><ClipboardList size={18} /> Số suất</button>}
-        {isParent && <button type="button" className={`nav ${page === 'absences' ? 'active' : ''}`} onClick={() => setPage('absences')}><CalendarOff size={18} /> Báo vắng</button>}
-        {isMealStaff && <button type="button" className={`nav ${page === 'meals' ? 'active' : ''}`} onClick={() => setPage('meals')}><CalendarDays size={18} /> Ngày ăn</button>}
-        {(isParent || canRegisterStudents) && <button type="button" className={`nav ${page === 'links' ? 'active' : ''}`} onClick={() => setPage('links')}><Users size={18} /> Liên kết trẻ</button>}
-        <button type="button" className={`nav ${page === 'profile' ? 'active' : ''}`} onClick={() => setPage('profile')}><UserRound size={18} /> Hồ sơ của tôi</button>
-      </nav>
-  )
+  const navProps = { page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate: (nextPage: NonNullable<typeof page>) => { setPage(nextPage); setMenuOpen(false) } }
 
   return <div className="shell">
     <button ref={menuButtonRef} type="button" className="mobile-menu-toggle" aria-label="Mở menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><Menu size={23} /></button>
-    {menuOpen && <Modal drawer title="MealTrace" onClose={() => { setMenuOpen(false); menuButtonRef.current?.focus() }}>{navigation('mobile-navigation')}</Modal>}
+    {menuOpen && <Modal drawer title="MealTrace" onClose={() => { setMenuOpen(false); menuButtonRef.current?.focus() }}><AppNavigation {...navProps} id="mobile-navigation" /></Modal>}
     <aside className="sidebar">
       <div className="brand"><span className="logo"><Leaf size={22} /></span><span>meal<b>trace</b><small>School meal operations</small></span></div>
       <p className="side-label">KHÔNG GIAN LÀM VIỆC</p>
-      {navigation('main-navigation')}
+      <AppNavigation {...navProps} id="main-navigation" />
       <div className="side-foot"><ShieldCheck size={17} /> Dữ liệu có thể truy vết</div>
     </aside>
     <div className="content">
       <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
-      <main>{page === 'accounts' && isAdmin ? <AccountsPage />
-        : page === 'classes' && canRegisterStudents ? <ClassesPage isAdmin={isAdmin} />
-        : page === 'calendar' && isAdmin ? <MealCalendarPage />
-        : page === 'portions' && canSeePortions ? <PortionsPage roles={user.roles} />
-        : page === 'absences' && isParent ? <AbsencesPage />
-        : page === 'meals' && isMealStaff ? <MealDaysPage />
-        : page === 'links' && (isParent || canRegisterStudents) ? <ParentLinksPage roles={user.roles} />
-        : <ProfilePage user={user} onPasswordChanged={clearSession} />}</main>
+      <main><PageContent page={page} user={user} isAdmin={isAdmin} canRegisterStudents={canRegisterStudents}
+        canSeePortions={canSeePortions} isParent={isParent} isMealStaff={isMealStaff} onPasswordChanged={clearSession} /></main>
     </div>
   </div>
+}
+
+type NavigationProps = {
+  id: string
+  page: ReturnType<typeof usePageNavigation>[0]
+  isAdmin: boolean
+  canRegisterStudents: boolean
+  canSeePortions: boolean
+  isParent: boolean
+  isMealStaff: boolean
+  onNavigate: (page: NonNullable<ReturnType<typeof usePageNavigation>[0]>) => void
+}
+
+function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate }: NavigationProps) {
+  const items = [
+    { id: 'accounts', label: 'Tài khoản', icon: Users, visible: isAdmin },
+    { id: 'classes', label: 'Lớp và trẻ', icon: School, visible: canRegisterStudents },
+    { id: 'calendar', label: 'Lịch bữa ăn', icon: CalendarDays, visible: isAdmin },
+    { id: 'portions', label: 'Số suất', icon: ClipboardList, visible: canSeePortions },
+    { id: 'absences', label: 'Báo vắng', icon: CalendarOff, visible: isParent },
+    { id: 'meals', label: 'Ngày ăn', icon: CalendarDays, visible: isMealStaff },
+    { id: 'links', label: 'Liên kết trẻ', icon: Users, visible: isParent || canRegisterStudents },
+    { id: 'profile', label: 'Hồ sơ của tôi', icon: UserRound, visible: true },
+  ] as const
+  return <nav id={id} aria-label="Điều hướng chính">
+    {items.filter(item => item.visible).map(item => {
+      const Icon = item.icon
+      return <button key={item.id} type="button" className={`nav ${page === item.id ? 'active' : ''}`} onClick={() => onNavigate(item.id)}><Icon size={18} /> {item.label}</button>
+    })}
+  </nav>
+}
+
+function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onPasswordChanged }: {
+  page: ReturnType<typeof usePageNavigation>[0]
+  user: CurrentUser
+  isAdmin: boolean
+  canRegisterStudents: boolean
+  canSeePortions: boolean
+  isParent: boolean
+  isMealStaff: boolean
+  onPasswordChanged: () => void
+}) {
+  switch (page) {
+    case 'accounts': if (isAdmin) return <AccountsPage />; break
+    case 'classes': if (canRegisterStudents) return <ClassesPage isAdmin={isAdmin} />; break
+    case 'calendar': if (isAdmin) return <MealCalendarPage />; break
+    case 'portions': if (canSeePortions) return <PortionsPage roles={user.roles} />; break
+    case 'absences': if (isParent) return <AbsencesPage />; break
+    case 'meals': if (isMealStaff) return <MealDaysPage />; break
+    case 'links': if (isParent || canRegisterStudents) return <ParentLinksPage roles={user.roles} />; break
+    default: break
+  }
+  return <ProfilePage user={user} onPasswordChanged={onPasswordChanged} />
 }

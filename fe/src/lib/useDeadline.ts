@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 // Recheck on returning to a suspended/background tab as well as at the deadline.
 export function useDeadline(value: string | undefined): boolean {
-  const deadline = value ? Date.parse(value) : NaN
+  const deadline = value ? Date.parse(value) : Number.NaN
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     const update = () => setNow(Date.now())

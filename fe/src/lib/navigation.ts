@@ -14,8 +14,10 @@ export function canOpenPage(page: Page, roles: string[]) {
   return page === 'profile' || permissions[page].some(role => roles.includes(role))
 }
 export function defaultPage(roles: string[]): Page {
-  return roles.includes('ADMIN') ? 'portions' : roles.includes('PARENT') ? 'absences'
-    : roles.some(role => ['TEACHER', 'KITCHEN_STAFF'].includes(role)) ? 'portions' : 'profile'
+  if (roles.includes('ADMIN')) return 'portions'
+  if (roles.includes('PARENT')) return 'absences'
+  if (roles.some(role => ['TEACHER', 'KITCHEN_STAFF'].includes(role))) return 'portions'
+  return 'profile'
 }
 export function usePageNavigation() {
   const [page, setPage] = useState<Page | null>(pageFromHash)

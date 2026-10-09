@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 
-export function FilterPanel({ children, activeCount = 0 }: { children: ReactNode; activeCount?: number }) {
+export function FilterPanel({ children, activeCount = 0 }: Readonly<{ children: ReactNode; activeCount?: number }>) {
   const [open, setOpen] = useState(false)
   const id = useId()
   return <div className="filter-panel">

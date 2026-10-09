@@ -3,7 +3,7 @@ import { registerParent, requestParentOtp, type ParentOtpChallenge, type ParentR
 import { normalizePhone, validateParentRegistration } from './validation'
 import { apiErrorMessage } from '../../lib/api'
 
-export function RegisterParentForm({ onSuccess, onBack }: { onSuccess: (phone: string) => void; onBack: () => void }) {
+export function RegisterParentForm({ onSuccess, onBack }: Readonly<{ onSuccess: (phone: string) => void; onBack: () => void }>) {
   const [draft, setDraft] = useState<ParentRegistration>({ fullName: '', phoneNumber: '', password: '' })
   const [confirmation, setConfirmation] = useState('')
   const [pending, setPending] = useState(false)
@@ -14,6 +14,9 @@ export function RegisterParentForm({ onSuccess, onBack }: { onSuccess: (phone: s
   const [now, setNow] = useState(Date.now())
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer) }, [])
   const resendSeconds = Math.max(0, Math.ceil((resendAt - now) / 1000))
+  let otpButtonLabel = 'Gửi OTP qua WhatsApp'
+  if (challenge) otpButtonLabel = 'Gửi lại OTP WhatsApp'
+  if (resendSeconds > 0) otpButtonLabel = `Gửi lại sau ${resendSeconds}s`
   async function sendOtp() {
     if (pending || resendSeconds > 0) return
     const phone = normalizePhone(draft.phoneNumber)
@@ -43,8 +46,8 @@ export function RegisterParentForm({ onSuccess, onBack }: { onSuccess: (phone: s
     <p className="lead">Sau khi đăng ký, nhà trường cần liên kết tài khoản với trẻ để bạn xem dữ liệu.</p>
     <label className="field">Họ tên<input required maxLength={120} autoComplete="name" disabled={pending} value={draft.fullName} onChange={e => setDraft({ ...draft, fullName: e.target.value })} /></label>
     <label className="field">Số điện thoại<input required type="tel" maxLength={30} autoComplete="tel" disabled={pending} value={draft.phoneNumber} onChange={e => { setDraft({ ...draft, phoneNumber: e.target.value }); setChallenge(null); setOtpCode(''); setResendAt(0) }} /></label>
-    <button type="button" className="button login-button" disabled={pending || resendSeconds > 0} onClick={sendOtp}>{resendSeconds > 0 ? `Gửi lại sau ${resendSeconds}s` : challenge ? 'Gửi lại OTP WhatsApp' : 'Gửi OTP qua WhatsApp'}</button>
-    {challenge && <><p role="status">{challenge.message}</p><label className="field">Mã OTP WhatsApp<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} disabled={pending} value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))} /></label><small>Nhập mã trong 5 phút. Gửi lại sẽ vô hiệu mã cũ.</small></>}
+    <button type="button" className="button login-button" disabled={pending || resendSeconds > 0} onClick={sendOtp}>{otpButtonLabel}</button>
+    {challenge && <><output aria-live="polite">{challenge.message}</output><label className="field">Mã OTP WhatsApp<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} disabled={pending} value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))} /></label><small>Nhập mã trong 5 phút. Gửi lại sẽ vô hiệu mã cũ.</small></>}
     <label className="field">Mật khẩu<input required type="password" maxLength={128} autoComplete="new-password" disabled={pending} value={draft.password} onChange={e => setDraft({ ...draft, password: e.target.value })} /><small>Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small></label>
     <label className="field">Nhập lại mật khẩu<input required type="password" maxLength={128} autoComplete="new-password" disabled={pending} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></label>
     {error && <p role="alert" className="form-error">{error}</p>}

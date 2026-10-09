@@ -9,7 +9,7 @@ import { Modal } from '../../components/Modal'
 type Preview = { sheetName: string; ignoredColumns: string[]; canImport: boolean; rows: { row: number; fullName: string; dateOfBirth?: string | null; gender?: string | null; parentPhoneNumber?: string | null; error: string | null }[] }
 type ImportRow = Preview['rows'][number]
 
-export function StudentImportForm({ initialClassId = '', onDone, onBusy }: { initialClassId?: string; onDone: () => void; onBusy: (busy: boolean) => void }) {
+export function StudentImportForm({ initialClassId = '', onDone, onBusy }: Readonly<{ initialClassId?: string; onDone: () => void; onBusy: (busy: boolean) => void }>) {
   const client = useQueryClient()
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
   const [classId, setClassId] = useState(initialClassId)
@@ -58,7 +58,10 @@ export function StudentImportForm({ initialClassId = '', onDone, onBusy }: { ini
       </details>
       {!preview.canImport && <p role="alert" className="error">Có dòng lỗi hoặc trùng. Sửa file rồi xem trước lại; chưa lưu trẻ nào.</p>}
       <div className="student-import-table"><table><thead><tr><th scope="col">Dòng</th><th scope="col">Họ tên trẻ</th><th scope="col">Ngày sinh</th><th scope="col">Giới tính</th><th scope="col">SĐT phụ huynh</th><th scope="col">Kiểm tra</th></tr></thead><tbody>{preview.rows.map(row => <tr key={row.row} className={row.error ? 'import-row-error' : ''}><td>{row.row}</td><td><strong>{row.fullName || '(Thiếu họ tên)'}</strong></td><td>{displayBirth(row.dateOfBirth)}</td><td>{displayGender(row.gender)}</td><td>{row.parentPhoneNumber || 'Chưa có'}</td><td>{row.error ? <span className="error">{row.error}</span> : <span className="status active">Hợp lệ</span>}</td></tr>)}</tbody></table></div>
-      <ul className="student-import-cards" aria-label="Danh sách trẻ rút gọn">{preview.rows.map(row => <li key={row.row}><button type="button" className="student-import-card" aria-label={`Xem chi tiết ${row.fullName || `dòng ${row.row}`}`} onClick={() => setDetail(row)}><strong>{row.fullName || '(Thiếu họ tên)'}</strong><span className={`status ${row.error ? 'suspended' : 'active'}`}>{row.error ? 'Có lỗi' : 'Hợp lệ'}</span><span className="student-import-phone">SĐT: {row.parentPhoneNumber || 'Chưa có'}</span><span className="student-import-detail-link">Xem chi tiết ›</span></button></li>)}</ul>
+      <ul className="student-import-cards" aria-label="Danh sách trẻ rút gọn">{preview.rows.map(row => {
+        const accessibleName = row.fullName || `dòng ${row.row}`
+        return <li key={row.row}><button type="button" className="student-import-card" aria-label={`Xem chi tiết ${accessibleName}`} onClick={() => setDetail(row)}><strong>{row.fullName || '(Thiếu họ tên)'}</strong><span className={`status ${row.error ? 'suspended' : 'active'}`}>{row.error ? 'Có lỗi' : 'Hợp lệ'}</span><span className="student-import-phone">SĐT: {row.parentPhoneNumber || 'Chưa có'}</span><span className="student-import-detail-link">Xem chi tiết ›</span></button></li>
+      })}</ul>
       <div className="student-import-footer">
       <label className="switch-line"><input type="checkbox" disabled={!preview.canImport || upload.isPending} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /> Tôi đã kiểm tra danh sách và lớp nhận trẻ</label>
       <div className="form-actions"><button className="button secondary" type="button" disabled={upload.isPending} onClick={reset}>Quay lại chọn file</button><button className="button primary" type="button" disabled={!preview.canImport || !confirmed || upload.isPending} onClick={() => upload.mutate(true)}>{upload.isPending ? 'Đang xử lý…' : `Nhập ${preview.rows.length} trẻ`}</button></div>

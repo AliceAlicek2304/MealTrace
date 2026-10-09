@@ -12,13 +12,24 @@ import { PortionAmendments } from './PortionAmendments'
 import { SchoolYearPicker } from '../../components/SchoolYearPicker'
 import { Pagination } from '../../components/Pagination'
 import { Modal } from '../../components/Modal'
+import { QueryState } from '../../components/QueryState'
 
 type Day = { id: string; date: string; mealType: string; schoolYear: string | null; cutoffAt: string; isSettled: boolean; isCancelled: boolean; cancellationReason: string | null }
 type DayPage = { items: Day[]; total: number }
 type Room = { classId: string; className: string; schoolYear: string; studentIds: string[]; studentNames: string[]; absentStudentIds: string[]; isSettled: boolean; version: number; originalCount: number | null; count: number | null; kitchenAdjustment: number }
 type Portions = { id: string; date: string; mealType: string; cutoffAt: string; classes: Room[]; isCancelled: boolean; cancellationReason: string | null; isSettled: boolean }
+function workflowStatusLabel(day: Day): string {
+  if (day.isCancelled) return 'Đã hủy'
+  if (day.isSettled) return 'Đã chốt'
+  return 'Chưa chốt'
+}
+function workflowStatusClass(day: Day): string {
+  if (day.isCancelled) return 'suspended'
+  if (day.isSettled) return 'active'
+  return ''
+}
 
-export function PortionsPage({ roles }: { roles: string[] }) {
+export function PortionsPage({ roles }: Readonly<{ roles: string[] }>) {
   const queryClient = useQueryClient()
   const isAdmin = roles.includes('ADMIN')
   const isTeacher = roles.includes('TEACHER')
@@ -61,10 +72,10 @@ export function PortionsPage({ roles }: { roles: string[] }) {
     <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách phiên ăn</h2>{isAdmin && <button type="button" className="button primary" onClick={() => setCreateOpen(true)}>Tạo phiên ăn</button>}</div><FilterPanel activeCount={filterDate ? 1 : 0}><div className="list-toolbar">
       <label className="field">Lọc ngày ăn<input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setDayPage(1) }} /></label>
       <button type="button" className="button secondary" onClick={() => { setFilterDate(''); setDayPage(1) }}>Bỏ lọc</button></div></FilterPanel>
-      {days.isPending ? <p className="empty compact">Đang tải phiên ăn…</p> : days.isError ? <p className="empty compact error">Không tải được phiên ăn.</p> : <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Ngày ăn</th><th scope="col">Bữa ăn</th><th scope="col">Năm học</th><th scope="col">Giờ chốt</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>
-        {days.data?.items.map(day => <tr key={day.id}><td>{day.date}</td><td><strong>{day.mealType}</strong></td><td>{day.schoolYear ?? 'Chưa gắn năm học'}</td><td>{schoolTime(day.cutoffAt)}</td><td><span className={`status ${day.isCancelled ? 'suspended' : day.isSettled ? 'active' : ''}`}>{day.isCancelled ? 'Đã hủy' : day.isSettled ? 'Đã chốt' : 'Chưa chốt'}</span></td><td><button type="button" className="button secondary" onClick={() => { setSelected(day.id); setPicked(day); setDetailTab('portions') }}>Xem / Quản lý</button></td></tr>)}
+      <QueryState loading={days.isPending} error={days.isError} loadingMessage="Đang tải phiên ăn…" errorMessage="Không tải được phiên ăn."><div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Ngày ăn</th><th scope="col">Bữa ăn</th><th scope="col">Năm học</th><th scope="col">Giờ chốt</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead><tbody>
+        {days.data?.items.map(day => <tr key={day.id}><td>{day.date}</td><td><strong>{day.mealType}</strong></td><td>{day.schoolYear ?? 'Chưa gắn năm học'}</td><td>{schoolTime(day.cutoffAt)}</td><td><span className={`status ${workflowStatusClass(day)}`}>{workflowStatusLabel(day)}</span></td><td><button type="button" className="button secondary" onClick={() => { setSelected(day.id); setPicked(day); setDetailTab('portions') }}>Xem / Quản lý</button></td></tr>)}
         {!days.data?.items.length && <tr><td colSpan={6} className="empty compact">Không có phiên ăn phù hợp.</td></tr>}
-      </tbody></ResponsiveTable></div>}
+      </tbody></ResponsiveTable></div></QueryState>
       <Pagination page={dayPage} total={days.data?.total ?? 0} pageSize={25} busy={days.isFetching} onChange={setDayPage} />
     </section>
     {selected && <Modal wide title={`${current?.mealType ?? 'Phiên ăn'} · ${current?.date ?? ''}`} busy={settle.isPending} onClose={() => { setSelected(''); setPicked(null); setRoster(null); setConfirmSettle(false) }}>
@@ -76,10 +87,10 @@ export function PortionsPage({ roles }: { roles: string[] }) {
     {detailTab === 'portions' && <section className="workflow-lists"><div className="panel-head"><div><h2>Suất ăn theo lớp</h2>
       <p>Giờ chốt: {current ? schoolDateTime(current.cutoffAt) : '—'} · {total} suất</p>{cancelled && <p className="error">Đã hủy: {portions.data?.cancellationReason ?? current?.cancellationReason}</p>}</div>
       {isAdmin && current && !settled && !cancelled && <button type="button" className="button primary" disabled={settle.isPending || !cutoffPassed} onClick={() => setConfirmSettle(true)}>Chốt và gửi bếp</button>}</div>
-      {portions.isPending ? <p className="empty compact">Đang tính số suất…</p> : portions.isError ? <p className="empty compact error">Không tải được danh sách.</p> : <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Số suất</th><th scope="col">Trạng thái / phiên bản</th><th scope="col">Thao tác</th></tr></thead><tbody>{portions.data?.classes.map(room =>
+      <QueryState loading={portions.isPending} error={portions.isError} loadingMessage="Đang tính số suất…" errorMessage="Không tải được danh sách."><div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Số suất</th><th scope="col">Trạng thái / phiên bản</th><th scope="col">Thao tác</th></tr></thead><tbody>{portions.data?.classes.map(room =>
         <tr key={room.classId}><td><strong>{room.className}</strong></td><td>{room.schoolYear}</td><td>{room.count ?? room.studentIds.length}{room.kitchenAdjustment !== 0 && <small>{room.studentIds.length} trẻ · bếp {room.kitchenAdjustment > 0 ? "+" : ""}{room.kitchenAdjustment}</small>}</td><td>{room.isSettled ? `Bản ${room.version} · gốc ${room.originalCount} suất` : `${room.absentStudentIds.length} trẻ không có suất dự kiến`}</td>
           <td><button type="button" className="button secondary" onClick={() => setRoster(room)}>Danh sách trẻ</button></td></tr>)}
-        {!portions.data?.classes.length && <tr><td colSpan={5} className="empty compact">Chưa có suất theo lớp.</td></tr>}</tbody></ResponsiveTable></div>}</section>}
+        {!portions.data?.classes.length && <tr><td colSpan={5} className="empty compact">Chưa có suất theo lớp.</td></tr>}</tbody></ResponsiveTable></div></QueryState></section>}
     {detailTab === 'exceptions' && (isAdmin || isTeacher) && <MealExceptions key={selected} mealId={selected} />}
     {detailTab === 'amendments' && settled && !cancelled && portions.data && <PortionAmendments key={selected} mealId={selected} rooms={portions.data.classes} roles={roles} />}
     </Modal>}

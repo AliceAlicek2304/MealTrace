@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 
 type Year = { code: string; startDate: string | null; endDate: string | null }
 
-export function SchoolYearPicker({ value, onChange, configuredOnly = false }: { value: string; onChange: (code: string) => void; configuredOnly?: boolean }) {
+export function SchoolYearPicker({ value, onChange, configuredOnly = false }: Readonly<{ value: string; onChange: (code: string) => void; configuredOnly?: boolean }>) {
   const years = useQuery({ queryKey: ['admin-academic-years'], queryFn: async () => (await api.get<Year[]>('/admin/academic-years')).data })
   const options = years.data?.filter(year => !configuredOnly || year.startDate) ?? []
   return <label className="field">Niên khóa<select required disabled={years.isPending || years.isError} value={value} onChange={e => onChange(e.target.value)}>

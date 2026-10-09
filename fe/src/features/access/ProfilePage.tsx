@@ -4,7 +4,7 @@ import type { CurrentUser } from './authApi'
 import { Modal } from '../../components/Modal'
 import { roles } from './model'
 
-export function ProfilePage({ user, onPasswordChanged }: { user: CurrentUser; onPasswordChanged: () => void }) {
+export function ProfilePage({ user, onPasswordChanged }: Readonly<{ user: CurrentUser; onPasswordChanged: () => void }>) {
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')

@@ -21,7 +21,7 @@ export function currentSettlements(rows: MealSettlement[]): MealSettlement[] {
   return legacy ? [legacy] : []
 }
 
-export function MealSettlementTables({ rows }: { rows: MealSettlement[] }) {
+export function MealSettlementTables({ rows }: Readonly<{ rows: MealSettlement[] }>) {
   const [view, setView] = useState<'current' | 'history'>('current')
   const current = currentSettlements(rows)
   const currentIds = new Set(current.map(row => row.id))

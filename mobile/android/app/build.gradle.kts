@@ -28,6 +28,9 @@ android {
     buildTypes {
         release {
             // Release signing must be configured with a private keystore before distribution.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
 }

@@ -34,4 +34,10 @@ describe('phone account validation', () => {
     expect(validateUserDraft(draft, [], null)).toBeNull()
     expect(validateUserDraft(draft, [{ ...draft, id: 'existing', phoneNumber: '0901234567' }], null)).toMatch(/SĐT/)
   })
+  it('rejects malformed email local parts and domain labels', () => {
+    const base = { ...emptyDraft(), fullName: 'Parent', roles: ['PARENT'] as SchoolUser['roles'] }
+    for (const email of ['.parent@example.com', 'parent..name@example.com', 'parent@-example.com', 'parent@example-.com', 'parent@example..com']) {
+      expect(validateUserDraft({ ...base, email }, [], null), email).toMatch(/Email không hợp lệ/)
+    }
+  })
 })

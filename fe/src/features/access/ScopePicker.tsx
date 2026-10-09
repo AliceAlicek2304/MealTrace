@@ -4,7 +4,7 @@ import { getScopeOptions } from './authApi'
 import { ClassPicker } from '../../components/ClassPicker'
 import { Pagination } from '../../components/Pagination'
 
-export function ScopePicker({ kind, selected, onChange }: { kind: 'classes' | 'students'; selected: string[]; onChange: (ids: string[]) => void }) {
+export function ScopePicker({ kind, selected, onChange }: Readonly<{ kind: 'classes' | 'students'; selected: string[]; onChange: (ids: string[]) => void }>) {
   const [search, setSearch] = useState('')
   const [classId, setClassId] = useState('')
   const [page, setPage] = useState(1)
@@ -14,11 +14,15 @@ export function ScopePicker({ kind, selected, onChange }: { kind: 'classes' | 's
       selectedStudentIds: kind === 'students' ? selected.join(',') : undefined }) })
   const items = query.data?.[kind] ?? []
   const chosen = (kind === 'classes' ? query.data?.selectedClasses : query.data?.selectedStudents) ?? []
+  let results
+  if (query.isPending) results = <p>Đang tải…</p>
+  else if (query.isError) results = <p className="error">Không tải được phạm vi. Hãy thử lại.</p>
+  else results = <div className="inline-choices">{items.filter(x => !selected.includes(x.id)).map(x => <label key={x.id}><input type="checkbox" checked={false} onChange={() => toggle(x.id)} /> {x.name}</label>)}{!items.length && <p>Không có kết quả.</p>}</div>
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id])
   return <><label className="field">Tìm {kind === 'classes' ? 'lớp / niên khóa' : 'mã hoặc tên trẻ'}<input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
     {kind === 'students' && <ClassPicker value={classId} onChange={id => { setClassId(id); setPage(1) }} label="Lọc trẻ theo lớp hiện tại" />}
     <p>Đã chọn: {selected.length}</p><div className="inline-choices">{chosen.map(x => <label key={x.id}><input type="checkbox" checked onChange={() => toggle(x.id)} /> {x.name}</label>)}</div>
-    {query.isPending ? <p>Đang tải…</p> : query.isError ? <p className="error">Không tải được phạm vi. Hãy thử lại.</p> : <div className="inline-choices">{items.filter(x => !selected.includes(x.id)).map(x => <label key={x.id}><input type="checkbox" checked={false} onChange={() => toggle(x.id)} /> {x.name}</label>)}{!items.length && <p>Không có kết quả.</p>}</div>}
+    {results}
     <Pagination page={page} total={(kind === 'classes' ? query.data?.classTotal : query.data?.studentTotal) ?? 0} pageSize={25} busy={query.isFetching} onChange={setPage} />
   </>
 }

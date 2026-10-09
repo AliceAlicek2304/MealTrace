@@ -1,8 +1,8 @@
 type Option<T extends string> = { value: T; label: string }
 
-export function SectionSwitcher<T extends string>({ label, value, options, onChange }: {
+export function SectionSwitcher<T extends string>({ label, value, options, onChange }: Readonly<{
   label: string; value: T; options: Option<T>[]; onChange: (value: T) => void
-}) {
+}>) {
   return <div className="section-switcher">
     <label className="field section-select">{label}<select value={value} onChange={event => onChange(event.target.value as T)}>
       {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}

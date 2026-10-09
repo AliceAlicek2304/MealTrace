@@ -22,7 +22,7 @@ type History = { items: Event[]; total: number }
 const sourceLabel: Record<string, string> = { DEFAULT: 'Mặc định có suất', PARENT_ABSENCE: 'Phụ huynh đăng ký không ăn / báo vắng', STAFF_EAT: 'Ngoại lệ: có suất', STAFF_ABSENT: 'Ngoại lệ: không có suất' }
 const actionLabel: Record<Action, string> = { EAT: 'Dự kiến có suất', ABSENT: 'Dự kiến không có suất', DEFAULT: 'Khôi phục mặc định' }
 
-export function MealExceptions({ mealId }: { mealId: string }) {
+export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
   const cache = useQueryClient()
   const [search, setSearch] = useState('')
   const searchTerm = useDebouncedValue(search.trim())

@@ -15,7 +15,7 @@ const features = [
   { icon: ShieldCheck, title: 'Dữ liệu có nguồn', body: 'Từ số suất đến báo cáo, từng bước được lưu để đối chiếu khi cần.', color: 'mint' },
 ] as const
 
-export function LandingPage({ onLogin }: { onLogin: () => void }) {
+export function LandingPage({ onLogin }: Readonly<{ onLogin: () => void }>) {
   const [activeStep, setActiveStep] = useState(0)
   const ActiveIcon = steps[activeStep].icon
 

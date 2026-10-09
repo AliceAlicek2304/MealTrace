@@ -22,7 +22,7 @@ function notificationMessage(result: NotificationResult) {
   return 'Hồ sơ đã lưu nhưng chưa gửi được tin. Hãy liên hệ quản trị viên để được hỗ trợ.'
 }
 
-export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
+export function ClassesPage({ isAdmin = true }: Readonly<{ isAdmin?: boolean }>) {
   const queryClient = useQueryClient()
   const notifications = useQuery({ queryKey: ['notification-settings'], queryFn: async () =>
     (await api.get<{ enabled: boolean; channel: string }>('/notifications/settings')).data })
@@ -72,7 +72,7 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
 
   function submitClass(event: FormEvent) { event.preventDefault(); addClass.mutate() }
   function submitStudent(event: FormEvent) { event.preventDefault(); addStudent.mutate() }
-  function submitLink(event: FormEvent) { event.preventDefault(); if (linkParent.isPending) return; setTemporaryPassword(''); setNotificationResult(null); linkParent.mutate() }
+  function submitLink(event: FormEvent) { event.preventDefault(); if (linkParent.isPending) { return }; setTemporaryPassword(''); setNotificationResult(null); linkParent.mutate() }
   function openParent(student: Student | { id: string; fullName: string }) {
     setSelectedStudentId(student.id); setSelectedStudentName(student.fullName); setParentPhone(''); setParentName(''); setTemporaryPassword(''); setNotificationResult(null); setSendRegistrationNotification(false)
   }
@@ -109,7 +109,7 @@ export function ClassesPage({ isAdmin = true }: { isAdmin?: boolean }) {
           <label className="switch-line"><input type="checkbox" disabled={!notifications.data?.enabled} checked={sendRegistrationNotification} onChange={e => setSendRegistrationNotification(e.target.checked)} /> Gửi hướng dẫn đăng nhập qua {channel}</label>
           <button type="submit" className="button primary" disabled={linkParent.isPending}>Liên kết</button></div></form>
       <p className="form-help">Hồ sơ và tài khoản vẫn được lưu nếu gửi tin không thành công. Phụ huynh cần dùng WhatsApp để nhận tin.</p>
-      {notificationResult && <p className={notificationResult.status === 'ACCEPTED' ? 'form-help' : 'error'} role="status">{notificationMessage(notificationResult)}</p>}
+      {notificationResult && <output className={notificationResult.status === 'ACCEPTED' ? 'form-help' : 'error'} aria-live="polite">{notificationMessage(notificationResult)}</output>}
       {temporaryPassword && <div className="credential-once"><strong>Đăng nhập: {credentialPhone} · Mật khẩu tạm:</strong> <code>{temporaryPassword}</code><button type="button" onClick={() => setTemporaryPassword('')}>Đã lưu, ẩn mật khẩu</button><small>Chỉ hiển thị một lần. Chuyển riêng cho phụ huynh qua kênh an toàn.</small></div>}
     </Modal>}
   </>
