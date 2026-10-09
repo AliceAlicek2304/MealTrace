@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -11,10 +12,11 @@ import 'package:mealtrace_mobile/features/auth/presentation/auth_controller.dart
 import 'package:mealtrace_mobile/features/auth/presentation/login_page.dart';
 import 'support/auth_fixtures.dart';
 
-const input = ParentRegistration(
+// Ephemeral input for mocked signup, not a real account credential.
+final input = ParentRegistration(
   ' Phụ huynh ',
   '+84 901234567',
-  'ParentSignup!123',
+  '${base64Url.encode(List<int>.generate(16, (_) => Random.secure().nextInt(256)))}Aa1!',
   challengeId: 'challenge-1',
   otpCode: '123456',
 );

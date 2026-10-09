@@ -12,7 +12,8 @@ async function receiveOtp() {
   fireEvent.click(screen.getByText('Gửi OTP qua WhatsApp'))
   fireEvent.change(await screen.findByLabelText('Mã OTP WhatsApp'), { target: { value: '123456' } })
 }
-const draft = { fullName: 'Phụ huynh', phoneNumber: '+84 901234567', password: 'ParentSignup!123' }
+// Ephemeral test input; never an application credential.
+const draft = { fullName: 'Phụ huynh', phoneNumber: '+84 901234567', password: `${crypto.randomUUID()}Aa1!` }
 function fill() {
   fireEvent.change(screen.getByLabelText('Họ tên'), { target: { value: draft.fullName } })
   fireEvent.change(screen.getByLabelText('Số điện thoại'), { target: { value: draft.phoneNumber } })

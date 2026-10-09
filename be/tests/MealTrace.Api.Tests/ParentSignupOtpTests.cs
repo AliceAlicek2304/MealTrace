@@ -25,7 +25,7 @@ public sealed class ParentSignupOtpTests
         using var factory = new AuthTestFactory();
         await factory.SeedUsersAsync();
         using var client = factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/auth/register", new { fullName = "Phụ huynh", phoneNumber = "0901234567", password = "ParentSignup!123" });
+        var response = await client.PostAsJsonAsync("/api/auth/register", new { fullName = "Phụ huynh", phoneNumber = "0901234567", password = $"Aa1!{Guid.NewGuid():N}" });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         using var scope = factory.Services.CreateScope();
         Assert.Equal(2, await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().Users.CountAsync());

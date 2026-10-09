@@ -36,7 +36,8 @@ public sealed class ParentSignupTests
         return new(name, "0901234567", Password, challenge!.ChallengeId, sender.LastCode);
     }
 
-    private const string Password = "ParentSignup!123";
+    // Generated for isolated test accounts, never used by the application seeder.
+    private static readonly string Password = $"Aa1!{Guid.NewGuid():N}";
 
     [Fact]
     public async Task PublicSignupLimitsRepeatedAttempts()
@@ -122,16 +123,16 @@ public sealed class ParentSignupTests
     }
 
     [Theory]
-    [InlineData("", "0901234567", Password)]
-    [InlineData("Phụ huynh", "123", Password)]
+    [InlineData("", "0901234567", null)]
+    [InlineData("Phụ huynh", "123", null)]
     [InlineData("Phụ huynh", "0901234567", "short")]
     [InlineData("Phụ huynh", "0901234567", "lowercaseonly123!")]
-    public async Task InvalidSignupDoesNotCreateAnAccount(string name, string phone, string password)
+    public async Task InvalidSignupDoesNotCreateAnAccount(string name, string phone, string? password)
     {
         using var factory = new AuthTestFactory(otpSender: new RecordingOtpSender());
         await factory.SeedUsersAsync();
         using var client = factory.CreateClient();
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/register", new { fullName = name, phoneNumber = phone, password })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/register", new { fullName = name, phoneNumber = phone, password = password ?? Password })).StatusCode);
         using var scope = factory.Services.CreateScope();
         Assert.Equal(2, await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().Users.CountAsync());
     }
