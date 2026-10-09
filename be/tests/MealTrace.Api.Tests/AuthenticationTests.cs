@@ -441,7 +441,7 @@ public sealed class AuthenticationTests
     internal static async Task<string> LoginAsync(HttpClient client, string email, string password)
     {
         client.DefaultRequestHeaders.Authorization = null;
-        var response = await client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password });
         response.EnsureSuccessStatusCode();
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return json.RootElement.GetProperty("accessToken").GetString()!;

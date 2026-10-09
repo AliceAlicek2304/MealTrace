@@ -20,7 +20,7 @@ public static class AuthEndpoints
             }
         });
 
-        group.MapPost("/login", async (LoginRequest request, AuthService service) => (await service.LoginAsync(request)).ToHttpResult()).RequireRateLimiting("login").AllowAnonymous().Produces<LoginResponse>().WithName("Login");
+        group.MapPost("/login", async (LoginRequest request, AuthService service) => (await service.LoginAsync(request)).ToHttpResult()).RequireRateLimiting("login").AllowAnonymous().Produces<LoginResponse>().WithName("Login").WithSummary("Đăng nhập").WithDescription("Gửi identifier là email hoặc số điện thoại cùng với mật khẩu.");
 
         group.MapPost("/register/otp", async (RequestParentOtp request, ParentSignupOtpService service) => (await service.RequestAsync(request)).ToHttpResult()).RequireRateLimiting("registrationOtp").AllowAnonymous().Produces<ParentOtpResponse>().WithName("RequestParentOtp");
 

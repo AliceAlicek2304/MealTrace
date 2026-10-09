@@ -56,7 +56,7 @@ public sealed class AuthService(IAuthRepository repository, IIdentityService use
 
     public async Task<Result<LoginResponse>> LoginAsync(LoginRequest request)
     {
-        var identifier = request.Identifier ?? request.Email;
+        var identifier = request.Identifier;
         if (string.IsNullOrWhiteSpace(identifier) || string.IsNullOrWhiteSpace(request.Password))
             return Result.Invalid("SĐT hoặc email và mật khẩu là bắt buộc.");
         var phone = PhoneNumbers.Normalize(identifier);
