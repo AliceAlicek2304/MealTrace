@@ -38,6 +38,7 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     public DbSet<SettlementDecision> SettlementDecisions => Set<SettlementDecision>();
     public DbSet<PortionAmendment> PortionAmendments => Set<PortionAmendment>();
     public DbSet<PortionAmendmentResolution> PortionAmendmentResolutions => Set<PortionAmendmentResolution>();
+    public DbSet<SettlementAcknowledgement> SettlementAcknowledgements => Set<SettlementAcknowledgement>();
     public DbSet<MealEvidence> MealEvidence => Set<MealEvidence>();
     public DbSet<ReportSnapshot> ReportSnapshots => Set<ReportSnapshot>();
 
@@ -78,6 +79,7 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
         model.ApplyConfiguration(new Configurations.SettlementStudentConfiguration());
         model.ApplyConfiguration(new Configurations.RecipeIngredientConfiguration());
         model.ApplyConfiguration(new Configurations.ReportSnapshotConfiguration());
+        model.ApplyConfiguration(new Configurations.SettlementAcknowledgementConfiguration());
     }
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -97,7 +99,7 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
             (x.Entity is StudentImportBatch or StudentImportBatchItem)))
             throw new InvalidOperationException("Import history is append-only.");
         if (ChangeTracker.Entries().Any(x => (x.State is EntityState.Modified or EntityState.Deleted) &&
-            (x.Entity is PortionSettlement or SettlementStudent or SettlementDecision or PortionAmendment or PortionAmendmentStudent or PortionAmendmentResolution)))
+            (x.Entity is PortionSettlement or SettlementStudent or SettlementDecision or PortionAmendment or PortionAmendmentStudent or PortionAmendmentResolution or SettlementAcknowledgement)))
             throw new InvalidOperationException("Settlement snapshots and amendments are append-only.");
         if (ChangeTracker.Entries<MealCalendarAudit>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Calendar audit records are append-only.");

@@ -15,6 +15,7 @@ public static class KitchenEndpoints
 
         kitchen.MapIngredientEndpoints();
         kitchen.MapRecipeEndpoints();
+        kitchen.MapKitchenSettlementEndpoints();
 
         return app;
     }
