@@ -120,7 +120,7 @@ h1, h2, h3 { font-family: 'Baloo 2', 'Manrope', sans-serif; }
 .journey-stickers span:nth-child(2) { font-size: 18px; align-self: end; }
 
 .roles-section { padding-top: 115px; padding-bottom: 112px; }
-.role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 23px; }
+.role-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 23px; }
 .role-grid article { position: relative; background: #fffefa; border: 3px solid #f1e9dd; border-radius: 24px; padding: 30px 28px; box-shadow: 0 8px 0 #e9dfd2; }
 .role-grid article::after { content: '✦'; position: absolute; top: 25px; right: 26px; color: #e5d4fa; font-size: 38px; }
 .role-avatar { width: 58px; height: 58px; border-radius: 19px; display: grid; place-items: center; margin-bottom: 24px; transform: rotate(-6deg); }

@@ -56,7 +56,7 @@ export function AbsencesPage() {
     if (absences.data) setPage(previous => Math.min(previous, Math.max(1, Math.ceil(absences.data.total / 25))))
   }, [absences.data])
   const report = useMutation({ mutationFn: () => api.post('/parent/absences', { studentId, fromDate, toDate, reason }),
-    onSuccess: async () => { setCreateOpen(false); setReason(''); toast.success('Đã đăng ký không ăn. Thay đổi sau giờ chốt không đổi số suất đã gửi bếp.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
+    onSuccess: async () => { setCreateOpen(false); setReason(''); toast.success('Đã lưu đăng ký không ăn. Thay đổi sau giờ chốt không làm đổi số suất đã chốt.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   const cancel = useMutation({ mutationFn: (id: string) => api.post(`/parent/absences/${id}/cancel`),
     onSuccess: async () => { setCancelTarget(null); toast.success('Đã hủy báo vắng. Bản suất đã chốt trước đó vẫn được giữ.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },

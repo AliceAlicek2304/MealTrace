@@ -75,7 +75,7 @@ export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
     <Pagination page={historyPage} total={history.data?.total ?? 0} pageSize={25} busy={history.isFetching || save.isPending} onChange={setHistoryPage} />
   </>
   return <section className="panel workflow-lists"><div className="panel-head"><div><h2>{decisions.data?.isSettled ? 'Nguồn trước điều chỉnh và suất hiện hành' : 'Nguồn dự kiến ăn và ngoại lệ'}</h2>
-    <p>{decisions.data?.isSettled ? 'Cột tại giờ chốt giữ nguồn dự kiến ban đầu. Cột hiện hành lấy bản chốt mới nhất sau các phiếu đã duyệt; phiếu đang chờ chưa áp dụng.' : 'Bao gồm trẻ có suất và không có suất. Đây là dự kiến ăn, chưa xác nhận có mặt thực tế.'}</p></div></div>
+    <p>{decisions.data?.isSettled ? 'Cột tại giờ chốt giữ dữ liệu dự kiến ban đầu. Cột hiện hành hiển thị bản mới nhất sau khi các yêu cầu điều chỉnh được duyệt; yêu cầu đang chờ chưa áp dụng.' : 'Bao gồm trẻ có suất và không có suất. Đây là số liệu dự kiến, chưa xác nhận tình hình có mặt thực tế.'}</p></div></div>
     <FilterPanel activeCount={[searchTerm, classId].filter(Boolean).length}><div className="workflow-form workflow-fields"><label className="field">Tìm trẻ<input placeholder="Mã hoặc tên trẻ" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
       <label className="field">Lớp<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1) }}><option value="">Tất cả lớp được xem</option>
         {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div></FilterPanel>
@@ -84,8 +84,8 @@ export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
       {!canEdit && <p className="empty compact">{decisions.data?.isCancelled ? `Phiên đã hủy: ${decisions.data.cancellationReason ?? 'Theo lịch trường'}` : 'Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.'}</p>}
       {decisions.data?.isSettled && <div className="workflow-form">
         <QueryState loading={applied.isPending} error={applied.isError} loadingMessage="Đang tải suất hiện hành…" errorMessage="Không tải được suất hiện hành." onRetry={() => void applied.refetch()}>
-          <p><strong>Đang gửi bếp: {filteredRooms?.reduce((sum, room) => sum + (room.count ?? room.studentIds.length), 0) ?? 0} suất</strong> · {classId ? 'Lớp đã chọn' : 'Các lớp được xem'} (không phụ thuộc ô tìm trẻ).</p>
-          {filteredRooms?.some(room => room.kitchenAdjustment !== 0) && <p>Điều chỉnh số lượng bếp không gắn trẻ: {filteredRooms.reduce((sum, room) => sum + room.kitchenAdjustment, 0)} suất. Trạng thái suất từng trẻ giữ riêng, không tự thay đổi tiền ăn.</p>}
+          <p><strong>Tổng số suất hiện hành: {filteredRooms?.reduce((sum, room) => sum + (room.count ?? room.studentIds.length), 0) ?? 0}</strong> · {classId ? 'Lớp đã chọn' : 'Các lớp được xem'} (không phụ thuộc ô tìm trẻ).</p>
+          {filteredRooms?.some(room => room.kitchenAdjustment !== 0) && <p>Điều chỉnh tổng số suất không gắn với trẻ: {filteredRooms.reduce((sum, room) => sum + room.kitchenAdjustment, 0)} suất. Trạng thái suất từng trẻ được lưu riêng và không tự thay đổi tiền ăn.</p>}
         </QueryState>
       </div>}
       {!decisions.data?.items.length && <p className="empty compact">{searchTerm || classId ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ ghi danh tại ngày ăn.'}</p>}

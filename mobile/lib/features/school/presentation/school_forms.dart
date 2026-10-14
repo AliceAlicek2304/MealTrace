@@ -40,7 +40,7 @@ class SchoolField {
 }
 
 const roleLabels = {
-  'ADMIN': 'Ban giám hiệu / Admin',
+  'ADMIN': 'Ban giám hiệu / Quản lý',
   'TEACHER': 'Giáo viên',
   'KITCHEN_STAFF': 'Bếp & y tế',
   'PARENT': 'Phụ huynh',
@@ -411,7 +411,7 @@ final schoolForms = <SchoolOperation, SchoolForm>{
     [],
     confirm: true,
     help:
-        'Chốt bản suất gửi bếp? Sau chốt, thay đổi cần lập phiếu điều chỉnh và Admin duyệt.',
+        'Chốt số suất cho phiên ăn? Sau giờ chốt, mọi thay đổi cần có yêu cầu điều chỉnh được quản lý duyệt.',
   ),
   SchoolOperation.recordException: const SchoolForm(
     SchoolOperation.recordException,
@@ -454,7 +454,7 @@ final schoolForms = <SchoolOperation, SchoolForm>{
       ),
       SchoolField(
         'quantity',
-        'Số suất riêng cho bếp (khi không chọn trẻ)',
+        'Điều chỉnh tổng số suất (khi không chọn trẻ)',
         kind: FieldKind.integer,
         required: false,
       ),
@@ -463,11 +463,11 @@ final schoolForms = <SchoolOperation, SchoolForm>{
     bound: ['classId', 'baseSettlementId'],
     confirm: true,
     help:
-        'Bản gốc giữ nguyên. Suất hiện hành chỉ đổi sau khi Admin duyệt. Chọn nhiều trẻ hoặc nhập số suất riêng cho bếp.',
+        'Bản gốc được lưu để đối chiếu. Số suất hiện hành chỉ đổi sau khi quản lý duyệt. Chọn trẻ hoặc điều chỉnh tổng số suất.',
   ),
   SchoolOperation.reviewAmendment: const SchoolForm(
     SchoolOperation.reviewAmendment,
-    'Duyệt phiếu điều chỉnh',
+    'Duyệt yêu cầu điều chỉnh',
     [
       SchoolField(
         'approve',
@@ -480,7 +480,7 @@ final schoolForms = <SchoolOperation, SchoolForm>{
     ],
     confirm: true,
     help:
-        'Duyệt tạo bản suất mới áp dụng cho bếp. Đối chiếu bản trước/sau trước khi xác nhận.',
+        'Duyệt sẽ cập nhật bản suất hiện hành làm căn cứ chuẩn bị bữa ăn. Hãy đối chiếu bản trước và sau khi xác nhận.',
   ),
   SchoolOperation.schedule: const SchoolForm(
     SchoolOperation.schedule,
