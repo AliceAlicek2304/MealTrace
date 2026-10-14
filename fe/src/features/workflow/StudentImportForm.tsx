@@ -46,7 +46,7 @@ export function StudentImportForm({ initialClassId = '', onDone, onBusy }: Reado
     upload.mutate(false)
   }
   return <form className="workflow-form" onSubmit={submit}>
-    <p className="form-help">Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Lớp, ngày bắt đầu do Admin chọn bên dưới. Không tạo phụ huynh hoặc gửi WhatsApp.</p>
+    <p className="form-help">Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Quản lý chọn lớp và ngày bắt đầu bên dưới. Không tạo phụ huynh hoặc gửi WhatsApp.</p>
     <ClassPicker compact required assignedOnly showSchoolYear disabled={upload.isPending} value={classId} onChange={value => { setClassId(value); reset() }} />
     <label className="field">Ngày bắt đầu học<input type="date" required min={today} disabled={upload.isPending} value={startDate} onChange={event => { setStartDate(event.target.value); reset() }} /></label>
     <label className="field">File danh sách XLSX<input type="file" required accept=".xlsx" disabled={upload.isPending} onChange={event => { setFile(event.target.files?.[0] ?? null); reset() }} /></label>

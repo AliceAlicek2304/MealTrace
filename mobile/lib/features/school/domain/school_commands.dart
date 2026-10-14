@@ -56,7 +56,7 @@ String? validateSchoolCommand(
   if (operation == SchoolOperation.requestAmendment &&
       ((input['studentIds'] as List<Object?>).length > 200 ||
           (input['quantity'] is int && (input['quantity'] as int) > 200))) {
-    return 'Một phiếu điều chỉnh tối đa 200 trẻ hoặc 200 suất.';
+    return 'Mỗi yêu cầu điều chỉnh tối đa 200 trẻ hoặc 200 suất.';
   }
   if (operation == SchoolOperation.changeEnrollment &&
       context['earliestChangeDate'] is String &&
@@ -105,7 +105,7 @@ String? validateSchoolCommand(
   if (operation == SchoolOperation.requestAmendment &&
       (input['studentIds'] as List<Object?>).isEmpty &&
       input['quantity'] == null) {
-    return 'Chọn trẻ hoặc nhập số suất riêng cho bếp.';
+    return 'Chọn trẻ hoặc nhập điều chỉnh tổng số suất.';
   }
   if (operation == SchoolOperation.reportAbsence &&
       value('fromDate').compareTo(schoolToday()) < 0) {

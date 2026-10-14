@@ -5,7 +5,7 @@ class AccountPage extends StatelessWidget {
   const AccountPage({super.key, required this.auth});
   final AuthController auth;
   static const _roles = {
-    'ADMIN': 'Quản trị viên',
+    'ADMIN': 'Quản lý nhà trường',
     'TEACHER': 'Giáo viên',
     'PARENT': 'Phụ huynh',
     'KITCHEN_STAFF': 'Nhân viên bếp',

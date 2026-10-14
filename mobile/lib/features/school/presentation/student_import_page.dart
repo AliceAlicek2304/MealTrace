@@ -49,7 +49,7 @@ class _StudentImportPageState extends State<StudentImportPage> {
   Future<void> loadClasses() async {
     try {
       if (!widget.roles.contains('ADMIN')) {
-        throw const SchoolFailure('Chỉ Admin được nhập trẻ từ Excel.');
+        throw const SchoolFailure('Chỉ quản lý được nhập trẻ từ Excel.');
       }
       final result = await controller.execute(SchoolOperation.assignedClasses);
       if (mounted) {
@@ -290,7 +290,7 @@ class _StudentImportPageState extends State<StudentImportPage> {
           children: [
             if (preview == null) ...[
               const Text(
-                'Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Admin chọn lớp và ngày bắt đầu. Không tạo phụ huynh hoặc gửi WhatsApp. Một sheet, tối đa 500 trẻ, 5 MB.',
+                'Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Quản lý chọn lớp và ngày bắt đầu. Không tạo phụ huynh hoặc gửi WhatsApp. Một sheet, tối đa 500 trẻ, 5 MB.',
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
