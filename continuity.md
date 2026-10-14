@@ -1,6 +1,6 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 09/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 14/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
@@ -49,6 +49,8 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 
 ## 4. Đang làm và vấn đề còn lại
 
+- Rà luồng liên kết phụ huynh: Android tự tải yêu cầu chờ ngay khi mở màn hình duyệt. Web có toast kết quả, tải lại danh sách, thử lại tải lớp trong form, cập nhật trạng thái định kỳ; xung đột duyệt/hủy/thu hồi tải lại dữ liệu và bỏ lựa chọn cũ. Form đăng ký web/Android hướng dẫn phụ huynh chủ động vào Liên kết trẻ sau đăng nhập. Duyệt vẫn bắt buộc đối chiếu hồ sơ; chưa duyệt không cấp quyền xem trẻ.
+
 - BE nền đã tối ưu: thống nhất thời gian UTC+7/giờ chốt, bảo vệ chuyển lớp khi chờ khóa; lọc phạm vi lớp và phân trang ngoại lệ tại DB, chỉ đọc bản suất hiện hành, tính quyết định một lần khi chốt. Giữ hợp đồng API cho FE; chi tiết kiểm chứng cá nhân được giữ local.
 - FE đã ghi rõ lịch tuần chưa cấu hình; BE vẫn cần phân biệt trạng thái này với ngày nghỉ, nhất là khi có phiên cũ đã chốt.
 - API bếp đã dùng đúng role ADMIN/KITCHEN_STAFF. Dinh dưỡng chưa đủ P-L-G và cần chốt nguồn/công thức tính.
@@ -66,6 +68,8 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 5. Đăng ký mẫu WhatsApp sản xuất cho tin ngoài cửa sổ hội thoại; xử lý SMS với Twilio. Email, phí/sổ cái, offline ảnh và dashboard nâng cao làm sau; Android đang nghiệm thu các luồng đã có trên web.
 
 ## 6. Làm việc chung
+
+- Web là ứng dụng quản lý: mở thẳng đăng nhập khi chưa có phiên; đăng xuất hoặc phiên hết hạn quay về đăng nhập. Đã bỏ trang giới thiệu và nút quay lại trang đó. Nhãn nút giữ một dòng; nhóm thao tác ở khung hẹp xếp thành các hàng đầy đủ, không để nút bị ép chữ hoặc tự chia nhóm 2 + 1. Bộ chọn nội dung phiên ăn chuyển dropdown theo độ rộng khung chứa; nhóm thao tác trẻ trên điện thoại ưu tiên nút Thêm trẻ ở đầu.
 
 - Làm trên nhánh cá nhân, bàn giao phần BE hoàn chỉnh theo luồng và review trước merge main; tránh làm gián đoạn các bạn khác.
 - Quy ước Application: class xử lý nghiệp vụ dùng hậu tố `Service` (AuthService, WorkflowService, MealCalendarService…). Endpoint gọi Service; Service gọi repository qua interface; giữ phân tầng Clean Architecture.

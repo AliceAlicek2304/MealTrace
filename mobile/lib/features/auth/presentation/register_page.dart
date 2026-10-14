@@ -100,7 +100,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 padding: const EdgeInsets.all(24),
                 children: [
                   const Text(
-                    'Nhà trường cần liên kết tài khoản với trẻ để bạn xem dữ liệu. Bạn không cần chọn vai trò.',
+                    'Đăng ký xong, đăng nhập và vào Liên kết trẻ để chọn năm học, lớp và gửi yêu cầu. Nhà trường duyệt xong, bạn có thể xem và báo vắng cho con.',
                   ),
                   const SizedBox(height: 24),
                   TextFormField(

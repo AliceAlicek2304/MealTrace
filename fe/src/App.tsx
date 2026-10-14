@@ -14,7 +14,6 @@ import { ClassesPage } from './features/workflow/ClassesPage'
 import { AbsencesPage } from './features/workflow/AbsencesPage'
 import { PortionsPage } from './features/workflow/PortionsPage'
 import { MealCalendarPage } from './features/workflow/MealCalendarPage'
-import { LandingPage } from './features/landing/LandingPage'
 
 const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
 const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
@@ -31,7 +30,6 @@ export default function App() {
   const [restoring, setRestoring] = useState(!!getAccessToken())
   const [restoreError, setRestoreError] = useState('')
   const [restoreAttempt, setRestoreAttempt] = useState(0)
-  const [showLogin, setShowLogin] = useState(() => !!pageFromHash())
   const isAdmin = user?.roles.includes('ADMIN') ?? false
   const canRegisterStudents = isAdmin || (user?.roles.includes('TEACHER') ?? false)
   const isMealStaff = user?.roles.some(role => mealRoles.has(role)) ?? false
@@ -43,7 +41,6 @@ export default function App() {
     setUser(null)
     setPage('profile', true)
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
-    setShowLogin(false)
     queryClient.clear()
   }
 
@@ -100,10 +97,7 @@ export default function App() {
 
   if (restoring) return <output className="session-status" aria-live="polite">Đang khôi phục phiên đăng nhập…</output>
   if (restoreError) return <main className="session-status"><h1>Chưa kết nối được máy chủ</h1><p role="alert">{restoreError}</p><button type="button" className="button primary" onClick={() => setRestoreAttempt(value => value + 1)}>Thử lại</button><button type="button" className="button secondary" onClick={() => { setRestoreError(''); clearSession() }}>Đăng nhập lại</button></main>
-  if (!user) {
-    if (showLogin) return <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} />
-    return <LandingPage onLogin={() => setShowLogin(true)} />
-  }
+  if (!user) return <LoginPage onLogin={onLogin} />
   const pageName = page ? pageLabels[page] : pageLabels.profile
 
   const navProps = { page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate: (nextPage: NonNullable<typeof page>) => { setPage(nextPage); setMenuOpen(false) } }
