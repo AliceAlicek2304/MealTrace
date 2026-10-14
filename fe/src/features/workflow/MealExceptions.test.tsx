@@ -28,7 +28,7 @@ describe('Meal decision UI', () => {
     await waitFor(() => expect(within(row).getByText('Không có suất')).toBeTruthy())
     expect(within(row).getByText('Có suất')).toBeTruthy()
     expect(within(row).getByText('Bản 2 · Đã điều chỉnh')).toBeTruthy()
-    expect(screen.getByText('Đang gửi bếp: 2 suất')).toBeTruthy()
+    expect(screen.getByText('Tổng số suất hiện hành: 2')).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Ghi ngoại lệ' }) as HTMLButtonElement).disabled).toBe(true)
   })
 

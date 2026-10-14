@@ -18,8 +18,8 @@ import { LandingPage } from './features/landing/LandingPage'
 
 const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
 const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
-  links: 'Liên kết trẻ', accounts: 'Tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
-  portions: 'Số suất', absences: 'Báo vắng', meals: 'Ngày ăn', profile: 'Hồ sơ',
+  links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
+  portions: 'Số suất', absences: 'Báo vắng', meals: 'Theo dõi bữa ăn', profile: 'Thông tin cá nhân',
 }
 
 export default function App() {
@@ -112,10 +112,10 @@ export default function App() {
     <button ref={menuButtonRef} type="button" className="mobile-menu-toggle" aria-label="Mở menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><Menu size={23} /></button>
     {menuOpen && <Modal drawer title="MealTrace" onClose={() => { setMenuOpen(false); menuButtonRef.current?.focus() }}><AppNavigation {...navProps} id="mobile-navigation" /></Modal>}
     <aside className="sidebar">
-      <div className="brand"><span className="logo"><Leaf size={22} /></span><span>meal<b>trace</b><small>School meal operations</small></span></div>
-      <p className="side-label">KHÔNG GIAN LÀM VIỆC</p>
+      <div className="brand"><span className="logo"><Leaf size={22} /></span><span>meal<b>trace</b><small>Quản lý bữa ăn bán trú</small></span></div>
+      <p className="side-label">NGHIỆP VỤ NHÀ TRƯỜNG</p>
       <AppNavigation {...navProps} id="main-navigation" />
-      <div className="side-foot"><ShieldCheck size={17} /> Dữ liệu có thể truy vết</div>
+      <div className="side-foot"><ShieldCheck size={17} /> Có thể tra cứu lịch sử xử lý</div>
     </aside>
     <div className="content">
       <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
@@ -138,14 +138,14 @@ type NavigationProps = {
 
 function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate }: Readonly<NavigationProps>) {
   const items = [
-    { id: 'accounts', label: 'Tài khoản', icon: Users, visible: isAdmin },
+    { id: 'accounts', label: 'Quản lý tài khoản', icon: Users, visible: isAdmin },
     { id: 'classes', label: 'Lớp và trẻ', icon: School, visible: canRegisterStudents },
     { id: 'calendar', label: 'Lịch bữa ăn', icon: CalendarDays, visible: isAdmin },
     { id: 'portions', label: 'Số suất', icon: ClipboardList, visible: canSeePortions },
     { id: 'absences', label: 'Báo vắng', icon: CalendarOff, visible: isParent },
-    { id: 'meals', label: 'Ngày ăn', icon: CalendarDays, visible: isMealStaff },
+    { id: 'meals', label: 'Theo dõi bữa ăn', icon: CalendarDays, visible: isMealStaff },
     { id: 'links', label: 'Liên kết trẻ', icon: Users, visible: isParent || canRegisterStudents },
-    { id: 'profile', label: 'Hồ sơ của tôi', icon: UserRound, visible: true },
+    { id: 'profile', label: 'Thông tin cá nhân', icon: UserRound, visible: true },
   ] as const
   return <nav id={id} aria-label="Điều hướng chính">
     {items.filter(item => item.visible).map(item => {

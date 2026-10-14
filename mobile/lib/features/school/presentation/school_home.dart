@@ -260,7 +260,7 @@ class _SchoolHomeState extends State<SchoolHome> {
                   child: Text(
                     user.roles.contains('PARENT')
                         ? 'Báo không ăn cho trẻ theo ngày hoặc khoảng ngày. Các thay đổi sau giờ chốt vẫn lưu lịch sử.'
-                        : 'Suất dự kiến dựa trên ghi danh và báo không ăn. Điều chỉnh sau chốt chỉ áp dụng khi được Admin duyệt.',
+                        : 'Suất dự kiến dựa trên ghi danh và báo không ăn. Điều chỉnh sau chốt chỉ áp dụng khi được quản lý duyệt.',
                   ),
                 ),
               ],
