@@ -49,14 +49,14 @@ export function usePortionAmendments({ mealId, rooms, roles }: PortionAmendmentP
       cache.invalidateQueries({ queryKey: ['workflow-days'] }), cache.invalidateQueries({ queryKey: ['meal-day', mealId] }), cache.invalidateQueries({ queryKey: ['portion-amendment-detail', mealId] })])
   }
   const request = useMutation({ mutationFn: () => {
-    if (target?.kind !== 'request' || target.baseId !== data?.current.id) throw new Error('Chưa chọn phiếu.')
+    if (target?.kind !== 'request' || target.baseId !== data?.current.id) throw new Error('Chưa chọn yêu cầu điều chỉnh.')
     return api.post(endpoint, { classId: target.classId, studentIds: target.children.map(x => x.studentId), quantity: target.quantity, baseSettlementId: target.baseId, willEat: target.willEat, reason })
-  }, onSuccess: async () => { setTarget(null); setSelected([]); setSelectedBase(''); toast.success('Đã gửi yêu cầu. Số suất chỉ thay đổi khi Admin duyệt.'); await refresh() },
+  }, onSuccess: async () => { setTarget(null); setSelected([]); setSelectedBase(''); toast.success('Đã tạo yêu cầu điều chỉnh. Số suất chỉ thay đổi sau khi quản lý duyệt.'); await refresh() },
     onError: async error => { toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }); await refresh() } })
   const review = useMutation({ mutationFn: (approve: boolean) => {
     if (target?.kind !== 'review') throw new Error('Chưa chọn yêu cầu.')
     return api.post(`${endpoint}/${target.request.id}/review`, { approve, reason })
-  }, onSuccess: async (_, approve) => { setTarget(null); toast.success(approve ? 'Đã duyệt và lưu bản suất mới cho bếp.' : 'Đã từ chối yêu cầu.'); await refresh() },
+  }, onSuccess: async (_, approve) => { setTarget(null); toast.success(approve ? 'Đã duyệt và cập nhật bản suất hiện hành.' : 'Đã từ chối yêu cầu.'); await refresh() },
     onError: async error => { toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }); await refresh() } })
   const busy = request.isPending || review.isPending
   const data = query.data

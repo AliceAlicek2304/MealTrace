@@ -45,7 +45,7 @@ describe('Parent signup', () => {
     const onLogin = vi.fn()
     render(<LoginPage onLogin={onLogin} />)
     fireEvent.click(screen.getByText('Đăng ký phụ huynh')); fill(); await receiveOtp()
-    expect(screen.queryByLabelText('Chọn tài khoản seed')).toBeNull()
+    expect(screen.queryByLabelText('Chọn tài khoản thử nghiệm')).toBeNull()
     fireEvent.click(screen.getByText('Tạo tài khoản phụ huynh'))
     expect(screen.getByText('Đang đăng ký…').hasAttribute('disabled')).toBe(true)
     expect(request).toHaveBeenCalledExactlyOnceWith({ ...draft, phoneNumber: '0901234567', challengeId: challenge.challengeId, otpCode: '123456' })
