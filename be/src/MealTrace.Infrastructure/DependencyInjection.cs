@@ -70,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<IIngredientRepository, IngredientRepository>();
         services.AddScoped<IRecipeRepository, RecipeRepository>();
         services.AddScoped<INutritionRepository, NutritionRepository>();
+        services.AddScoped<IKitchenSettlementRepository, KitchenSettlementRepository>();
         return services;
     }
 }

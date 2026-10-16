@@ -908,6 +908,41 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.ToTable("Classes");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.SettlementAcknowledgement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AcknowledgedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("AcknowledgedByName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("MealDayId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("PortionsCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealDayId", "AcknowledgedAt");
+
+                    b.ToTable("SettlementAcknowledgements");
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.SettlementDecision", b =>
                 {
                     b.Property<Guid>("PortionSettlementId")
@@ -1649,6 +1684,17 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Navigation("Settlement");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.SettlementAcknowledgement", b =>
+                {
+                    b.HasOne("MealTrace.Domain.Entities.MealDay", "MealDay")
+                        .WithMany("Acknowledgements")
+                        .HasForeignKey("MealDayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MealDay");
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.SettlementDecision", b =>
                 {
                     b.HasOne("MealTrace.Domain.Entities.PortionSettlement", "PortionSettlement")
@@ -1795,6 +1841,8 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MealTrace.Domain.Entities.MealDay", b =>
                 {
+                    b.Navigation("Acknowledgements");
+
                     b.Navigation("Dishes");
 
                     b.Navigation("Evidence");
