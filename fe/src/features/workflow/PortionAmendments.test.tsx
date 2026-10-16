@@ -111,7 +111,7 @@ describe('Batch portion amendment UI', () => {
     fireEvent.change(screen.getByLabelText('Số suất'), { target: { value: '2' } })
     await user.click(screen.getByRole('button', { name: 'Tạo yêu cầu giảm 2 suất' }))
     const modal = screen.getByRole('dialog')
-    expect(within(modal).getByText(/không thay đổi trạng thái ăn hoặc tiền ăn từng trẻ/)).toBeTruthy()
+    expect(within(modal).getByText(/không thay đổi trạng thái ăn hoặc tiền ăn của từng trẻ/)).toBeTruthy()
     await user.type(within(modal).getByLabelText('Lý do'), 'Bếp điều chỉnh')
     await user.click(within(modal).getByRole('button', { name: 'Gửi yêu cầu' }))
     await waitFor(() => expect(post).toHaveBeenCalledWith('/meal-days/meal/amendments', expect.objectContaining({ studentIds: [], quantity: 2 })))
