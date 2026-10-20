@@ -1,4 +1,6 @@
 using MealTrace.Application.Dtos.Portions;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace MealTrace.Application.Dtos.Kitchen;
 
@@ -15,7 +17,8 @@ public record KitchenSettlementSummary(
     DateTimeOffset? LastAcknowledgedAt,
     string? LastAcknowledgedBy,
     string? LastAcknowledgedByName,
-    List<KitchenClassSummary> Classes
+    List<KitchenClassSummary> Classes,
+    string SnapshotToken
 );
 
 public record KitchenClassSummary(
@@ -38,7 +41,9 @@ public record KitchenSettlementDiffResponse(
     int AppliedTotal,
     int TotalDiff,
     int TotalKitchenAdjustment,
-    List<KitchenClassDiff> ClassDiffs
+    List<KitchenClassDiff> ClassDiffs,
+    string SnapshotToken,
+    bool IsAcknowledged
 );
 
 public record KitchenClassDiff(
@@ -50,10 +55,12 @@ public record KitchenClassDiff(
     int KitchenAdjustment,
     int CurrentVersion,
     List<SettlementStudentSummary> AddedStudents,
-    List<SettlementStudentSummary> RemovedStudents
+    List<SettlementStudentSummary> RemovedStudents,
+    bool HasCompleteRoster
 );
 
-public record AcknowledgeSettlementRequest(string? Note);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public record AcknowledgeSettlementRequest(string? Note, [property: Required, StringLength(64, MinimumLength = 64)] string? SnapshotToken = null);
 
 public record SettlementAcknowledgementResponse(
     Guid Id,
@@ -62,5 +69,8 @@ public record SettlementAcknowledgementResponse(
     string AcknowledgedBy,
     string? AcknowledgedByName,
     int PortionsCount,
-    string? Note
+    string? Note,
+    string? SnapshotToken
 );
+
+public record KitchenSettlementPage(List<KitchenSettlementSummary> Items, int Total, int Page, int PageSize);

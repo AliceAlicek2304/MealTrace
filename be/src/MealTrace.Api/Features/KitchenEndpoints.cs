@@ -1,5 +1,6 @@
 using MealTrace.Application.Features.Kitchen;
 using MealTrace.Domain.Security;
+using MealTrace.Application.Exceptions;
 
 namespace MealTrace.Api.Features;
 
@@ -29,6 +30,10 @@ internal sealed class KitchenProblemFilter : IEndpointFilter
         try
         {
             return await next(context);
+        }
+        catch (PersistenceConflictException)
+        {
+            return Results.Problem(statusCode: 409, detail: "Dữ liệu đã thay đổi. Vui lòng tải lại trước khi xác nhận.");
         }
         catch (KitchenException ex)
         {

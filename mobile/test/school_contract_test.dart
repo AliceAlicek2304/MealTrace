@@ -98,6 +98,9 @@ void main() {
           '/{requestId}/review',
         ]);
       }
+      if (route.path.startsWith('/kitchen/settlements')) {
+        candidates.add(route.path.replaceFirst('/kitchen/settlements', ''));
+      }
       if (route.path.contains('/meal-calendar/')) {
         candidates.add(route.path.replaceFirst('/admin/meal-calendar', ''));
       }

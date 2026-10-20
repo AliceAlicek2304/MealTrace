@@ -13,10 +13,15 @@ public class KitchenSettlementRepository : IKitchenSettlementRepository
         _db = db;
     }
 
-    public async Task<List<MealDay>> ListSettledMealDaysAsync(DateOnly? date, CancellationToken ct)
+    public Task<MealDay?> LockMealDayAsync(Guid id, CancellationToken ct) => _db.LockMealDayAsync(id, ct);
+
+    public Task<int> CountSettledMealDaysAsync(DateOnly? date, CancellationToken ct) => PersistenceErrors.ExecuteAsync(() =>
+        _db.MealDays.CountAsync(d => d.SettledAt != null && !d.IsCancelled && (!date.HasValue || d.Date == date.Value), ct));
+
+    public async Task<List<MealDay>> ListSettledMealDaysAsync(DateOnly? date, int skip, int take, CancellationToken ct)
     {
         var query = _db.MealDays
-            .Where(d => d.SettledAt != null);
+            .Where(d => d.SettledAt != null && !d.IsCancelled);
 
         if (date.HasValue)
         {
@@ -26,9 +31,11 @@ public class KitchenSettlementRepository : IKitchenSettlementRepository
         return await query
             .OrderByDescending(d => d.Date)
             .ThenByDescending(d => d.CutoffAt)
+            .ThenBy(d => d.Id)
+            .Skip(skip).Take(take)
             .Include(d => d.Settlements)
-                .ThenInclude(s => s.Students)
             .Include(d => d.Acknowledgements)
+            .AsSplitQuery()
             .AsNoTracking()
             .ToListAsync(ct);
     }
@@ -39,6 +46,7 @@ public class KitchenSettlementRepository : IKitchenSettlementRepository
             .Include(d => d.Settlements)
                 .ThenInclude(s => s.Students)
             .Include(d => d.Acknowledgements)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(d => d.Id == mealDayId, ct);
     }
 

@@ -89,7 +89,7 @@ public sealed class KitchenSettlementTests
         Assert.Equal(HttpStatusCode.Conflict, diff.StatusCode);
 
         // Acknowledge on unsettled day -> 409 Conflict
-        var ack = await client.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", new { note = "Nấu sớm" });
+        var ack = await client.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", new { note = "Nấu sớm", snapshotToken = new string('0', 64) });
         Assert.Equal(HttpStatusCode.Conflict, ack.StatusCode);
     }
 
@@ -104,7 +104,7 @@ public sealed class KitchenSettlementTests
 
         // Step 1: Kitchen checks initial settled state
         await Authorize(client, kitchen.Email!, seed.Password);
-        var date = DateOnly.FromDateTime(seed.Cutoff.Date);
+        var date = MealTrace.Domain.Time.SchoolTime.Today(seed.Cutoff.AddMinutes(-20));
         var listResponse = await client.GetFromJsonAsync<JsonElement>($"/api/kitchen/settlements?date={date:yyyy-MM-dd}");
         Assert.True(listResponse.GetArrayLength() > 0);
         var item = listResponse.EnumerateArray().First(x => x.GetProperty("mealDayId").GetGuid() == seed.DayId);
@@ -172,10 +172,12 @@ public sealed class KitchenSettlementTests
         var kitchen = await CreateKitchenUser(factory, seed);
         await Authorize(client, kitchen.Email!, seed.Password);
 
+        var snapshot = await client.GetFromJsonAsync<JsonElement>($"/api/kitchen/settlements/{seed.DayId}/diff");
         // 1. Post acknowledgement
         var ackRes = await client.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", new
         {
-            note = "Bếp xác nhận nhận đủ 2 suất và chuẩn bị nấu"
+            note = "Bếp xác nhận nhận đủ 2 suất và chuẩn bị nấu",
+            snapshotToken = snapshot.GetProperty("snapshotToken").GetString()
         });
         Assert.Equal(HttpStatusCode.Created, ackRes.StatusCode);
         var ackData = await ackRes.Content.ReadFromJsonAsync<JsonElement>();

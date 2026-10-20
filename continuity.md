@@ -1,6 +1,6 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 16/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 19/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
@@ -49,7 +49,7 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 
 ## 4. Đang làm và vấn đề còn lại
 
-- Đã đồng bộ các nhánh remote vào cuong: main/dat cập nhật nội dung giao diện theo nghiệp vụ nhà trường; nam bổ sung API bếp đọc bản chốt/chênh lệch, xác nhận đã nhận suất và lịch sử xác nhận. Chưa bổ sung giao diện cho API bếp mới. Nhánh web chỉ cần đồng bộ lịch sử; prototype trên mobile đã được thay thế bằng bản Android phân tầng hiện tại, giữ secure storage và các luồng đăng ký/liên kết. Không đưa cache IDE/Gradle, bản sao Flutter SDK hoặc cấu hình DB ghi trực tiếp của prototype vào source hiện hành.
+- Đã đồng bộ các nhánh remote vào cuong: main/dat cập nhật nội dung giao diện theo nghiệp vụ nhà trường; nam bổ sung API bếp đọc bản chốt/chênh lệch, xác nhận đã nhận suất và lịch sử xác nhận. Web/Android đã có mục Tiếp nhận suất ăn cho ADMIN/KITCHEN_STAFF: lọc ngày, phân trang, đối chiếu bản gốc/hiện hành theo lớp, xem trẻ tăng/giảm và lịch sử tiếp nhận. Xác nhận cần đánh dấu đã đối chiếu; bản suất thay đổi buộc tải lại và đối chiếu lại. Thiếu danh sách trẻ lịch sử được báo rõ, không suy diễn trẻ tăng/giảm. Nhánh web chỉ cần đồng bộ lịch sử; prototype trên mobile đã được thay thế bằng bản Android phân tầng hiện tại, giữ secure storage và các luồng đăng ký/liên kết. Không đưa cache IDE/Gradle, bản sao Flutter SDK hoặc cấu hình DB ghi trực tiếp của prototype vào source hiện hành.
 
 - Rà luồng liên kết phụ huynh: Android tự tải yêu cầu chờ ngay khi mở màn hình duyệt. Web có toast kết quả, tải lại danh sách, thử lại tải lớp trong form, cập nhật trạng thái định kỳ; xung đột duyệt/hủy/thu hồi tải lại dữ liệu và bỏ lựa chọn cũ. Form đăng ký web/Android hướng dẫn phụ huynh chủ động vào Liên kết trẻ sau đăng nhập. Duyệt vẫn bắt buộc đối chiếu hồ sơ; chưa duyệt không cấp quyền xem trẻ.
 
@@ -92,6 +92,8 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 - Kiểm thử mobile quét chiều phụ thuộc toàn bộ feature, đối chiếu request/route với nguồn BE, giả HTTP/storage tại boundary, kiểm tra widget ở các độ rộng điện thoại/tablet. Đã kiểm tra analyzer và build APK debug; chưa coi đó là nghiệm thu trên Android thật hoặc xác nhận giao WhatsApp trong đợt này. Chi tiết kết quả chỉ ghi continuity local. Thay đổi đang local trên cuong.
 
 - Migration `20261009130125_StudentImportHistory` đã cập nhật DB local; máy khác chạy `dotnet ef database update --project be/src/MealTrace.Infrastructure --startup-project be/src/MealTrace.Api`. Các bảng lịch sử import giữ nguyên sau khi lưu, FK ngăn xóa hồ sơ/lớp/người thực hiện đang được tham chiếu.
-- Migration mới từ nhánh nam: `20261012162538_KitchenSettlementAcknowledgement`. Đợt merge chỉ cập nhật code, chưa áp dụng migration này vào DB local; chạy lệnh database update ở trên trước khi dùng API xác nhận của bếp.
+- DB local đã áp dụng `20261012162538_KitchenSettlementAcknowledgement`, `20261018172929_KitchenAcknowledgedSnapshot` và `20261018173502_KitchenAcknowledgementUniqueness`. Máy khác chạy lệnh database update ở trên trước khi dùng luồng tiếp nhận suất ăn.
 - UI thống nhất: hồ sơ trẻ dùng chung trường ngày sinh/giới tính trên web, mobile có thể xóa ngày sinh tùy chọn. Android nhập Excel tách chọn file và xem trước, xác nhận cố định dưới màn hình; dòng chỉ hiện tên/SĐT/trạng thái và mở chi tiết. Lịch sử dùng thẻ tóm tắt, thông tin phụ mở rộng và chi tiết từng trẻ. Lỗi thao tác gửi/lưu Android dùng SnackBar; lỗi tải chặn màn hình giữ trạng thái thử lại. Kết quả thông báo Android không hiển thị chẩn đoán kỹ thuật của nhà cung cấp.
 - Android đã có test E2E Admin dùng API/secure storage thật trong `mobile/integration_test/student_profile_e2e_test.dart`; cấu hình DB dùng thử/tài khoản/lớp qua file local bỏ qua Git, hướng dẫn trong mobile README. Chưa chạy E2E trên Android vì máy chưa có emulator hoặc điện thoại kết nối; unit/widget test, analyzer và build không thay thế nghiệm thu này. Giữ WhatsApp ở số mẫu đã cấu hình; đăng ký nhà cung cấp không tự gỡ giới hạn tester trong code.
+
+- API tiếp nhận bếp: Swagger mô tả DTO, quyền và lỗi; xác nhận bắt buộc SnapshotToken lấy từ /diff, token cũ trả 409. Lặp lại cùng người/bản suất không tạo thêm xác nhận; bản mới cần xác nhận mới. GET /api/kitchen/settlements giữ tương thích tối đa 100 phiên; web/Android dùng /search có phân trang. Bản ghi xác nhận cũ thiếu token chỉ giữ lịch sử.

@@ -12,5 +12,6 @@ public class SettlementAcknowledgement
     public string AcknowledgedBy { get; set; } = string.Empty;
     public string? AcknowledgedByName { get; set; }
     public int PortionsCount { get; set; }
+    public string? SnapshotToken { get; set; }
     public string? Note { get; set; }
 }

@@ -1,4 +1,8 @@
 enum SchoolOperation {
+  kitchenSettlements,
+  kitchenDiff,
+  kitchenHistory,
+  acknowledgeKitchen,
   studentImportHistory,
   studentImportBatch,
   previewStudentImport,
@@ -171,7 +175,12 @@ List<String> rolesFor(SchoolOperation op) => switch (op) {
   SchoolOperation.exceptionHistory ||
   SchoolOperation.recordException ||
   SchoolOperation.requestAmendment => staffRoles,
-  SchoolOperation.meals || SchoolOperation.mealDetail => kitchenRoles,
+  SchoolOperation.kitchenSettlements ||
+  SchoolOperation.kitchenDiff ||
+  SchoolOperation.kitchenHistory ||
+  SchoolOperation.acknowledgeKitchen ||
+  SchoolOperation.meals ||
+  SchoolOperation.mealDetail => kitchenRoles,
   _ => adminRoles,
 };
 

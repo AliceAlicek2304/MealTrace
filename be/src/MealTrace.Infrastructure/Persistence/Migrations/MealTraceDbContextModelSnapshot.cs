@@ -936,9 +936,16 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Property<int>("PortionsCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SnapshotToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("MealDayId", "AcknowledgedAt");
+
+                    b.HasIndex("MealDayId", "AcknowledgedBy", "SnapshotToken")
+                        .IsUnique();
 
                     b.ToTable("SettlementAcknowledgements");
                 });

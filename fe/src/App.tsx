@@ -1,3 +1,4 @@
+import { KitchenSettlementsPage } from './features/kitchen/KitchenSettlementsPage'
 import { ParentLinksPage } from './features/workflow/ParentLinksPage'
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,7 +18,7 @@ import { MealCalendarPage } from './features/workflow/MealCalendarPage'
 
 const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
 const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
-  links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
+  kitchen: 'Tiếp nhận suất ăn', links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
   portions: 'Số suất', absences: 'Báo vắng', meals: 'Theo dõi bữa ăn', profile: 'Thông tin cá nhân',
 }
 
@@ -132,6 +133,7 @@ type NavigationProps = {
 
 function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate }: Readonly<NavigationProps>) {
   const items = [
+    { id: 'kitchen', label: 'Tiếp nhận suất ăn', icon: ClipboardList, visible: isMealStaff },
     { id: 'accounts', label: 'Quản lý tài khoản', icon: Users, visible: isAdmin },
     { id: 'classes', label: 'Lớp và trẻ', icon: School, visible: canRegisterStudents },
     { id: 'calendar', label: 'Lịch bữa ăn', icon: CalendarDays, visible: isAdmin },
@@ -160,6 +162,7 @@ function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions,
   onPasswordChanged: () => void
 }>) {
   switch (page) {
+    case 'kitchen': if (isMealStaff) return <KitchenSettlementsPage />; break
     case 'accounts': if (isAdmin) return <AccountsPage />; break
     case 'classes': if (canRegisterStudents) return <ClassesPage isAdmin={isAdmin} />; break
     case 'calendar': if (isAdmin) return <MealCalendarPage />; break

@@ -10,6 +10,22 @@ class ApiRoute {
 }
 
 const schoolRoutes = <SchoolOperation, ApiRoute>{
+  SchoolOperation.kitchenSettlements: ApiRoute(
+    'GET',
+    '/kitchen/settlements/search',
+  ),
+  SchoolOperation.kitchenDiff: ApiRoute(
+    'GET',
+    '/kitchen/settlements/{id}/diff',
+  ),
+  SchoolOperation.kitchenHistory: ApiRoute(
+    'GET',
+    '/kitchen/settlements/{id}/acknowledgements',
+  ),
+  SchoolOperation.acknowledgeKitchen: ApiRoute(
+    'POST',
+    '/kitchen/settlements/{id}/acknowledge',
+  ),
   SchoolOperation.studentImportHistory: ApiRoute(
     'GET',
     '/admin/students/import/history',
@@ -160,6 +176,7 @@ const schoolRoutes = <SchoolOperation, ApiRoute>{
 };
 
 const arrayOperations = {
+  SchoolOperation.kitchenHistory,
   SchoolOperation.parentLinkClasses,
   SchoolOperation.reviewLinkClasses,
   SchoolOperation.assignedClasses,
@@ -171,6 +188,7 @@ const arrayOperations = {
   SchoolOperation.calendarHistory,
 };
 const pagedOperations = {
+  SchoolOperation.kitchenSettlements,
   SchoolOperation.studentImportHistory,
   SchoolOperation.parentLinks,
   SchoolOperation.reviewableParentLinks,
@@ -220,6 +238,7 @@ List<String> queryFields(SchoolOperation operation) => switch (operation) {
     'page',
     'pageSize',
   ],
+  SchoolOperation.kitchenSettlements => ['date', 'page', 'pageSize'],
   SchoolOperation.workflowDays => ['date', 'page'],
   SchoolOperation.decisions => ['classId', 'search', 'page', 'pageSize'],
   SchoolOperation.exceptionHistory => ['page', 'pageSize'],

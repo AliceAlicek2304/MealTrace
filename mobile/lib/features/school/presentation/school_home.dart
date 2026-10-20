@@ -1,3 +1,4 @@
+import 'kitchen_settlements_page.dart';
 import 'student_import_history_page.dart';
 import 'parent_link_review_page.dart';
 import 'student_import_page.dart';
@@ -93,6 +94,11 @@ class _SchoolHomeState extends State<SchoolHome> {
         icon: Icons.calendar_month_outlined,
       ),
       (
+        operation: SchoolOperation.kitchenSettlements,
+        title: 'Tiếp nhận suất ăn',
+        icon: Icons.fact_check_outlined,
+      ),
+      (
         operation: SchoolOperation.meals,
         title: 'Hồ sơ ngày ăn',
         icon: Icons.fact_check_outlined,
@@ -119,7 +125,13 @@ class _SchoolHomeState extends State<SchoolHome> {
   Future<void> open(SchoolSection section) => Navigator.push<void>(
     context,
     MaterialPageRoute(
-      builder: (_) => section.operation == SchoolOperation.studentImportHistory
+      builder: (_) => section.operation == SchoolOperation.kitchenSettlements
+          ? KitchenSettlementsPage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : section.operation == SchoolOperation.studentImportHistory
           ? StudentImportHistoryPage(
               repository: widget.repository,
               roles: widget.auth.user!.roles,
