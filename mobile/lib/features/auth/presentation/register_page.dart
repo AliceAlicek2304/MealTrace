@@ -4,6 +4,7 @@ import '../domain/parent_otp_challenge.dart';
 import 'package:flutter/material.dart';
 import '../domain/parent_registration.dart';
 import 'auth_controller.dart';
+import '../../../core/presentation/meal_widgets.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key, required this.auth});
@@ -99,8 +100,19 @@ class _RegisterPageState extends State<RegisterPage> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  const Text(
-                    'Đăng ký xong, đăng nhập và vào Liên kết trẻ để chọn năm học, lớp và gửi yêu cầu. Nhà trường duyệt xong, bạn có thể xem và báo vắng cho con.',
+                  const MealSectionTitle(
+                    'Bắt đầu cùng MealTrace',
+                    subtitle: 'Tạo tài khoản để kết nối với nhà trường',
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: MealColors.lavender,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Text(
+                      'Đăng ký xong, đăng nhập và vào Liên kết trẻ để chọn năm học, lớp và gửi yêu cầu. Nhà trường duyệt xong, bạn có thể xem và báo vắng cho con.',
+                    ),
                   ),
                   const SizedBox(height: 24),
                   TextFormField(

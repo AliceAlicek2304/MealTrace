@@ -133,13 +133,13 @@ type NavigationProps = {
 
 function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate }: Readonly<NavigationProps>) {
   const items = [
-    { id: 'kitchen', label: 'Tiếp nhận suất ăn', icon: ClipboardList, visible: isMealStaff },
     { id: 'accounts', label: 'Quản lý tài khoản', icon: Users, visible: isAdmin },
     { id: 'classes', label: 'Lớp và trẻ', icon: School, visible: canRegisterStudents },
     { id: 'calendar', label: 'Lịch bữa ăn', icon: CalendarDays, visible: isAdmin },
     { id: 'portions', label: 'Số suất', icon: ClipboardList, visible: canSeePortions },
     { id: 'absences', label: 'Báo vắng', icon: CalendarOff, visible: isParent },
     { id: 'meals', label: 'Theo dõi bữa ăn', icon: CalendarDays, visible: isMealStaff },
+    { id: 'kitchen', label: 'Tiếp nhận suất ăn', icon: ClipboardList, visible: isMealStaff },
     { id: 'links', label: 'Liên kết trẻ', icon: Users, visible: isParent || canRegisterStudents },
     { id: 'profile', label: 'Thông tin cá nhân', icon: UserRound, visible: true },
   ] as const
@@ -162,7 +162,7 @@ function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions,
   onPasswordChanged: () => void
 }>) {
   switch (page) {
-    case 'kitchen': if (isMealStaff) return <KitchenSettlementsPage />; break
+    case 'kitchen': if (isMealStaff) return <KitchenSettlementsPage canAcknowledge={!isAdmin && user.roles.includes('KITCHEN_STAFF')} />; break
     case 'accounts': if (isAdmin) return <AccountsPage />; break
     case 'classes': if (canRegisterStudents) return <ClassesPage isAdmin={isAdmin} />; break
     case 'calendar': if (isAdmin) return <MealCalendarPage />; break

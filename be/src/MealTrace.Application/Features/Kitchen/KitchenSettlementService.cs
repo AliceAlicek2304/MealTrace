@@ -7,6 +7,7 @@ using MealTrace.Application.Abstractions.Repositories;
 using MealTrace.Application.Dtos.Kitchen;
 using MealTrace.Application.Dtos.Portions;
 using MealTrace.Domain.Entities;
+using MealTrace.Domain.Security;
 
 namespace MealTrace.Application.Features.Kitchen;
 
@@ -88,6 +89,8 @@ public sealed class KitchenSettlementService(IKitchenSettlementRepository reposi
 
     public async Task<SettlementAcknowledgementResponse> AcknowledgeSettlementAsync(Guid mealDayId, AcknowledgeSettlementRequest request, CancellationToken ct)
     {
+        if (!actor.IsInRole(RoleNames.KitchenStaff) || actor.IsInRole(RoleNames.Admin))
+            throw new KitchenException(403, "FORBIDDEN", "Chỉ nhân viên bếp được xác nhận tiếp nhận suất ăn.");
         if (request.Note?.Trim().Length > 500 || request.SnapshotToken is null || request.SnapshotToken.Length != 64 || !request.SnapshotToken.All(Uri.IsHexDigit))
             throw new KitchenException(400, "INVALID_INPUT", "Cần đối chiếu bản suất hiện tại; ghi chú tối đa 500 ký tự.");
         await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, ct);

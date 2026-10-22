@@ -9,6 +9,7 @@ import 'package:mealtrace_mobile/app/mealtrace_app.dart';
 import 'package:mealtrace_mobile/app/theme.dart';
 import 'package:mealtrace_mobile/features/auth/data/auth_api.dart';
 import 'package:mealtrace_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:mealtrace_mobile/features/auth/presentation/login_page.dart';
 import 'package:mealtrace_mobile/features/school/domain/school_models.dart';
 import 'package:mealtrace_mobile/features/school/presentation/school_controller.dart';
 import 'package:mealtrace_mobile/features/school/presentation/school_form_page.dart';
@@ -59,9 +60,97 @@ Future<AuthController> mountApp(
 
 void main() {
   testWidgets(
+    'Review refreshed home, functions, profile and login at phone and tablet widths',
+    (tester) async {
+      debugDisableShadows = false;
+      addTearDown(() => debugDisableShadows = true);
+      await tester.runAsync(() async {
+        final font = File('C:/Windows/Fonts/segoeui.ttf');
+        await (FontLoader('Roboto')..addFont(
+              font.readAsBytes().then((bytes) => bytes.buffer.asByteData()),
+            ))
+            .load();
+        final icons = File(
+          'C:/Flutter/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+        );
+        await (FontLoader('MaterialIcons')..addFont(
+              icons.readAsBytes().then((bytes) => bytes.buffer.asByteData()),
+            ))
+            .load();
+      });
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final capture = GlobalKey();
+      Future<void> save(String name) async {
+        await tester.runAsync(() async {
+          final boundary =
+              capture.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final image = await boundary.toImage(pixelRatio: 1);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+            '../be/artifacts/$name.png',
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+
+      for (final width in [320.0, 390.0, 768.0]) {
+        tester.view.physicalSize = Size(width, 850);
+        final auth = await mountApp(
+          tester,
+          FakeSchoolRepository(),
+          'ADMIN',
+          capture: capture,
+        );
+        expect(tester.takeException(), isNull);
+        await save('mobile-design-home-${width.toInt()}');
+        if (width == 390) {
+          await tester.tap(find.text('Chức năng'));
+          await tester.pumpAndSettle();
+          await save('mobile-design-menu-390');
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Hồ sơ').last);
+          await tester.pumpAndSettle();
+          await save('mobile-design-profile-390');
+        }
+        await tester.pumpWidget(const SizedBox());
+        auth.dispose();
+      }
+      tester.view.physicalSize = const Size(390, 850);
+      final auth = createController(
+        AuthApi(
+          MockClient((_) async => jsonResponse(userJson)),
+          'https://example.test/api',
+        ),
+        MemoryStore(),
+      );
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: capture,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: mealTraceTheme,
+            home: LoginPage(auth: auth),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await save('mobile-design-login-390');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      auth.dispose();
+      debugDisableShadows = true;
+    },
+  );
+  testWidgets(
     'Returning from background preserves an unsaved form after valid revalidation',
     (tester) async {
       final auth = await mountApp(tester, FakeSchoolRepository(), 'ADMIN');
+      await tester.ensureVisible(find.text('Trẻ'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Trẻ'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(FloatingActionButton));
@@ -99,6 +188,8 @@ void main() {
       'ADMIN',
       currentUser: currentUser,
     );
+    await tester.ensureVisible(find.text('Trẻ'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Trẻ'));
     await tester.pumpAndSettle();
     expect(find.byType(SchoolPage), findsOneWidget);

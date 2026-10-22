@@ -1,10 +1,10 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 19/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 20/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
-MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docker. Hướng triển khai hiện tại: mỗi trường dùng một DB riêng; chưa làm mô hình nhiều trường chung DB. `mobile/` dùng Flutter chỉ cho Android trên cuong; đã tích hợp phiên đăng nhập và giao diện các luồng hiện có trên web cho đủ vai trò. Cần nghiệm thu trên thiết bị và dữ liệu thực. README gốc để trống theo yêu cầu.
+MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docker. Hướng triển khai hiện tại: mỗi trường dùng một DB riêng; chưa làm mô hình nhiều trường chung DB. `mobile/` dùng Flutter chỉ cho Android trên cuong; đã tích hợp phiên đăng nhập và giao diện các API nghiệp vụ hiện có cho đủ vai trò, gồm phần nguyên liệu/công thức/dinh dưỡng và truy vết báo cáo chưa có trên web. Cần nghiệm thu trên thiết bị và dữ liệu thực. README gốc để trống theo yêu cầu.
 
 ### Tech stack đã chốt
 
@@ -34,6 +34,43 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 | Chốt và điều chỉnh | Admin chốt suất theo lớp; Teacher/Admin gửi một phiếu cho nhiều trẻ hoặc số lượng bếp không gắn trẻ; Admin duyệt/từ chối toàn phiếu; thêm phiên bản mới, giữ gốc. FE chọn nhanh trẻ phù hợp trong trang, giữ lựa chọn qua trang/tìm kiếm, bỏ từng trẻ và xem tổng suất trước/sau. Kitchen đọc suất áp dụng và chênh lệch. |
 | Nguyên liệu/dinh dưỡng — Hùng | Đã merge BE nguyên liệu và phiên bản, công thức và phiên bản, tính Kcal/protein. Chưa hoàn chỉnh luồng bếp lập/duyệt/công bố thực đơn. |
 | FE | Style claymorphism, tiếng Việt và Sonner toast. Lỗi API/kết nối và kiểm tra file dùng toast trong modal (toasterId edit-modal); lỗi dữ liệu từng dòng giữ cạnh dòng tương ứng để đối chiếu. Các trang quản lý dùng table với tìm kiếm/lọc ở phía trên; tạo/sửa/xem chi tiết/hủy mở modal. Lớp/trẻ/năm học và chi tiết suất chia tab, không hiển thị tất cả form cùng lúc. Điều hướng dùng URL dạng #/classes, #/portions… và hỗ trợ nút quay lại. Phiên được giữ trong tab bằng sessionStorage, kiểm tra /auth/me khi tải lại; hết hạn cần đăng nhập lại, lỗi mạng có nút thử lại. Kết quả gửi tin dùng thông báo dễ hiểu cho mọi vai trò. Không đưa ghi chú nội bộ, nhà cung cấp/API, cấu hình sandbox/gửi thử hoặc mã trạng thái kỹ thuật lên giao diện; lưu các thông tin này trong tài liệu phát triển. Giao diện màn hình nhỏ dùng sidebar trượt từ trái, danh sách dạng thẻ không kéo ngang; bộ lọc và thông tin phụ có thể mở rộng, popup liên hệ phụ huynh dạng thẻ. Quy trình UI thống nhất: đối chiếu continuity trước khi sửa, ưu tiên thông tin chính trên màn hình nhỏ và đưa thông tin phụ vào mở rộng/modal; kiểm tra trình duyệt thực ở 320/390/768 px và desktop, không chỉ dựa vào build/test, trước khi bàn giao. Cần tiếp tục nghiệm thu với dữ liệu thực. |
+
+### Phân quyền hiện hành
+
+| Chức năng | Admin | Giáo viên | Bếp | Phụ huynh |
+| --- | --- | --- | --- | --- |
+| Quản lý tài khoản, cấp role, phân công lớp, khóa tài khoản, đặt lại mật khẩu | Quản lý | Không | Không | Không |
+| Năm học, tạo/sửa lớp | Quản lý | Xem lớp được phân công | Xem danh mục lớp | Chọn lớp/năm học khi yêu cầu liên kết |
+| Import XLSX, lịch sử import | Thực hiện/xem | Không | Không | Không |
+| Tạo trẻ | Có | Chỉ lớp được phân công | Không | Không |
+| Sửa hồ sơ trẻ, chuyển lớp, ngừng học | Có | Không | Không | Không |
+| Xem danh sách trẻ | Toàn trường | Lớp được phân công | Danh sách có suất trong luồng bữa ăn | Trẻ đã được liên kết |
+| Liên kết phụ huynh bằng SĐT; duyệt/từ chối/thu hồi yêu cầu liên kết | Có | Chỉ trẻ thuộc lớp được phân công theo ghi danh hiện hành | Không | Gửi/hủy yêu cầu của mình; không tự duyệt |
+| Lịch tuần, ngày đặc biệt, tạo/hủy/khôi phục phiên ăn | Có | Không | Không | Không |
+| Xem số suất | Toàn trường | Lớp được phân công | Toàn trường | Không |
+| Ghi ngoại lệ ăn/không ăn trước chốt, xem lịch sử nguồn quyết định | Có | Chỉ lớp phụ trách trong ngày ăn | Không | Báo/cập nhật/hủy không ăn cho con theo thời hạn |
+| Chốt suất | Có | Không | Không | Không |
+| Gửi yêu cầu điều chỉnh sau chốt | Có | Chỉ lớp được phân công | Không | Không |
+| Duyệt/từ chối điều chỉnh, áp dụng bản suất mới | Có | Không | Không | Không |
+| Xem đối chiếu bản suất và lịch sử tiếp nhận của bếp | Có | Không ở màn hình tiếp nhận; xem điều chỉnh của lớp mình | Có | Không |
+| Xác nhận tiếp nhận bản suất | Không | Không | Có | Không |
+| Nguyên liệu, phiên bản nguyên liệu, công thức, phiên bản công thức (API hiện có) | Có | Không | Có | Không |
+| Xem hồ sơ ngày ăn và tính dinh dưỡng (API hiện có) | Có | Không | Có | Không |
+| Truy vết báo cáo (API hiện có) | Có | Không | Không | Không |
+| Gửi tin thử qua nhà cung cấp | Có | Không | Không | Không |
+| Đổi mật khẩu, đăng xuất | Tài khoản mình | Tài khoản mình | Tài khoản mình | Tài khoản mình |
+
+#### Quy tắc tiếp nhận suất ăn
+
+- Admin chốt suất và duyệt điều chỉnh; Bếp đối chiếu rồi xác nhận đã tiếp nhận bản hiện hành.
+- Admin xem được danh sách, đối chiếu và lịch sử; không có biểu mẫu xác nhận. Gọi trực tiếp API xác nhận bằng tài khoản chỉ có ADMIN trả 403.
+- Giáo viên không có quyền chốt, duyệt điều chỉnh hoặc tiếp nhận thay bếp. Đề xuất chưa được Admin duyệt không làm đổi số suất.
+- Xác nhận gắn với SnapshotToken của bản đã xem. Bản suất thay đổi trả 409; cần tải lại, đối chiếu và xác nhận mới. Không xóa lịch sử xác nhận trước.
+- Tài khoản kiêm nhiệm nhận quyền từ các role được cấp, ngoại trừ xác nhận tiếp nhận: có ADMIN thì chỉ xem, kể cả đồng thời có KITCHEN_STAFF. Dùng tài khoản Bếp riêng để xác nhận, giữ rõ người chốt/duyệt và người tiếp nhận.
+- Phạm vi của Giáo viên được kiểm tra tại service/repository. Liên kết phụ huynh theo ghi danh hiện hành; ngoại lệ bữa ăn theo lớp của trẻ trong ngày ăn. Không dùng riêng Student.ClassId để cấp quyền liên kết.
+
+Các API nguyên liệu/công thức chưa đồng nghĩa đã hoàn thành toàn bộ MVP thực đơn, công bố và dinh dưỡng. Không suy ra quyền cho chức năng chưa triển khai từ bảng này.
+
 
 ## 3. Quy tắc nghiệp vụ đang áp dụng
 
@@ -67,7 +104,7 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 2. Chế biến thực tế/đổi món, ảnh và hồ sơ minh chứng; Parent theo dõi bản công bố.
 3. Báo cáo, truy vết nguồn, bản đã duyệt và bản tính lại; thống nhất mẫu báo cáo và người duyệt.
 4. Mở rộng import PDF hoặc thông tin bổ sung khi chốt phạm vi. XLSX hiện nhập họ tên/ngày sinh/giới tính vào lớp Admin chọn; chưa tự tạo/ghép Parent theo SĐT. Không mặc định 100 trẻ = 100 Parent; anh chị em dùng chung tài khoản.
-5. Đăng ký mẫu WhatsApp sản xuất cho tin ngoài cửa sổ hội thoại; xử lý SMS với Twilio. Email, phí/sổ cái, offline ảnh và dashboard nâng cao làm sau; Android đang nghiệm thu các luồng đã có trên web.
+5. Đăng ký mẫu WhatsApp sản xuất cho tin ngoài cửa sổ hội thoại; xử lý SMS với Twilio. Email, phí/sổ cái, offline ảnh và dashboard nâng cao làm sau; Android đang nghiệm thu các luồng API hiện có.
 
 ## 6. Làm việc chung
 
@@ -88,7 +125,7 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 - Mobile: chỉ Android, đã tích hợp /auth/login, /auth/me, /auth/logout và màn hình tài khoản; token/thời hạn trong secure storage, không lưu mật khẩu. Kiểm tra phiên khi mở app/trở lại từ nền; 401/hết hạn đóng cả màn hình con và đăng nhập lại, mất mạng có thử lại/đăng xuất local. Logout BE thu hồi các phiên của cùng tài khoản qua security stamp. API_BASE_URL qua dart-define, mặc định emulator 10.0.2.2:5184/api; HTTP chỉ bản debug, production dùng HTTPS. Chưa có refresh token. Secret nhà cung cấp chỉ ở BE.
 - Kiến trúc mobile: tổ chức theo feature, presentation dùng controller/state chỉ đọc, domain model/repository contract thuần Dart, data xử lý HTTP/JSON/secure storage; app/dependencies là composition root. Đã sửa race khi expiry/cleanup chậm và bỏ response sau dispose; profile/release yêu cầu API HTTPS, chưa cấu hình keystore phát hành. Quy ước trong mobile/docs/architecture.md.
 
-- Mobile nghiệp vụ: giao diện Android riêng, Material 3, điều hướng dưới và bottom sheet chức năng theo quyền; trang chủ truy cập nhanh, hồ sơ tách riêng. Danh sách thẻ với nhãn thông tin chính, tìm kiếm trực tiếp sau khi ngừng gõ, bộ lọc nâng cao; nút tạo/yêu cầu nổi, nút lưu form cố định trên bàn phím. Có tài khoản/phạm vi, lớp/trẻ/ghi danh/phụ huynh, năm học, báo không ăn, sổ suất/ngoại lệ/chốt/điều chỉnh, lịch bữa ăn và hồ sơ ngày ăn. Tab tải lần đầu khi mở và giữ state; Back từ tab phụ về Trang chủ. Resume xác minh phiên thành công với quyền không đổi giữ form đang nhập; quyền đổi/hết hạn/lỗi xác minh đóng màn hình con. BE giữ phân quyền, revision/bản chốt/preview token không đổi; không thêm chức năng ngoài web. Phạm vi và giới hạn trong mobile/docs/web-parity.md.
+- Mobile nghiệp vụ: giao diện Android riêng, Material 3, điều hướng dưới và bottom sheet chức năng theo quyền; trang chủ truy cập nhanh, hồ sơ tách riêng. Danh sách thẻ với nhãn thông tin chính, tìm kiếm trực tiếp sau khi ngừng gõ, bộ lọc nâng cao; nút tạo/yêu cầu nổi, nút lưu form cố định trên bàn phím. Có tài khoản/phạm vi, lớp/trẻ/ghi danh/phụ huynh, năm học, báo không ăn, sổ suất/ngoại lệ/chốt/điều chỉnh, lịch bữa ăn và hồ sơ ngày ăn. Tab tải lần đầu khi mở và giữ state; Back từ tab phụ về Trang chủ. Resume xác minh phiên thành công với quyền không đổi giữ form đang nhập; quyền đổi/hết hạn/lỗi xác minh đóng màn hình con. BE giữ phân quyền, revision/bản chốt/preview token không đổi; từ 20/10/2026 bổ sung giao diện cho toàn bộ API nghiệp vụ hiện có, gồm phần chưa có trên web theo yêu cầu mới. Phạm vi và giới hạn trong mobile/docs/web-parity.md.
 - Kiểm thử mobile quét chiều phụ thuộc toàn bộ feature, đối chiếu request/route với nguồn BE, giả HTTP/storage tại boundary, kiểm tra widget ở các độ rộng điện thoại/tablet. Đã kiểm tra analyzer và build APK debug; chưa coi đó là nghiệm thu trên Android thật hoặc xác nhận giao WhatsApp trong đợt này. Chi tiết kết quả chỉ ghi continuity local. Thay đổi đang local trên cuong.
 
 - Migration `20261009130125_StudentImportHistory` đã cập nhật DB local; máy khác chạy `dotnet ef database update --project be/src/MealTrace.Infrastructure --startup-project be/src/MealTrace.Api`. Các bảng lịch sử import giữ nguyên sau khi lưu, FK ngăn xóa hồ sơ/lớp/người thực hiện đang được tham chiếu.
@@ -97,3 +134,13 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 - Android đã có test E2E Admin dùng API/secure storage thật trong `mobile/integration_test/student_profile_e2e_test.dart`; cấu hình DB dùng thử/tài khoản/lớp qua file local bỏ qua Git, hướng dẫn trong mobile README. Chưa chạy E2E trên Android vì máy chưa có emulator hoặc điện thoại kết nối; unit/widget test, analyzer và build không thay thế nghiệm thu này. Giữ WhatsApp ở số mẫu đã cấu hình; đăng ký nhà cung cấp không tự gỡ giới hạn tester trong code.
 
 - API tiếp nhận bếp: Swagger mô tả DTO, quyền và lỗi; xác nhận bắt buộc SnapshotToken lấy từ /diff, token cũ trả 409. Lặp lại cùng người/bản suất không tạo thêm xác nhận; bản mới cần xác nhận mới. GET /api/kitchen/settlements giữ tương thích tối đa 100 phiên; web/Android dùng /search có phân trang. Bản ghi xác nhận cũ thiếu token chỉ giữ lịch sử.
+
+- Tiếp nhận suất ăn: Admin chỉ xem đối chiếu/lịch sử; chỉ KITCHEN_STAFF xác nhận, API chặn tài khoản có ADMIN (kể cả kiêm nhiệm Bếp), Teacher-only và Parent bằng 403. Web/Android ẩn biểu mẫu xác nhận với Admin. Giáo viên chỉ đề xuất điều chỉnh trong lớp được phân công; chốt/duyệt vẫn Admin. Liên kết phụ huynh bằng SĐT kiểm tra ghi danh hiện hành và khóa hồ sơ trẻ trong giao dịch, không cấp quyền từ lớp dự kiến trên Student.ClassId.
+
+- Tài liệu trạng thái, quy ước và phân quyền cập nhật trực tiếp trong continuity.md; ưu tiên cập nhật tài liệu hiện có, không tự tạo thêm file tổng kết/tài liệu riêng cho mỗi lần sửa. Chi tiết kiểm chứng cá nhân giữ trong continuity local.
+
+- Android: Nguyên liệu có tìm kiếm/phân trang, thêm nguyên liệu (g/ml), thêm phiên bản dinh dưỡng với ngày giờ áp dụng UTC+7, tỷ lệ ăn được/năng lượng/đạm/giá. Công thức chọn nguyên liệu từ danh sách, nhập tổng định lượng và số suất, tra cứu dinh dưỡng mỗi suất và thời điểm áp dụng/ghi nhận, thêm phiên bản với expectedVersion. Lỗi không tự gửi lại; giữ dữ liệu form. Teacher/Parent không được vào các luồng bếp. Admin có chi tiết tài khoản, tra cứu nguồn báo cáo và gửi tin thử chỉ sau xác nhận; không gửi khi mở màn hình. BE chưa có danh sách công thức/báo cáo: tra cứu bằng mã, công thức thêm phiên bản; màn hình tạo xong giữ mã để sao chép, không giả danh mục bằng bộ nhớ local. Không thêm API thực đơn/duyệt/công bố chưa có trong BE. Các GET danh sách tương thích dùng chung UI qua endpoint search; không tạo giao diện trùng cho từng alias.
+
+- Android thống nhất giao diện nền kem, tím trầm làm màu chủ đạo, xanh lá cho trạng thái hoàn tất; theme dùng chung cho chữ, input, nút, card, bottom sheet, điều hướng và SnackBar. Thành phần trình bày dùng chung ở core/presentation, không kéo nghiệp vụ/HTTP vào core. Trang chủ có lời chào theo vai trò và thẻ truy cập nhanh; menu chia nhóm nghiệp vụ. Danh sách có biểu tượng/tiêu đề và trạng thái rõ, thông tin phụ thu gọn; số suất/dinh dưỡng dùng khung số liệu nổi bật. Form giữ nút lưu trên bàn phím. Nút tạo công thức ở đầu trang để không che dữ liệu đối chiếu. Thiết kế không thêm thống kê giả hoặc API mới; giữ quyền/luồng hiện hành.
+
+- Test Android thật qua USB: bật USB debugging, chạy BE local 5184, dùng adb reverse tcp:5184 tcp:5184 và flutter run với API_BASE_URL=http://127.0.0.1:5184/api. FE không cần chạy, DB giữ trên máy tính. Debug network allowlist có emulator 10.0.2.2 và loopback 127.0.0.1/localhost; bản release vẫn yêu cầu HTTPS. Hướng dẫn đầy đủ trong mobile/README.md. APK mặc định emulator cần build/chạy lại với URL phù hợp, không tự dùng USB.

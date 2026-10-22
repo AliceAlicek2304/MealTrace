@@ -20,7 +20,7 @@ beforeEach(() => {
   cache = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 afterEach(() => { cleanup(); cache.clear(); vi.restoreAllMocks() })
-function mount() { render(<QueryClientProvider client={cache}><KitchenSettlementsPage /></QueryClientProvider>) }
+function mount(canAcknowledge = true) { render(<QueryClientProvider client={cache}><KitchenSettlementsPage canAcknowledge={canAcknowledge} /></QueryClientProvider>) }
 it('confirms only the displayed snapshot after explicit review and shows saved history', async () => {
   let saved = false
   vi.spyOn(api, 'get').mockImplementation(async url => {
@@ -64,4 +64,16 @@ it('kitchen navigation is restricted to school managers and kitchen staff', () =
   expect(canOpenPage('kitchen', ['KITCHEN_STAFF'])).toBe(true)
   expect(canOpenPage('kitchen', ['PARENT'])).toBe(false)
   expect(canOpenPage('kitchen', ['TEACHER'])).toBe(false)
+})
+it('admin can inspect current portions and history without acknowledgement controls', async () => {
+  vi.spyOn(api, 'get').mockImplementation(async url => ({ data: url.endsWith('/search') ? { items: [day], total: 1 } : url.endsWith('/diff') ? detail : [] }))
+  const post = vi.spyOn(api, 'post')
+  mount(false)
+  fireEvent.click(await screen.findByText('Xem đối chiếu'))
+  await screen.findByText('Bếp chưa tiếp nhận bản suất hiện hành.')
+  expect(screen.queryByRole('checkbox')).toBeNull()
+  expect(screen.queryByLabelText('Ghi chú tiếp nhận')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Xác nhận tiếp nhận' })).toBeNull()
+  expect(screen.getByText('Lịch sử tiếp nhận')).toBeTruthy()
+  expect(post).not.toHaveBeenCalled()
 })

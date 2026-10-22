@@ -14,6 +14,35 @@ namespace MealTrace.Api.Tests;
 public sealed class ScopedStudentSearchTests
 {
     [Fact]
+    public async Task TeacherParentLinkFollowsCurrentEnrollmentInsteadOfFutureClassPointer()
+    {
+        using var factory = new AuthTestFactory();
+        var seed = await factory.SeedUsersAsync();
+        var today = SchoolTime.Today(TimeProvider.System.GetUtcNow());
+        var outside = new SchoolClass { Name = "Ngoài phân công", SchoolYear = "2026-2027" };
+        var denied = new Student { FullName = "Chưa chuyển vào lớp", ClassId = seed.ClassId,
+            Enrollments = [new Enrollment { ClassId = outside.Id, StartDate = today, RecordedAt = DateTimeOffset.UtcNow }] };
+        var allowed = new Student { FullName = "Chưa chuyển ra lớp", ClassId = outside.Id,
+            Enrollments = [new Enrollment { ClassId = seed.ClassId, StartDate = today, RecordedAt = DateTimeOffset.UtcNow }] };
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            db.Classes.Add(outside);
+            db.TeacherAssignments.Add(new TeacherAssignment { UserId = seed.TeacherId, ClassId = seed.ClassId });
+            db.Students.AddRange(denied, allowed);
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, seed.TeacherEmail, seed.Password));
+        var input = new { fullName = "Phụ huynh thử nghiệm", phoneNumber = "0901234567" };
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/admin/students/{denied.Id}/parents", input)).StatusCode);
+        (await client.PostAsJsonAsync($"/api/admin/students/{allowed.Id}/parents", input)).EnsureSuccessStatusCode();
+        using var checkScope = factory.Services.CreateScope();
+        var check = checkScope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        Assert.DoesNotContain(check.ParentStudents, link => link.StudentId == denied.Id);
+        Assert.Contains(check.ParentStudents, link => link.StudentId == allowed.Id);
+    }
+    [Fact]
     public Task TeacherSearchIsScopedAndPaginated() => VerifySearch(false);
 
     [PostgresFact]

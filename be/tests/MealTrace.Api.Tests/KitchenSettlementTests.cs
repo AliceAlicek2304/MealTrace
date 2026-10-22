@@ -23,7 +23,7 @@ public sealed class KitchenSettlementTests
         return seed;
     }
 
-    private static async Task<ApplicationUser> CreateKitchenUser(AuthTestFactory factory, Scenario seed)
+    internal static async Task<ApplicationUser> CreateKitchenUser(AuthTestFactory factory, Scenario seed)
     {
         using var scope = factory.Services.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -66,12 +66,33 @@ public sealed class KitchenSettlementTests
         await Authorize(client, seed.AdminEmail, seed.Password);
         var admin = await client.GetAsync("/api/kitchen/settlements");
         Assert.Equal(HttpStatusCode.OK, admin.StatusCode);
+        var snapshot = await client.GetFromJsonAsync<JsonElement>($"/api/kitchen/settlements/{seed.DayId}/diff");
+        var adminAck = await client.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", new
+        {
+            snapshotToken = snapshot.GetProperty("snapshotToken").GetString(), note = "Admin chỉ xem"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, adminAck.StatusCode);
+        var adminHistory = await client.GetFromJsonAsync<JsonElement>($"/api/kitchen/settlements/{seed.DayId}/acknowledgements");
+        Assert.Empty(adminHistory.EnumerateArray());
 
         // 4. KitchenStaff -> 200
         var kitchen = await CreateKitchenUser(factory, seed);
         await Authorize(client, kitchen.Email!, seed.Password);
         var kitchenStaff = await client.GetAsync("/api/kitchen/settlements");
         Assert.Equal(HttpStatusCode.OK, kitchenStaff.StatusCode);
+        // Admin remains a viewer even when a legacy account also carries the kitchen role.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var account = await users.FindByIdAsync(kitchen.Id.ToString());
+            Assert.True((await users.AddToRoleAsync(account!, RoleNames.Admin)).Succeeded);
+        }
+        await Authorize(client, kitchen.Email!, seed.Password);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/kitchen/settlements")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", new
+        {
+            snapshotToken = snapshot.GetProperty("snapshotToken").GetString()
+        })).StatusCode);
     }
 
     [Fact]

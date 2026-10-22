@@ -20,9 +20,12 @@ public sealed class KitchenSettlementRegressionTests
         using var second = factory.CreateClient();
         var seed = await SeedScenario(factory, clock);
         await Authorize(first, seed.AdminEmail, seed.Password);
-        await Authorize(second, seed.AdminEmail, seed.Password);
+
         clock.Set(seed.Cutoff);
         (await first.PostAsync($"/api/meal-days/{seed.DayId}/settle", null)).EnsureSuccessStatusCode();
+        var kitchen = await KitchenSettlementTests.CreateKitchenUser(factory, seed);
+        await Authorize(first, kitchen.Email!, seed.Password);
+        await Authorize(second, kitchen.Email!, seed.Password);
         var diff = await first.GetFromJsonAsync<JsonElement>($"/api/kitchen/settlements/{seed.DayId}/diff");
         var input = new { snapshotToken = diff.GetProperty("snapshotToken").GetString(), note = "Đã kiểm tra" };
         var responses = await Task.WhenAll(first.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", input), second.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", input));
@@ -91,6 +94,8 @@ public sealed class KitchenSettlementRegressionTests
         await Authorize(client, seed.AdminEmail, seed.Password);
         clock.Set(seed.Cutoff);
         (await client.PostAsync($"/api/meal-days/{seed.DayId}/settle", null)).EnsureSuccessStatusCode();
+        var kitchen = await KitchenSettlementTests.CreateKitchenUser(factory, seed);
+        await Authorize(client, kitchen.Email!, seed.Password);
         var before = await client.GetFromJsonAsync<JsonElement>($"/api/kitchen/settlements/{seed.DayId}/diff");
         var input = new { note = "Đã nhận bản đầu", snapshotToken = before.GetProperty("snapshotToken").GetString() };
         var acknowledged = await client.PostAsJsonAsync($"/api/kitchen/settlements/{seed.DayId}/acknowledge", input);

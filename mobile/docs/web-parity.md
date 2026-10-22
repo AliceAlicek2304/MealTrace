@@ -1,6 +1,6 @@
-# Phạm vi Android theo web
+# Phạm vi Android theo API hiện có
 
-Chỉ triển khai chức năng đã có trên web, cho đủ vai trò. Dùng chung BE và quy tắc nghiệp vụ; đây là giao diện Flutter native, không phải WebView.
+Theo yêu cầu ngày 20/10/2026, Android bao phủ API nghiệp vụ hiện có cho đủ vai trò, gồm cả phần chưa có trên web. Dùng chung BE và quy tắc nghiệp vụ; đây là giao diện Flutter native, không phải WebView.
 
 ## Trải nghiệm Android
 
@@ -25,9 +25,15 @@ Chỉ triển khai chức năng đã có trên web, cho đủ vai trò. Dùng ch
 | Lịch bữa ăn | Chọn năm, lịch tuần/ngày, xem trước và tạo hàng loạt, lịch sử |
 | Hồ sơ ngày ăn | Danh sách/chi tiết, món ăn, bản chốt và minh chứng có trong API |
 
-Admin, Giáo viên, Bếp và Phụ huynh chỉ thấy menu/thao tác phù hợp; phạm vi dữ liệu do BE kiểm tra. Không thêm giao diện nguyên liệu, công thức hoặc dinh dưỡng chưa có trên web. Import Excel đang chờ thống nhất mẫu và không nằm trong đợt này.
+Admin, Giáo viên, Bếp và Phụ huynh chỉ thấy menu/thao tác phù hợp; phạm vi dữ liệu do BE kiểm tra. Đã có nguyên liệu/phân trang/tìm kiếm, tạo nguyên liệu, thêm bản dinh dưỡng; tạo công thức theo định lượng tổng/số suất, thêm bản dựa trên expectedVersion và tra cứu dinh dưỡng theo thời điểm. Admin có tra cứu nguồn báo cáo theo mã, chi tiết tài khoản và gửi tin thử có xác nhận. Các API danh sách cũ được thay bằng endpoint search trong cùng màn hình, không tạo màn hình trùng.
 
 Kiểm chứng tự động gồm contract request/route đối chiếu nguồn BE, HTTP và lỗi, quyền menu, form, chống gửi lặp, preview/tạo, phân trang chọn nhiều và hết hạn phiên. Widget được kiểm tra ở độ rộng 320/390/768 px. Chưa nghiệm thu trên Android thật hoặc xác nhận giao tin WhatsApp trong đợt này; việc build APK không chứng minh các luồng đó đã chạy với dữ liệu thật.
 
 
 Hồ sơ trẻ: tạo/sửa ngày sinh và giới tính tùy chọn; có thể xóa thông tin đã nhập. Import XLSX: chọn file → xem trước thẻ → xác nhận; lịch sử import Admin có lọc lớp/phân trang và danh sách trẻ tại thời điểm nhập. Không lưu SĐT xem trước hoặc gửi tin từ import.
+
+## Giới hạn API hiện tại
+
+BE chưa có GET danh sách/chi tiết công thức hoặc danh sách báo cáo. Tra cứu công thức dùng mã + phiên bản; tạo xong giữ mã trên màn hình và có sao chép. Tra cứu báo cáo dùng mã báo cáo. Không tự dựng danh mục từ dữ liệu lưu riêng trên thiết bị. Chưa có API duyệt/công bố thực đơn nên không thêm thao tác đó.
+
+Tiếp nhận suất ăn: Admin chỉ xem kể cả kiêm nhiệm Bếp; Bếp không có ADMIN mới được xác nhận. Giáo viên chỉ các lớp được phân công, không chốt/duyệt điều chỉnh/tiếp nhận. Phân quyền đầy đủ và trạng thái hiện hành nằm trong continuity.md.

@@ -1,4 +1,9 @@
+import '../../../core/presentation/meal_widgets.dart';
 import 'kitchen_settlements_page.dart';
+import 'kitchen_catalog_page.dart';
+import 'recipe_page.dart';
+import 'report_lookup_page.dart';
+import 'notification_test_page.dart';
 import 'student_import_history_page.dart';
 import 'parent_link_review_page.dart';
 import 'student_import_page.dart';
@@ -103,6 +108,26 @@ class _SchoolHomeState extends State<SchoolHome> {
         title: 'Hồ sơ ngày ăn',
         icon: Icons.fact_check_outlined,
       ),
+      (
+        operation: SchoolOperation.ingredients,
+        title: 'Nguyên liệu',
+        icon: Icons.kitchen_outlined,
+      ),
+      (
+        operation: SchoolOperation.nutrition,
+        title: 'Công thức & dinh dưỡng',
+        icon: Icons.menu_book_outlined,
+      ),
+      (
+        operation: SchoolOperation.reportLineage,
+        title: 'Truy vết báo cáo',
+        icon: Icons.receipt_long_outlined,
+      ),
+      (
+        operation: SchoolOperation.sendTestNotification,
+        title: 'Kiểm tra gửi tin',
+        icon: Icons.chat_outlined,
+      ),
     ].where((section) => canExecute(section.operation, roles)).toList();
   }
 
@@ -125,7 +150,31 @@ class _SchoolHomeState extends State<SchoolHome> {
   Future<void> open(SchoolSection section) => Navigator.push<void>(
     context,
     MaterialPageRoute(
-      builder: (_) => section.operation == SchoolOperation.kitchenSettlements
+      builder: (_) => section.operation == SchoolOperation.ingredients
+          ? KitchenCatalogPage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : section.operation == SchoolOperation.nutrition
+          ? RecipePage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : section.operation == SchoolOperation.reportLineage
+          ? ReportLookupPage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : section.operation == SchoolOperation.sendTestNotification
+          ? NotificationTestPage(
+              repository: widget.repository,
+              roles: widget.auth.user!.roles,
+              onUnauthorized: widget.auth.invalidateSession,
+            )
+          : section.operation == SchoolOperation.kitchenSettlements
           ? KitchenSettlementsPage(
               repository: widget.repository,
               roles: widget.auth.user!.roles,
@@ -180,13 +229,29 @@ class _SchoolHomeState extends State<SchoolHome> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              for (final section in sections)
-                ListTile(
-                  leading: Icon(section.icon),
-                  title: Text(section.title),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.pop(context, section),
+              for (final group
+                  in sections
+                      .map((section) => sectionGroup(section.operation))
+                      .toSet()) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 20, 14, 6),
+                  child: Text(
+                    group,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(color: MealColors.muted),
+                  ),
                 ),
+                for (final section in sections.where(
+                  (section) => sectionGroup(section.operation) == group,
+                ))
+                  ListTile(
+                    leading: MealIcon(section.icon, size: 40),
+                    title: Text(section.title),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pop(context, section),
+                  ),
+              ],
             ],
           ),
         ),
@@ -195,53 +260,92 @@ class _SchoolHomeState extends State<SchoolHome> {
     if (selected != null && mounted) await open(selected);
   }
 
+  String sectionGroup(SchoolOperation operation) => switch (operation) {
+    SchoolOperation.workflowDays ||
+    SchoolOperation.calendar ||
+    SchoolOperation.meals ||
+    SchoolOperation.kitchenSettlements => 'Bữa ăn & suất ăn',
+    SchoolOperation.ingredients ||
+    SchoolOperation.nutrition => 'Bếp & dinh dưỡng',
+    SchoolOperation.users ||
+    SchoolOperation.yearConfiguration => 'Quản trị nhà trường',
+    SchoolOperation.reportLineage => 'Báo cáo',
+    SchoolOperation.sendTestNotification => 'Thông báo',
+    _ => 'Lớp học & gia đình',
+  };
+
   Widget home() {
     final user = widget.auth.user!;
     return ListView(
       key: const PageStorageKey('school-home'),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        Text(
-          'Xin chào, ${user.fullName}',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        MealHero(
+          title: 'Xin chào, ${user.fullName}',
+          subtitle: user.roles.contains('PARENT')
+              ? 'Cùng nhà trường chăm sóc từng bữa ăn của con.'
+              : 'Một ngày làm việc gọn gàng, mỗi bữa ăn thêm an tâm.',
+          icon: Icons.spa_outlined,
+          eyebrow: user.roles
+              .map((role) => roleLabels[role] ?? role)
+              .join(' · '),
         ),
-        const SizedBox(height: 8),
-        Text(user.roles.map((role) => roleLabels[role] ?? role).join(' · ')),
-        const SizedBox(height: 28),
-        Text('Truy cập nhanh', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
+        const MealSectionTitle(
+          'Truy cập nhanh',
+          subtitle: 'Các công việc thường dùng của bạn',
+        ),
         LayoutBuilder(
           builder: (context, bounds) {
-            final columns = bounds.maxWidth >= 600 ? 3 : 2;
+            final columns = bounds.maxWidth >= 600
+                ? 3
+                : bounds.maxWidth < 360 &&
+                      MediaQuery.textScalerOf(context).scale(14) > 18
+                ? 1
+                : 2;
             final width = (bounds.maxWidth - 12 * (columns - 1)) / columns;
             return Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (final section in sections.take(4))
+                for (final (index, section) in sections.take(4).indexed)
                   SizedBox(
                     width: width,
                     child: Card(
                       margin: EdgeInsets.zero,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(22),
                         onTap: () => open(section),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(18),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
+                              MealIcon(
                                 section.icon,
-                                size: 28,
-                                color: Theme.of(context).colorScheme.primary,
+                                background: index.isEven
+                                    ? MealColors.lavender
+                                    : MealColors.mint,
+                                color: index.isEven
+                                    ? MealColors.primary
+                                    : MealColors.green,
                               ),
-                              const SizedBox(height: 20),
-                              Text(
-                                section.title,
-                                style: Theme.of(context).textTheme.titleSmall,
+                              const SizedBox(height: 18),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: MediaQuery.textScalerOf(
+                                    context,
+                                  ).scale(40),
+                                ),
+                                child: Text(
+                                  section.title,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 18,
+                                color: MealColors.muted,
                               ),
                             ],
                           ),
@@ -253,30 +357,34 @@ class _SchoolHomeState extends State<SchoolHome> {
             );
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         OutlinedButton.icon(
           onPressed: showFunctions,
-          icon: const Icon(Icons.apps),
+          icon: const Icon(Icons.grid_view_rounded),
           label: const Text('Xem tất cả chức năng'),
         ),
-        const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.info_outline),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    user.roles.contains('PARENT')
-                        ? 'Báo không ăn cho trẻ theo ngày hoặc khoảng ngày. Các thay đổi sau giờ chốt vẫn lưu lịch sử.'
-                        : 'Suất dự kiến dựa trên ghi danh và báo không ăn. Điều chỉnh sau chốt chỉ áp dụng khi được quản lý duyệt.',
-                  ),
+        const SizedBox(height: 28),
+        const MealSectionTitle('Lưu ý trong ngày'),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: MealColors.mint,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.verified_outlined, color: MealColors.green),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  user.roles.contains('PARENT')
+                      ? 'Báo không ăn cho trẻ theo ngày hoặc khoảng ngày. Các thay đổi sau giờ chốt vẫn lưu lịch sử.'
+                      : 'Suất dự kiến dựa trên ghi danh và báo không ăn. Điều chỉnh sau chốt chỉ áp dụng khi được quản lý duyệt.',
+                  style: const TextStyle(color: MealColors.green, height: 1.5),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
@@ -290,6 +398,8 @@ class _SchoolHomeState extends State<SchoolHome> {
       children: [
         CircleAvatar(
           radius: 32,
+          backgroundColor: MealColors.primary,
+          foregroundColor: Colors.white,
           child: Text(
             user.fullName.trim().isEmpty
                 ? '?'
@@ -408,7 +518,17 @@ class _SchoolHomeState extends State<SchoolHome> {
       child: Scaffold(
         appBar: tab == 1
             ? null
-            : AppBar(title: Text(tab == 3 ? 'Hồ sơ' : 'MealTrace')),
+            : AppBar(
+                leading: tab == 3
+                    ? null
+                    : const Padding(
+                        padding: EdgeInsets.only(left: 16),
+                        child: Center(
+                          child: MealIcon(Icons.spa_outlined, size: 36),
+                        ),
+                      ),
+                title: Text(tab == 3 ? 'Hồ sơ' : 'MealTrace'),
+              ),
         body: SafeArea(
           child: IndexedStack(
             index: tab == 3 ? 2 : tab,

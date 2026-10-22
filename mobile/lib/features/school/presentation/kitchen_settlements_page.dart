@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
+import '../../../core/presentation/meal_widgets.dart';
 import 'school_widgets.dart';
 
 class KitchenSettlementsPage extends StatefulWidget {
@@ -78,8 +79,10 @@ class _KitchenSettlementsPageState extends State<KitchenSettlementsPage> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
-                'Đối chiếu bản suất hiện hành trước khi xác nhận. Khi có bản mới, bếp cần tiếp nhận lại.',
+              Text(
+                canExecute(SchoolOperation.acknowledgeKitchen, widget.roles)
+                    ? 'Đối chiếu bản suất hiện hành trước khi xác nhận. Khi có bản mới, bếp cần tiếp nhận lại.'
+                    : 'Theo dõi số suất hiện hành, thay đổi theo lớp và lịch sử tiếp nhận của bếp.',
               ),
               Wrap(
                 spacing: 8,
@@ -135,22 +138,56 @@ class _KitchenSettlementsPageState extends State<KitchenSettlementsPage> {
               if (!controller.loading &&
                   controller.error == null &&
                   controller.result?.records.isEmpty == true)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('Chưa có phiên ăn đã chốt phù hợp.'),
+                const MealEmpty(
+                  'Chưa có phiên ăn đã chốt phù hợp.',
+                  icon: Icons.restaurant_outlined,
                 ),
               for (final day in controller.result?.records ?? <SchoolRecord>[])
                 Card(
-                  child: ListTile(
-                    isThreeLine: true,
-                    title: Text(
-                      '${day.text('sessionType')} · ${day.text('date')}',
-                    ),
-                    subtitle: Text(
-                      '${day.number('appliedPortions')} suất · Gốc ${day.number('originalPortions')}\n${day.flag('isAcknowledged') ? 'Đã tiếp nhận bản hiện hành' : 'Cần xác nhận'}',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
+                  child: InkWell(
                     onTap: () => open(day),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              const MealIcon(Icons.restaurant_outlined),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  '${day.text('sessionType')} · ${day.text('date')}',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: MealColors.muted,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            '${day.number('appliedPortions')} suất',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          Text(
+                            'Bản gốc: ${day.number('originalPortions')} suất',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: MealColors.muted),
+                          ),
+                          const SizedBox(height: 14),
+                          MealStatus(
+                            day.flag('isAcknowledged')
+                                ? 'Đã tiếp nhận bản hiện hành'
+                                : 'Cần xác nhận',
+                            positive: day.flag('isAcknowledged'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               if (controller.result != null)
@@ -220,6 +257,8 @@ class _KitchenSettlementDetailPageState
   bool loading = true, saving = false, reviewed = false;
   String? error;
   Map<String, Object?> get selected => {'id': widget.day.text('mealDayId')};
+  bool get canAcknowledge =>
+      canExecute(SchoolOperation.acknowledgeKitchen, widget.roles);
   @override
   void initState() {
     super.initState();
@@ -265,7 +304,8 @@ class _KitchenSettlementDetailPageState
   }
 
   Future<void> acknowledge() async {
-    if (saving ||
+    if (!canAcknowledge ||
+        saving ||
         loading ||
         !reviewed ||
         detail == null ||
@@ -309,7 +349,10 @@ class _KitchenSettlementDetailPageState
     canPop: !saving,
     child: Scaffold(
       bottomNavigationBar:
-          detail != null && !detail!.flag('isAcknowledged') && !loading
+          canAcknowledge &&
+              detail != null &&
+              !detail!.flag('isAcknowledged') &&
+              !loading
           ? AnimatedPadding(
               duration: const Duration(milliseconds: 150),
               padding: EdgeInsets.only(
@@ -350,12 +393,11 @@ class _KitchenSettlementDetailPageState
                 ],
               ),
             if (detail != null) ...[
-              Text(
-                '${detail!.number('appliedTotal')} suất cần chuẩn bị',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              Text(
-                'Gốc ${detail!.number('originalTotal')} · Chênh lệch ${detail!.number('totalDiff')}',
+              MealMetric(
+                label: 'Số suất cần chuẩn bị',
+                value: '${detail!.number('appliedTotal')} suất',
+                detail:
+                    'Gốc ${detail!.number('originalTotal')} · Chênh lệch ${detail!.number('totalDiff')}',
               ),
               for (final room in detail!.records('classDiffs'))
                 Card(
@@ -393,7 +435,7 @@ class _KitchenSettlementDetailPageState
                 ),
               if (detail!.flag('isAcknowledged'))
                 const Text('Bếp đã tiếp nhận bản suất hiện hành.')
-              else ...[
+              else if (canAcknowledge) ...[
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text(
@@ -413,7 +455,8 @@ class _KitchenSettlementDetailPageState
                     labelText: 'Ghi chú tiếp nhận',
                   ),
                 ),
-              ],
+              ] else
+                const Text('Bếp chưa tiếp nhận bản suất hiện hành.'),
               ExpansionTile(
                 title: Text('Lịch sử tiếp nhận · ${history.length}'),
                 children: [

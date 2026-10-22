@@ -3,9 +3,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mealtrace_mobile/app/theme.dart';
 import 'package:mealtrace_mobile/features/school/domain/school_models.dart';
 import 'package:mealtrace_mobile/features/school/presentation/kitchen_settlements_page.dart';
+import 'package:mealtrace_mobile/features/school/presentation/school_controller.dart';
 import 'support/school_fixtures.dart';
 
 void main() {
+  testWidgets(
+    'Admin reads the snapshot and history without reception controls',
+    (tester) async {
+      final repo = FakeSchoolRepository();
+      repo.handler = (operation, context, input) async => SchoolResult(
+        summary: SchoolRecord(
+          operation == SchoolOperation.kitchenDiff
+              ? {
+                  'snapshotToken': 'a' * 64,
+                  'appliedTotal': 30,
+                  'originalTotal': 30,
+                  'isAcknowledged': false,
+                  'classDiffs': <Object?>[],
+                }
+              : {},
+        ),
+        records: [],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: mealTraceTheme,
+          home: KitchenSettlementDetailPage(
+            repository: repo,
+            roles: ['ADMIN'],
+            onUnauthorized: () async {},
+            day: SchoolRecord({
+              'mealDayId': schoolId,
+              'date': '2026-10-20',
+              'sessionType': 'Bữa trưa',
+            }),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('30 suất'), findsOneWidget);
+      expect(find.text('Lịch sử tiếp nhận · 0'), findsOneWidget);
+      expect(find.byType(CheckboxListTile), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Xác nhận tiếp nhận'), findsNothing);
+      final controller = SchoolController(repo, ['ADMIN'], () async {});
+      addTearDown(controller.dispose);
+      await expectLater(
+        controller.execute(SchoolOperation.acknowledgeKitchen),
+        throwsA(
+          isA<SchoolFailure>().having((error) => error.status, 'status', 403),
+        ),
+      );
+      expect(
+        repo.calls.any(
+          (call) => call.operation == SchoolOperation.acknowledgeKitchen,
+        ),
+        isFalse,
+      );
+    },
+  );
   for (final width in [320.0, 390.0, 768.0]) {
     testWidgets(
       'Kitchen confirms a reviewed snapshot and sees history at $width',
@@ -105,6 +161,8 @@ void main() {
         expect(tester.getRect(button).bottom, lessThanOrEqualTo(600));
         await tester.tap(button);
         await tester.pumpAndSettle();
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
         expect(
           find.text('Bếp đã tiếp nhận bản suất hiện hành.'),
           findsOneWidget,
@@ -117,6 +175,11 @@ void main() {
               .length,
           1,
         );
+        await Scrollable.ensureVisible(
+          tester.element(find.text('Lịch sử tiếp nhận · 1')),
+          alignment: .3,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Lịch sử tiếp nhận · 1'));
         await tester.pumpAndSettle();
         expect(find.text('32 suất · Bếp A'), findsOneWidget);
@@ -125,13 +188,23 @@ void main() {
     );
   }
   test('Kitchen endpoints are denied to teachers and parents', () {
+    expect(
+      canExecute(SchoolOperation.acknowledgeKitchen, [
+        'ADMIN',
+        'KITCHEN_STAFF',
+      ]),
+      isFalse,
+    );
     for (final operation in [
       SchoolOperation.kitchenSettlements,
       SchoolOperation.kitchenDiff,
       SchoolOperation.kitchenHistory,
       SchoolOperation.acknowledgeKitchen,
     ]) {
-      expect(canExecute(operation, ['ADMIN']), isTrue);
+      expect(
+        canExecute(operation, ['ADMIN']),
+        operation != SchoolOperation.acknowledgeKitchen,
+      );
       expect(canExecute(operation, ['KITCHEN_STAFF']), isTrue);
       expect(canExecute(operation, ['TEACHER']), isFalse);
       expect(canExecute(operation, ['PARENT']), isFalse);
