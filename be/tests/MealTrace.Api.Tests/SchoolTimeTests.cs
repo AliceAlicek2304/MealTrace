@@ -205,4 +205,46 @@ public sealed class SchoolTimeTests
         var enrollment = Assert.Single(child.Enrollments);
         Assert.Null(enrollment.EndDate); Assert.Null(enrollment.EndRecordedAt);
     }
+
+    [Fact]
+    public void MealSpecificCutoffCalculatesCorrectTimestampsForBreakfastAndDaytimeMeals()
+    {
+        var date = new DateOnly(2026, 10, 25);
+
+        // Breakfast: 21:00 previous day (2026-10-24 21:00:00 +07:00 -> 2026-10-24 14:00:00Z)
+        var breakfastCutoff = SchoolTime.Cutoff(date, "Breakfast");
+        Assert.Equal(new DateTimeOffset(2026, 10, 24, 14, 0, 0, TimeSpan.Zero), breakfastCutoff);
+        Assert.Equal(TimeSpan.Zero, breakfastCutoff.Offset);
+        Assert.Equal(new DateTimeOffset(2026, 10, 24, 21, 0, 0, SchoolTime.Offset), breakfastCutoff.ToOffset(SchoolTime.Offset));
+
+        // Vietnamese aliases for Breakfast
+        Assert.Equal(breakfastCutoff, SchoolTime.Cutoff(date, "Sáng"));
+        Assert.Equal(breakfastCutoff, SchoolTime.Cutoff(date, "Bữa sáng"));
+        Assert.Equal(breakfastCutoff, SchoolTime.Cutoff(date, "breakfast"));
+
+        // Lunch: 07:00 same day (2026-10-25 07:00:00 +07:00 -> 2026-10-25 00:00:00Z)
+        var lunchCutoff = SchoolTime.Cutoff(date, "Lunch");
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 0, 0, TimeSpan.Zero), lunchCutoff);
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 7, 0, 0, SchoolTime.Offset), lunchCutoff.ToOffset(SchoolTime.Offset));
+        Assert.Equal(lunchCutoff, SchoolTime.Cutoff(date, "Trưa"));
+        Assert.Equal(lunchCutoff, SchoolTime.Cutoff(date, "Bữa trưa"));
+
+        // Snack: 07:00 same day (2026-10-25 07:00:00 +07:00 -> 2026-10-25 00:00:00Z)
+        var snackCutoff = SchoolTime.Cutoff(date, "Snack");
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 0, 0, TimeSpan.Zero), snackCutoff);
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 7, 0, 0, SchoolTime.Offset), snackCutoff.ToOffset(SchoolTime.Offset));
+        Assert.Equal(snackCutoff, SchoolTime.Cutoff(date, "Xế"));
+        Assert.Equal(snackCutoff, SchoolTime.Cutoff(date, "Bữa xế"));
+        Assert.Equal(snackCutoff, SchoolTime.Cutoff(date, "Bữa phụ"));
+
+        // Fallback when mealType is null or whitespace -> 07:30:00 +07:00 (2026-10-25 00:30:00Z)
+        var fallbackNullCutoff = SchoolTime.Cutoff(date, null);
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 30, 0, TimeSpan.Zero), fallbackNullCutoff);
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 7, 30, 0, SchoolTime.Offset), fallbackNullCutoff.ToOffset(SchoolTime.Offset));
+        Assert.Equal(fallbackNullCutoff, SchoolTime.Cutoff(date, ""));
+        Assert.Equal(fallbackNullCutoff, SchoolTime.Cutoff(date, "   "));
+
+        // Overload Cutoff(date) matches Cutoff(date, null)
+        Assert.Equal(fallbackNullCutoff, SchoolTime.Cutoff(date));
+    }
 }
