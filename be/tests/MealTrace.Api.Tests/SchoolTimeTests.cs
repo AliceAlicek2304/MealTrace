@@ -6,6 +6,7 @@ using MealTrace.Domain.Entities;
 using MealTrace.Infrastructure.Persistence;
 using MealTrace.Infrastructure.Identity;
 using MealTrace.Application.Abstractions;
+using MealTrace.Application.Features.Calendar;
 using MealTrace.Domain.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -246,5 +247,171 @@ public sealed class SchoolTimeTests
 
         // Overload Cutoff(date) matches Cutoff(date, null)
         Assert.Equal(fallbackNullCutoff, SchoolTime.Cutoff(date));
+    }
+
+    [Fact]
+    public void MealCalendarServiceCutoffDelegatesToSchoolTimeWithMealType()
+    {
+        var date = new DateOnly(2026, 11, 10);
+
+        // Breakfast: 21:00 D-1 (2026-11-09 21:00:00 +07:00 -> 2026-11-09 14:00:00Z)
+        var breakfastCutoff = MealCalendarService.Cutoff(date, "Breakfast");
+        Assert.Equal(SchoolTime.Cutoff(date, "Breakfast"), breakfastCutoff);
+        Assert.Equal(new DateTimeOffset(2026, 11, 9, 14, 0, 0, TimeSpan.Zero), breakfastCutoff);
+        Assert.Equal(breakfastCutoff, MealCalendarService.Cutoff(date, "Sáng"));
+        Assert.Equal(breakfastCutoff, MealCalendarService.Cutoff(date, "Bữa sáng"));
+
+        // Lunch: 07:00 D (2026-11-10 07:00:00 +07:00 -> 2026-11-10 00:00:00Z)
+        var lunchCutoff = MealCalendarService.Cutoff(date, "Lunch");
+        Assert.Equal(SchoolTime.Cutoff(date, "Lunch"), lunchCutoff);
+        Assert.Equal(new DateTimeOffset(2026, 11, 10, 0, 0, 0, TimeSpan.Zero), lunchCutoff);
+        Assert.Equal(lunchCutoff, MealCalendarService.Cutoff(date, "Trưa"));
+        Assert.Equal(lunchCutoff, MealCalendarService.Cutoff(date, "Bữa trưa"));
+
+        // Fallback overload Cutoff(date) matches Cutoff(date, null) -> 07:30 +07:00
+        Assert.Equal(MealCalendarService.Cutoff(date, null), MealCalendarService.Cutoff(date));
+        Assert.Equal(new DateTimeOffset(2026, 11, 10, 0, 30, 0, TimeSpan.Zero), MealCalendarService.Cutoff(date));
+    }
+
+    [Fact]
+    public async Task CreateMealDayAsyncAssignsMealSpecificCutoffAt()
+    {
+        var dateD = FutureSchoolDay;
+        while (dateD.DayOfWeek != DayOfWeek.Tuesday)
+            dateD = dateD.AddDays(1);
+        var dateDMinus1 = dateD.AddDays(-1);
+
+        // At 20:00 D-1 (before Breakfast 21:00 cutoff and Lunch 07:00 cutoff)
+        var clock = new TestClock();
+        clock.Set(At(dateDMinus1, 20, 0));
+
+        using var factory = new AuthTestFactory(clock: clock);
+        using var client = factory.CreateClient();
+        var seed = await SeedScenario(factory, clock);
+        await Authorize(client, seed.AdminEmail, seed.Password);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var year = (await db.AcademicYears.FindAsync("2026-2027"))!;
+            year.StartDate = dateDMinus1.AddDays(-7);
+            year.EndDate = dateD.AddDays(30);
+            await db.SaveChangesAsync();
+        }
+
+        var scheduleResponse = await client.PutAsJsonAsync("/api/admin/meal-calendar/2026-2027/schedule", new
+        {
+            weekdays = new[] { 1, 2, 3, 4, 5 },
+            mealTypes = new[] { "Breakfast", "Lunch" },
+            expectedRevision = 0,
+            reason = "Weekly schedule"
+        });
+        Assert.Equal(HttpStatusCode.OK, scheduleResponse.StatusCode);
+
+        // Create Breakfast for dateD
+        var createBreakfast = await client.PostAsJsonAsync("/api/meal-days", new
+        {
+            date = dateD,
+            mealType = "Breakfast",
+            schoolYear = "2026-2027"
+        });
+        Assert.Equal(HttpStatusCode.Created, createBreakfast.StatusCode);
+        var breakfastJson = await createBreakfast.Content.ReadFromJsonAsync<JsonElement>();
+        var expectedBreakfastCutoff = SchoolTime.Cutoff(dateD, "Breakfast");
+        Assert.Equal(expectedBreakfastCutoff, breakfastJson.GetProperty("cutoffAt").GetDateTimeOffset());
+
+        // Create Lunch for dateD
+        var createLunch = await client.PostAsJsonAsync("/api/meal-days", new
+        {
+            date = dateD,
+            mealType = "Lunch",
+            schoolYear = "2026-2027"
+        });
+        Assert.Equal(HttpStatusCode.Created, createLunch.StatusCode);
+        var lunchJson = await createLunch.Content.ReadFromJsonAsync<JsonElement>();
+        var expectedLunchCutoff = SchoolTime.Cutoff(dateD, "Lunch");
+        Assert.Equal(expectedLunchCutoff, lunchJson.GetProperty("cutoffAt").GetDateTimeOffset());
+
+        // Verify in DB
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        var savedBreakfast = await verifyDb.MealDays.SingleAsync(x => x.Date == dateD && x.MealType == "Breakfast");
+        var savedLunch = await verifyDb.MealDays.SingleAsync(x => x.Date == dateD && x.MealType == "Lunch");
+        Assert.Equal(expectedBreakfastCutoff, savedBreakfast.CutoffAt);
+        Assert.Equal(expectedLunchCutoff, savedLunch.CutoffAt);
+    }
+
+    [Fact]
+    public async Task EveningDMinus1BlocksBreakfastWhileLunchCanBeCreatedAndBuildPlanDistinguishes()
+    {
+        var dateD = FutureSchoolDay;
+        while (dateD.DayOfWeek != DayOfWeek.Tuesday)
+            dateD = dateD.AddDays(1);
+        var dateDMinus1 = dateD.AddDays(-1);
+
+        // At 21:30 D-1 (30 minutes past Breakfast cutoff of 21:00 D-1, but before Lunch cutoff of 07:00 D)
+        var clock = new TestClock();
+        clock.Set(At(dateDMinus1, 21, 30));
+
+        using var factory = new AuthTestFactory(clock: clock);
+        using var client = factory.CreateClient();
+        var seed = await SeedScenario(factory, clock);
+        await Authorize(client, seed.AdminEmail, seed.Password);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var year = (await db.AcademicYears.FindAsync("2026-2027"))!;
+            year.StartDate = dateDMinus1.AddDays(-7);
+            year.EndDate = dateD.AddDays(30);
+            await db.SaveChangesAsync();
+        }
+
+        var scheduleResponse = await client.PutAsJsonAsync("/api/admin/meal-calendar/2026-2027/schedule", new
+        {
+            weekdays = new[] { 1, 2, 3, 4, 5 },
+            mealTypes = new[] { "Breakfast", "Lunch" },
+            expectedRevision = 0,
+            reason = "Weekly schedule"
+        });
+        Assert.Equal(HttpStatusCode.OK, scheduleResponse.StatusCode);
+
+        // MealCalendarService.BuildPlan via preview: Breakfast is LOCKED, Lunch is CREATE
+        var previewResponse = await client.PostAsJsonAsync("/api/admin/meal-calendar/2026-2027/preview", new
+        {
+            from = dateD,
+            to = dateD,
+            expectedRevision = 1
+        });
+        previewResponse.EnsureSuccessStatusCode();
+        var preview = await previewResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var items = preview.GetProperty("items").EnumerateArray().ToList();
+
+        var breakfastItem = items.Single(x => x.GetProperty("mealType").GetString() == "Breakfast");
+        Assert.Equal("LOCKED", breakfastItem.GetProperty("action").GetString());
+
+        var lunchItem = items.Single(x => x.GetProperty("mealType").GetString() == "Lunch");
+        Assert.Equal("CREATE", lunchItem.GetProperty("action").GetString());
+
+        // WorkflowService.CreateMealDayAsync: Creating Breakfast is blocked with 409 Conflict
+        var createBreakfast = await client.PostAsJsonAsync("/api/meal-days", new
+        {
+            date = dateD,
+            mealType = "Breakfast",
+            schoolYear = "2026-2027"
+        });
+        Assert.Equal(HttpStatusCode.Conflict, createBreakfast.StatusCode);
+
+        // Creating Lunch succeeds with 201 Created and CutoffAt = 07:00 D
+        var createLunch = await client.PostAsJsonAsync("/api/meal-days", new
+        {
+            date = dateD,
+            mealType = "Lunch",
+            schoolYear = "2026-2027"
+        });
+        Assert.Equal(HttpStatusCode.Created, createLunch.StatusCode);
+        var lunchJson = await createLunch.Content.ReadFromJsonAsync<JsonElement>();
+        var expectedLunchCutoff = SchoolTime.Cutoff(dateD, "Lunch");
+        Assert.Equal(expectedLunchCutoff, lunchJson.GetProperty("cutoffAt").GetDateTimeOffset());
     }
 }

@@ -422,7 +422,7 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
         await calendar.LockYear(schoolYear);
         if (!await calendar.Allows(schoolYear, input.Date, mealType))
             return Result.Invalid("Ngày/phiên không có trong lịch bữa ăn. Thiết lập lịch tuần hoặc ngày đặc biệt trước.");
-        if (MealCalendarService.Cutoff(input.Date) <= clock.GetUtcNow())
+        if (MealCalendarService.Cutoff(input.Date, mealType) <= clock.GetUtcNow())
             return Result.Conflict("Đã qua giờ chốt; không tạo phiên mới cho ngày này.");
         if (await repository.MealSessionExistsAsync(input, mealType))
             return Result.Conflict("Phiên ăn này đã tồn tại.");
@@ -434,7 +434,7 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
 
             SchoolYear = schoolYear,
 
-            CutoffAt = SchoolTime.Cutoff(input.Date),
+            CutoffAt = SchoolTime.Cutoff(input.Date, mealType),
 
         };
         repository.AddMealDay(day);

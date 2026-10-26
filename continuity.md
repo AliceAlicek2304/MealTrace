@@ -1,6 +1,6 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 24/10/2026 (Đồng bộ Baseline v1.3 & cập nhật gói BE2). Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Kế hoạch triển khai: [docs/implementation-plan.md](docs/implementation-plan.md). Phân công chi tiết BE: [docs/backend-task-assignment-v1.3.md](docs/backend-task-assignment-v1.3.md). Phân tích khoảng trống: [docs/gap-analysis-v1.3.md](docs/gap-analysis-v1.3.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 26/10/2026 (Đồng bộ Baseline v1.3 & hoàn tất BE2-CORE-02). Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Kế hoạch triển khai: [docs/implementation-plan.md](docs/implementation-plan.md). Phân công chi tiết BE: [docs/backend-task-assignment-v1.3.md](docs/backend-task-assignment-v1.3.md). Phân tích khoảng trống: [docs/gap-analysis-v1.3.md](docs/gap-analysis-v1.3.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
@@ -87,10 +87,9 @@ Các API nguyên liệu/công thức chưa đồng nghĩa đã hoàn thành toà
 ## 4. Đang làm và vấn đề còn lại
 
 - BE2 (Nam) — Cutoff tự động, settlement và Kitchen acknowledgement (Baseline v1.3):
-  + Đã hoàn thành BE2-CORE-02 giai đoạn 1: Triển khai tính giờ CutoffAt động theo từng bữa trong SchoolTime.cs (Sáng 21:00 D-1; Trưa/Xế 07:00 D) kèm bộ kiểm thử SchoolTimeTests.cs (commit 5cb7da1).
-  + Đã tích hợp các tài liệu chuẩn hóa v1.3 từ main vào nhánh nam (commit 9e9cf56): PROPOSAL.md, implementation-plan.md, backend-task-assignment-v1.3.md, gap-analysis-v1.3.md.
-  + Gói BE2-API-01 đến BE2-API-05 (Tiếp nhận nhà bếp / Kitchen Acknowledgement): Code nền tảng đã có trên nhánh nam/cuong (/api/kitchen/settlements, /diff, /acknowledge với snapshotToken, /acknowledgements). Đang chuẩn bị hoàn thiện kiểm thử độc lập (stale token 409, idempotent retry, v1/v2 superseded) và đảm bảo cấu trúc truy vết settlement/version phục vụ BE3 Audit.
-  + Đang chuẩn bị triển khai BE2-CORE-01: Background Worker tự động chốt suất (Automatic Settlement Worker) tại các mốc 21:00 D-1 và 07:00 D mà không cần thao tác bấm tay thủ công.
+  + Đã HOÀN TẤT TOÀN DIỆN BE2-CORE-02: Phủ chính sách CutoffAt động theo từng loại bữa (Breakfast 21:00 D-1; Lunch/Snack 07:00 D; Fallback 07:30 D) vào toàn bộ hệ thống gồm SchoolTime.cs, MealCalendarService.cs (lập lịch và BuildPlan phân định trạng thái LOCKED cho bữa hết hạn) và WorkflowService.cs (tạo phiên đơn lẻ). Bộ kiểm thử SchoolTimeTests đạt 17/17 PASS 100% (bổ sung 3 test tích hợp API và biên thời gian).
+  + Tiếp tục chuẩn bị triển khai BE2-CORE-01: Background Worker tự động chốt suất (Automatic Settlement Worker) tại các mốc 21:00 D-1 và 07:00 D.
+  + Tiếp tục gói BE2-API-01 đến BE2-API-05 (Tiếp nhận nhà bếp): Đã có code nền tảng trên nhánh, đang chuẩn bị hoàn thiện kiểm thử độc lập và lưu vết snapshot membership cho BE3 Audit.
 
 - Đã đồng bộ các nhánh remote vào cuong: main/dat cập nhật nội dung giao diện theo nghiệp vụ nhà trường; nam bổ sung API bếp đọc bản chốt/chênh lệch, xác nhận đã nhận suất và lịch sử xác nhận. Web/Android đã có mục Tiếp nhận suất ăn cho ADMIN/KITCHEN_STAFF: lọc ngày, phân trang, đối chiếu bản gốc/hiện hành theo lớp, xem trẻ tăng/giảm và lịch sử tiếp nhận. Xác nhận cần đánh dấu đã đối chiếu; bản suất thay đổi buộc tải lại và đối chiếu lại. Thiếu danh sách trẻ lịch sử được báo rõ, không suy diễn trẻ tăng/giảm. Nhánh web chỉ cần đồng bộ lịch sử; prototype trên mobile đã được thay thế bằng bản Android phân tầng hiện tại, giữ secure storage và các luồng đăng ký/liên kết. Không đưa cache IDE/Gradle, bản sao Flutter SDK hoặc cấu hình DB ghi trực tiếp của prototype vào source hiện hành.
 
