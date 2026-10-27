@@ -187,17 +187,18 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
     public async Task<Result<ParentLinkedResponse>> LinkParentAsync(Guid studentId, LinkParent input)
     {
         if (!currentActor.IsInRole(RoleNames.Admin) && !currentActor.IsInRole(RoleNames.Teacher)) return Result.Forbidden();
+        await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable);
+        await repository.LockStudentAsync(studentId);
         var student = await repository.FindStudentForParentLinkAsync(studentId);
         if (student is null)
             return Result.NotFound();
-        if (!await CanReadClass(student.ClassId)) return Result.Forbidden();
+        if (!currentActor.IsInRole(RoleNames.Admin) && !await repository.TeacherCanManageStudentAsync(studentId, CurrentUserId(), SchoolTime.Today(clock.GetUtcNow()))) return Result.Forbidden();
         var email = input.Email?.Trim().ToLowerInvariant();
         var phone = PhoneNumbers.Normalize(input.PhoneNumber);
         if (!string.IsNullOrWhiteSpace(input.PhoneNumber) && phone is null)
             return Result.Invalid("SĐT phụ huynh không hợp lệ.");
         if (phone is null && (string.IsNullOrWhiteSpace(email) || email.Length > 254 || !System.Net.Mail.MailAddress.TryCreate(email, out var parsedEmail) || !parsedEmail.Address.Equals(email, StringComparison.OrdinalIgnoreCase)))
             return Result.Invalid("Email phụ huynh không hợp lệ.");
-        await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable);
         var parent = phone is not null ? await repository.FindParentByPhoneAsync(phone) : await users.FindByEmailAsync(email!);
         var created = parent is null;
         string? temporaryPassword = null;
@@ -421,7 +422,7 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
         await calendar.LockYear(schoolYear);
         if (!await calendar.Allows(schoolYear, input.Date, mealType))
             return Result.Invalid("Ngày/phiên không có trong lịch bữa ăn. Thiết lập lịch tuần hoặc ngày đặc biệt trước.");
-        if (MealCalendarService.Cutoff(input.Date) <= clock.GetUtcNow())
+        if (MealCalendarService.Cutoff(input.Date, mealType) <= clock.GetUtcNow())
             return Result.Conflict("Đã qua giờ chốt; không tạo phiên mới cho ngày này.");
         if (await repository.MealSessionExistsAsync(input, mealType))
             return Result.Conflict("Phiên ăn này đã tồn tại.");
@@ -433,7 +434,7 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
 
             SchoolYear = schoolYear,
 
-            CutoffAt = SchoolTime.Cutoff(input.Date),
+            CutoffAt = SchoolTime.Cutoff(input.Date, mealType),
 
         };
         repository.AddMealDay(day);

@@ -8,6 +8,60 @@ import 'support/school_fixtures.dart';
 /// Checks the mobile commands against the authoritative BE request records.
 /// This does not require a running API or send notifications to real people.
 void main() {
+  test(
+    'Every BE API has an Android route or an explicitly replaced compatibility route',
+    () {
+      String normalized(String path) =>
+          path.replaceAll(RegExp(r'\{[^}]+\}'), '{}');
+      final covered = schoolRoutes.values
+          .map((route) => '${route.method} ${normalized('/api${route.path}')}')
+          .toSet();
+      covered.addAll([
+        'POST /api/auth/login',
+        'POST /api/auth/register/otp',
+        'POST /api/auth/register',
+        'GET /api/auth/me', 'POST /api/auth/logout',
+        // Search variants retain the same business UI and support the full dataset.
+        'GET /api/parent/absences',
+        'GET /api/meal-days',
+        'GET /api/kitchen/settlements',
+      ]);
+      final kitchenGroups = {
+        'IngredientEndpoints.cs': '/api/kitchen',
+        'RecipeEndpoints.cs': '/api/kitchen',
+        'KitchenSettlementEndpoints.cs': '/api/kitchen',
+      };
+      final missing = <String>[];
+      var count = 0;
+      for (final file in Directory(
+        '../be/src/MealTrace.Api/Features',
+      ).listSync().whereType<File>()) {
+        if (!file.path.endsWith('.cs')) continue;
+        final source = file.readAsStringSync();
+        final name = file.uri.pathSegments.last;
+        final groups = <String, String>{'app': ''};
+        final groupMatches = RegExp(
+          r'var\s+(\w+)\s*=\s*(\w+)\.MapGroup\("([^"]*)"\)',
+        ).allMatches(source);
+        for (final match in groupMatches) {
+          groups[match[1]!] =
+              '${groups[match[2]] ?? kitchenGroups[name] ?? ''}${match[3]}';
+        }
+        for (final match in RegExp(
+          r'(\w+)\.Map(Get|Post|Put|Delete|Patch)\(\s*"([^"]*)"',
+        ).allMatches(source)) {
+          count++;
+          final prefix = groups[match[1]];
+          expect(prefix, isNotNull, reason: 'Unknown endpoint group in $name');
+          final route =
+              '${match[2]!.toUpperCase()} ${normalized('$prefix${match[3]}')}';
+          if (!covered.contains(route)) missing.add(route);
+        }
+      }
+      expect(count, greaterThan(75));
+      expect(missing, isEmpty, reason: 'APIs without Android coverage');
+    },
+  );
   const requests = {
     SchoolOperation.createUser: 'Accounts/AccountInput.cs',
     SchoolOperation.updateUser: 'Accounts/AccountInput.cs',
@@ -79,6 +133,7 @@ void main() {
         suffix.replaceFirst('/admin', ''),
         suffix.replaceFirst('/auth', ''),
         suffix.replaceFirst('/meal-days', ''),
+        suffix.replaceFirst('/kitchen', ''),
       ];
       if (route.path.contains('/link-requests/') ||
           route.path.contains('/student-link-requests/')) {
@@ -97,6 +152,15 @@ void main() {
           '/{requestId}',
           '/{requestId}/review',
         ]);
+      }
+      if (route.path.startsWith('/kitchen/settlements')) {
+        candidates.add(route.path.replaceFirst('/kitchen/settlements', ''));
+      }
+      if (route.path.startsWith('/kitchen/ingredients/')) {
+        candidates.add(route.path.replaceFirst('/kitchen/ingredients', ''));
+      }
+      if (route.path.startsWith('/kitchen/recipes/')) {
+        candidates.add(route.path.replaceFirst('/kitchen/recipes', ''));
       }
       if (route.path.contains('/meal-calendar/')) {
         candidates.add(route.path.replaceFirst('/admin/meal-calendar', ''));

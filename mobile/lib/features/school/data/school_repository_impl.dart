@@ -10,6 +10,43 @@ class ApiRoute {
 }
 
 const schoolRoutes = <SchoolOperation, ApiRoute>{
+  SchoolOperation.ingredients: ApiRoute('GET', '/kitchen/ingredients'),
+  SchoolOperation.createIngredient: ApiRoute('POST', '/kitchen/ingredients'),
+  SchoolOperation.ingredientVersion: ApiRoute(
+    'POST',
+    '/kitchen/ingredients/{id}/ingredient-versions',
+  ),
+  SchoolOperation.createRecipe: ApiRoute('POST', '/kitchen/recipes'),
+  SchoolOperation.recipeVersion: ApiRoute(
+    'POST',
+    '/kitchen/recipes/{id}/versions',
+  ),
+  SchoolOperation.nutrition: ApiRoute(
+    'GET',
+    '/kitchen/recipes/{id}/versions/{v}/nutrition',
+  ),
+  SchoolOperation.reportLineage: ApiRoute('GET', '/reports/{id}/lineage'),
+  SchoolOperation.userDetail: ApiRoute('GET', '/admin/users/{id}'),
+  SchoolOperation.sendTestNotification: ApiRoute(
+    'POST',
+    '/admin/notifications/test',
+  ),
+  SchoolOperation.kitchenSettlements: ApiRoute(
+    'GET',
+    '/kitchen/settlements/search',
+  ),
+  SchoolOperation.kitchenDiff: ApiRoute(
+    'GET',
+    '/kitchen/settlements/{id}/diff',
+  ),
+  SchoolOperation.kitchenHistory: ApiRoute(
+    'GET',
+    '/kitchen/settlements/{id}/acknowledgements',
+  ),
+  SchoolOperation.acknowledgeKitchen: ApiRoute(
+    'POST',
+    '/kitchen/settlements/{id}/acknowledge',
+  ),
   SchoolOperation.studentImportHistory: ApiRoute(
     'GET',
     '/admin/students/import/history',
@@ -160,6 +197,7 @@ const schoolRoutes = <SchoolOperation, ApiRoute>{
 };
 
 const arrayOperations = {
+  SchoolOperation.kitchenHistory,
   SchoolOperation.parentLinkClasses,
   SchoolOperation.reviewLinkClasses,
   SchoolOperation.assignedClasses,
@@ -171,6 +209,8 @@ const arrayOperations = {
   SchoolOperation.calendarHistory,
 };
 const pagedOperations = {
+  SchoolOperation.ingredients,
+  SchoolOperation.kitchenSettlements,
   SchoolOperation.studentImportHistory,
   SchoolOperation.parentLinks,
   SchoolOperation.reviewableParentLinks,
@@ -187,6 +227,8 @@ const pagedOperations = {
 };
 
 List<String> queryFields(SchoolOperation operation) => switch (operation) {
+  SchoolOperation.ingredients => ['search', 'page', 'pageSize'],
+  SchoolOperation.nutrition => ['validAt', 'knownAt'],
   SchoolOperation.parentLinks || SchoolOperation.reviewableParentLinks => [
     'status',
     'page',
@@ -220,6 +262,7 @@ List<String> queryFields(SchoolOperation operation) => switch (operation) {
     'page',
     'pageSize',
   ],
+  SchoolOperation.kitchenSettlements => ['date', 'page', 'pageSize'],
   SchoolOperation.workflowDays => ['date', 'page'],
   SchoolOperation.decisions => ['classId', 'search', 'page', 'pageSize'],
   SchoolOperation.exceptionHistory => ['page', 'pageSize'],
@@ -319,6 +362,7 @@ class SchoolRepositoryImpl implements SchoolRepository {
         throw SchoolFailure(switch (response.statusCode) {
           401 => 'Phiên đã hết hạn. Vui lòng đăng nhập lại.',
           403 => 'Bạn không có quyền thực hiện thao tác này.',
+          404 => 'Không tìm thấy dữ liệu. Kiểm tra mã hoặc tải lại danh sách.',
           409 =>
             'Dữ liệu vừa thay đổi hoặc đã tồn tại. Tải lại trước khi thao tác.',
           400 || 422 => _businessError(response.body),
@@ -343,7 +387,23 @@ class SchoolRepositoryImpl implements SchoolRepository {
           records: data.map(_record).toList(),
         );
       }
-      final summary = _record(data);
+      var summary = _record(data);
+      if (operation == SchoolOperation.reportLineage) {
+        final rawSource = summary.text('sourceJson');
+        Object? source;
+        if (rawSource.length <= 100000) {
+          try {
+            source = jsonDecode(rawSource);
+          } on FormatException {
+            /* Keep report metadata readable. */
+          }
+        }
+        summary = SchoolRecord({
+          ...summary.fields,
+          'source': source,
+          'sourceUnavailable': source == null,
+        });
+      }
       if (pagedOperations.contains(operation) &&
           (summary['items'] is! List<Object?> ||
               summary['total'] is! int ||
@@ -386,8 +446,29 @@ class SchoolRepositoryImpl implements SchoolRepository {
   static String _businessError(String body) {
     try {
       final Object? json = jsonDecode(body);
-      if (json is Map<String, dynamic> && json['message'] is String) {
-        final message = json['message'] as String;
+      if (json is Map<String, dynamic> &&
+          json['code'] == 'NUTRIENT_DATA_MISSING') {
+        final missing = json['missingIngredients'];
+        final names = missing is List
+            ? missing
+                  .whereType<Map<String, dynamic>>()
+                  .take(5)
+                  .map((item) => item['name'])
+                  .whereType<String>()
+                  .map(
+                    (name) =>
+                        name.length > 80 ? '${name.substring(0, 80)}…' : name,
+                  )
+                  .join(', ')
+            : '';
+        return 'Chưa có dữ liệu dinh dưỡng phù hợp${names.isEmpty ? '.' : ': $names.'} Cập nhật nguyên liệu hoặc chọn lại thời điểm đối chiếu.';
+      }
+      if (json is Map<String, dynamic> && json['code'] == 'VALIDATION_ERROR') {
+        return 'Thông tin chưa hợp lệ. Kiểm tra tên, định lượng, đơn vị và dữ liệu dinh dưỡng.';
+      }
+      if (json is Map<String, dynamic> &&
+          (json['message'] is String || json['detail'] is String)) {
+        final message = (json['message'] ?? json['detail']) as String;
         if (message.length <= 500) return message;
       }
     } catch (_) {

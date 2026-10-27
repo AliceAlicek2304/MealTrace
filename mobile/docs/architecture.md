@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-Flutter chỉ cho Android. Có đăng nhập, khôi phục phiên và các luồng hiện có trên web cho đủ vai trò; xem web-parity.md. API và phân quyền dùng chung BE. Chưa có refresh token. Đây là bản phát triển, chưa phải bản phát hành production.
+Flutter chỉ cho Android. Có đăng nhập, khôi phục phiên và giao diện các API nghiệp vụ hiện có cho đủ vai trò, gồm nguyên liệu/công thức/dinh dưỡng và truy vết báo cáo; xem web-parity.md. API và phân quyền dùng chung BE. Chưa có refresh token. Đây là bản phát triển, chưa phải bản phát hành production.
 
 ## Cấu trúc và chiều phụ thuộc
 

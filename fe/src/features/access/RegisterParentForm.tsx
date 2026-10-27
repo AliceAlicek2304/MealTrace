@@ -43,7 +43,7 @@ export function RegisterParentForm({ onSuccess, onBack }: Readonly<{ onSuccess: 
   }
   return <form className="login-card" onSubmit={submit}>
     <div className="eyebrow">DÀNH CHO PHỤ HUYNH</div><h2>Đăng ký tài khoản</h2>
-    <p className="lead">Sau khi đăng ký, nhà trường cần liên kết tài khoản với trẻ để bạn xem dữ liệu.</p>
+    <p className="lead">Đăng ký xong, đăng nhập và vào Liên kết trẻ để chọn năm học, lớp và gửi yêu cầu. Nhà trường duyệt xong, bạn có thể xem và báo vắng cho con.</p>
     <label className="field">Họ tên<input required maxLength={120} autoComplete="name" disabled={pending} value={draft.fullName} onChange={e => setDraft({ ...draft, fullName: e.target.value })} /></label>
     <label className="field">Số điện thoại<input required type="tel" maxLength={30} autoComplete="tel" disabled={pending} value={draft.phoneNumber} onChange={e => { setDraft({ ...draft, phoneNumber: e.target.value }); setChallenge(null); setOtpCode(''); setResendAt(0) }} /></label>
     <button type="button" className="button login-button" disabled={pending || resendSeconds > 0} onClick={sendOtp}>{otpButtonLabel}</button>

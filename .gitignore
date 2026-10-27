@@ -10,6 +10,8 @@ fe/src/assets/hero.png
 
 # Local manual QA checklist
 docs/manual-test-plan.md
+docs/DECISIONS.md
+docs/PROGRESS.md
 
 # Local test and query measurement artifacts
 be/artifacts/

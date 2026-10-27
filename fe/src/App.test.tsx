@@ -8,7 +8,6 @@ import App from './App'
 vi.mock('./features/workflow/ClassesPage', () => ({ ClassesPage: () => <h1>Danh sách lớp thử</h1> }))
 vi.mock('./features/workflow/PortionsPage', () => ({ PortionsPage: () => <h1>Số suất thử</h1> }))
 vi.mock('./features/access/ProfilePage', () => ({ ProfilePage: () => <h1>Hồ sơ thử</h1> }))
-vi.mock('./features/landing/LandingPage', () => ({ LandingPage: () => <h1>Trang giới thiệu thử</h1> }))
 
 const user = { id: 'teacher', fullName: 'Giáo viên A', roles: ['TEACHER'], email: 'teacher@example.test', inspectorAccessUntil: null }
 let cache: QueryClient
@@ -22,6 +21,13 @@ beforeEach(() => {
 afterEach(() => { cleanup(); cache.clear(); setAccessToken(null); window.history.replaceState(null, '', '/'); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('Session restoration and navigation', () => {
+  it('opens login directly at the root without an introduction page', () => {
+    setAccessToken(null)
+    window.history.replaceState(null, '', '/')
+    mount()
+    expect(screen.getByRole('heading', { name: 'Đăng nhập' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Về trang giới thiệu' })).toBeNull()
+  })
   it('validates the saved session and opens the linked page after reload', async () => {
     setAccessToken('test-token')
     window.history.replaceState(null, '', '#/classes')
@@ -60,9 +66,10 @@ describe('Session restoration and navigation', () => {
     setAccessToken('expired-token')
     vi.spyOn(api, 'get').mockRejectedValue({ response: { status: 401 } })
     mount()
-    await screen.findByRole('heading', { name: 'Trang giới thiệu thử' })
+    await screen.findByRole('heading', { name: 'Đăng nhập' })
     expect(getAccessToken()).toBeNull()
     expect(sessionStorage.getItem('mealtrace.session')).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Đăng nhập' })).toBeTruthy()
   })
 
   it('preserves the session on a network failure and allows retrying', async () => {
@@ -86,5 +93,6 @@ describe('Session restoration and navigation', () => {
     await waitFor(() => expect(getAccessToken()).toBeNull())
     expect(cache.getQueryData(['private'])).toBeUndefined()
     expect(sessionStorage.getItem('mealtrace.session')).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Đăng nhập' })).toBeTruthy()
   })
 })

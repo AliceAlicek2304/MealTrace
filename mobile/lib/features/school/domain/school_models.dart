@@ -1,4 +1,17 @@
 enum SchoolOperation {
+  ingredients,
+  createIngredient,
+  ingredientVersion,
+  createRecipe,
+  recipeVersion,
+  nutrition,
+  reportLineage,
+  userDetail,
+  sendTestNotification,
+  kitchenSettlements,
+  kitchenDiff,
+  kitchenHistory,
+  acknowledgeKitchen,
   studentImportHistory,
   studentImportBatch,
   previewStudentImport,
@@ -171,12 +184,24 @@ List<String> rolesFor(SchoolOperation op) => switch (op) {
   SchoolOperation.exceptionHistory ||
   SchoolOperation.recordException ||
   SchoolOperation.requestAmendment => staffRoles,
-  SchoolOperation.meals || SchoolOperation.mealDetail => kitchenRoles,
+  SchoolOperation.kitchenSettlements ||
+  SchoolOperation.ingredients ||
+  SchoolOperation.createIngredient ||
+  SchoolOperation.ingredientVersion ||
+  SchoolOperation.createRecipe ||
+  SchoolOperation.recipeVersion ||
+  SchoolOperation.nutrition ||
+  SchoolOperation.kitchenDiff ||
+  SchoolOperation.kitchenHistory ||
+  SchoolOperation.meals ||
+  SchoolOperation.mealDetail => kitchenRoles,
+  SchoolOperation.acknowledgeKitchen => const ['KITCHEN_STAFF'],
   _ => adminRoles,
 };
 
 bool canExecute(SchoolOperation op, List<String> roles) =>
-    rolesFor(op).isEmpty || rolesFor(op).any(roles.contains);
+    !(op == SchoolOperation.acknowledgeKitchen && roles.contains('ADMIN')) &&
+    (rolesFor(op).isEmpty || rolesFor(op).any(roles.contains));
 
 String schoolToday() => DateTime.now()
     .toUtc()

@@ -384,6 +384,11 @@ internal sealed class WorkflowRepository(MealTraceDbContext db) : IWorkflowRepos
         });
     }
 
+    public Task<bool> TeacherCanManageStudentAsync(Guid studentId, Guid userId, DateOnly date) =>
+        PersistenceErrors.ExecuteAsync(() => EnrollmentQueries.OnDate(db, date)
+            .AnyAsync(enrollment => enrollment.StudentId == studentId &&
+                db.TeacherAssignments.Any(assignment => assignment.UserId == userId && assignment.ClassId == enrollment.ClassId)));
+
     public void AddAcademicYear(AcademicYear value) => db.AcademicYears.Add(value);
     public void AddMealAbsence(MealAbsence value) => db.MealAbsences.Add(value);
     public void AddSchoolClass(SchoolClass value) => db.Classes.Add(value);

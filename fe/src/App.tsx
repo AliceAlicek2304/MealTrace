@@ -1,3 +1,4 @@
+import { KitchenSettlementsPage } from './features/kitchen/KitchenSettlementsPage'
 import { ParentLinksPage } from './features/workflow/ParentLinksPage'
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -14,11 +15,10 @@ import { ClassesPage } from './features/workflow/ClassesPage'
 import { AbsencesPage } from './features/workflow/AbsencesPage'
 import { PortionsPage } from './features/workflow/PortionsPage'
 import { MealCalendarPage } from './features/workflow/MealCalendarPage'
-import { LandingPage } from './features/landing/LandingPage'
 
 const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
 const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
-  links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
+  kitchen: 'Tiếp nhận suất ăn', links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
   portions: 'Số suất', absences: 'Báo vắng', meals: 'Theo dõi bữa ăn', profile: 'Thông tin cá nhân',
 }
 
@@ -31,7 +31,6 @@ export default function App() {
   const [restoring, setRestoring] = useState(!!getAccessToken())
   const [restoreError, setRestoreError] = useState('')
   const [restoreAttempt, setRestoreAttempt] = useState(0)
-  const [showLogin, setShowLogin] = useState(() => !!pageFromHash())
   const isAdmin = user?.roles.includes('ADMIN') ?? false
   const canRegisterStudents = isAdmin || (user?.roles.includes('TEACHER') ?? false)
   const isMealStaff = user?.roles.some(role => mealRoles.has(role)) ?? false
@@ -43,7 +42,6 @@ export default function App() {
     setUser(null)
     setPage('profile', true)
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
-    setShowLogin(false)
     queryClient.clear()
   }
 
@@ -100,10 +98,7 @@ export default function App() {
 
   if (restoring) return <output className="session-status" aria-live="polite">Đang khôi phục phiên đăng nhập…</output>
   if (restoreError) return <main className="session-status"><h1>Chưa kết nối được máy chủ</h1><p role="alert">{restoreError}</p><button type="button" className="button primary" onClick={() => setRestoreAttempt(value => value + 1)}>Thử lại</button><button type="button" className="button secondary" onClick={() => { setRestoreError(''); clearSession() }}>Đăng nhập lại</button></main>
-  if (!user) {
-    if (showLogin) return <LoginPage onLogin={onLogin} onBack={() => setShowLogin(false)} />
-    return <LandingPage onLogin={() => setShowLogin(true)} />
-  }
+  if (!user) return <LoginPage onLogin={onLogin} />
   const pageName = page ? pageLabels[page] : pageLabels.profile
 
   const navProps = { page, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onNavigate: (nextPage: NonNullable<typeof page>) => { setPage(nextPage); setMenuOpen(false) } }
@@ -144,6 +139,7 @@ function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions,
     { id: 'portions', label: 'Số suất', icon: ClipboardList, visible: canSeePortions },
     { id: 'absences', label: 'Báo vắng', icon: CalendarOff, visible: isParent },
     { id: 'meals', label: 'Theo dõi bữa ăn', icon: CalendarDays, visible: isMealStaff },
+    { id: 'kitchen', label: 'Tiếp nhận suất ăn', icon: ClipboardList, visible: isMealStaff },
     { id: 'links', label: 'Liên kết trẻ', icon: Users, visible: isParent || canRegisterStudents },
     { id: 'profile', label: 'Thông tin cá nhân', icon: UserRound, visible: true },
   ] as const
@@ -166,6 +162,7 @@ function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions,
   onPasswordChanged: () => void
 }>) {
   switch (page) {
+    case 'kitchen': if (isMealStaff) return <KitchenSettlementsPage canAcknowledge={!isAdmin && user.roles.includes('KITCHEN_STAFF')} />; break
     case 'accounts': if (isAdmin) return <AccountsPage />; break
     case 'classes': if (canRegisterStudents) return <ClassesPage isAdmin={isAdmin} />; break
     case 'calendar': if (isAdmin) return <MealCalendarPage />; break
