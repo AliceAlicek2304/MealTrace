@@ -12,7 +12,7 @@ using MealTrace.Domain.Time;
 namespace MealTrace.Application.Features.Calendar;
 public sealed class MealCalendarService(IMealCalendarRepository repository, TimeProvider clock, ICurrentActor currentActor, IUnitOfWork unitOfWork)
 {
-    public static DateTimeOffset Cutoff(DateOnly date) => SchoolTime.Cutoff(date);
+    public static DateTimeOffset Cutoff(DateOnly date, string? mealType = null) => SchoolTime.Cutoff(date, mealType);
     private DateOnly Today() => SchoolTime.Today(clock.GetUtcNow());
     private static string[] Types(string json) => JsonSerializer.Deserialize<string[]>(json) ?? [];
     private static bool ValidReason(string? reason) => !string.IsNullOrWhiteSpace(reason) && reason.Trim().Length <= 500;
@@ -269,7 +269,7 @@ public sealed class MealCalendarService(IMealCalendarRepository repository, Time
         var changed = new List<MealDay>();
         foreach (var item in items.Where(x => x.Action is "CREATE" or "RESTORE"))
         {
-            if (Cutoff(item.Date) <= clock.GetUtcNow())
+            if (Cutoff(item.Date, item.MealType) <= clock.GetUtcNow())
                 throw new CalendarConflict("Đã qua giờ chốt. Hãy xem trước lại.");
             var day = item.MealId is null ? new MealDay
             {
@@ -279,7 +279,7 @@ public sealed class MealCalendarService(IMealCalendarRepository repository, Time
 
                 MealType = item.MealType,
 
-                CutoffAt = Cutoff(item.Date)
+                CutoffAt = Cutoff(item.Date, item.MealType)
             }
 
             : await repository.FindTrackedMealDayAsync(item.MealId.Value);
@@ -355,7 +355,7 @@ public sealed class MealCalendarService(IMealCalendarRepository repository, Time
                     Date = date,
                     MealType = type
                 }, out var day);
-                var action = day is not null && day.SchoolYear != year.Code ? "OTHER_YEAR" : day is not null && !day.IsCancelled ? "EXISTS" : Cutoff(date) <= now || (day is not null && (day.CutoffAt <= now || day.SettledAt != null || day.PublishedAt != null || protectedIds.Contains(day.Id))) ? "LOCKED" : day is null ? "CREATE" : "RESTORE";
+                var action = day is not null && day.SchoolYear != year.Code ? "OTHER_YEAR" : day is not null && !day.IsCancelled ? "EXISTS" : Cutoff(date, type) <= now || (day is not null && (day.CutoffAt <= now || day.SettledAt != null || day.PublishedAt != null || protectedIds.Contains(day.Id))) ? "LOCKED" : day is null ? "CREATE" : "RESTORE";
                 result.Add(new(date, type, action, day?.Id));
             }
         }
