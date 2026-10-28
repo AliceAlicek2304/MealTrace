@@ -11,8 +11,9 @@ using MealTrace.Application.Dtos.Students;
 
 namespace MealTrace.Infrastructure.Persistence.Repositories;
 
-internal sealed class WorkflowRepository(MealTraceDbContext db) : IWorkflowRepository
+internal sealed class WorkflowRepository(MealTraceDbContext db, TimeProvider clock) : IWorkflowRepository
 {
+    private DateOnly Today => SchoolTime.Today(clock.GetUtcNow());
     public async Task<List<AcademicYearResponse>> ListAcademicYearsAsync()
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
@@ -328,7 +329,7 @@ internal sealed class WorkflowRepository(MealTraceDbContext db) : IWorkflowRepos
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
             var query = db.MealDays.AsNoTracking().Where(x => date == null || x.Date == date);
-            return await query.OrderByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Skip((number - 1) * 25).Take(25).Select(x => new WorkflowMealDaySummary
+            return await query.OrderByDescending(x => x.Date == Today).ThenByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Skip((number - 1) * 25).Take(25).Select(x => new WorkflowMealDaySummary
             {
                 Id = x.Id,
                 Date = x.Date,

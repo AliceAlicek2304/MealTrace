@@ -15,6 +15,62 @@ namespace MealTrace.Api.Tests;
 public sealed class LongMealAbsenceTests
 {
     [Fact]
+    public async Task OneCancelledMealDoesNotBlockAnotherServingMealOnSameDate()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock);
+        using var client = factory.CreateClient(); var seed = await SeedScenario(factory, clock);
+        var today = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            (await db.MealDays.FindAsync(seed.DayId))!.IsCancelled = true;
+            db.MealDays.Add(new MealDay { Date = today, SchoolYear = "2026-2027", MealType = "Snack", CutoffAt = seed.Cutoff });
+            await db.SaveChangesAsync();
+        }
+        await Authorize(client, "parent@test.local", seed.Password);
+        var created = await client.PostAsJsonAsync("/api/parent/absences", new
+            { studentId = seed.PresentId, fromDate = today, toDate = today, reason = "Không ăn" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var children = await client.GetFromJsonAsync<JsonElement>("/api/parent/students");
+        Assert.DoesNotContain(children.EnumerateArray().Single(x => x.GetProperty("studentId").GetGuid() == seed.PresentId)
+            .GetProperty("unavailableMealDates").EnumerateArray(), x => x.GetString() == today.ToString("yyyy-MM-dd"));
+    }
+
+    [Fact]
+    public async Task CancelledSchoolDayRejectsParentAbsenceButMixedPeriodStillWorks()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock);
+        using var client = factory.CreateClient(); var seed = await SeedScenario(factory, clock);
+        var today = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var day = await db.MealDays.FindAsync(seed.DayId);
+            day!.IsCancelled = true;
+            day.CancellationReason = "Trường nghỉ";
+            await db.SaveChangesAsync();
+        }
+        await Authorize(client, "parent@test.local", seed.Password);
+        var rejected = await client.PostAsJsonAsync("/api/parent/absences", new
+            { studentId = seed.PresentId, fromDate = today, toDate = today, reason = "Không ăn" });
+        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
+        var children = await client.GetFromJsonAsync<JsonElement>("/api/parent/students");
+        var child = children.EnumerateArray().Single(x => x.GetProperty("studentId").GetGuid() == seed.PresentId);
+        Assert.Contains(child.GetProperty("unavailableMealDates").EnumerateArray(), x => x.GetString() == today.ToString("yyyy-MM-dd"));
+        var created = await client.PostAsJsonAsync("/api/parent/absences", new
+            { studentId = seed.PresentId, fromDate = today, toDate = today.AddDays(1), reason = "Không ăn hai ngày" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var replacement = await client.PostAsJsonAsync($"/api/parent/absences/{id}/replace", new
+            { studentId = seed.PresentId, fromDate = today, toDate = today, reason = "Chỉ ngày nghỉ" });
+        Assert.Equal(HttpStatusCode.Conflict, replacement.StatusCode);
+        using var finalScope = factory.Services.CreateScope();
+        var finalDb = finalScope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+        Assert.Single(await finalDb.MealAbsences.Where(x => x.StudentId == seed.PresentId).ToListAsync());
+        Assert.Null((await finalDb.MealAbsences.FindAsync(id))!.CancelledAt);
+    }
+
+    [Fact]
     public async Task SchoolYearMustBeConfiguredAndCannotBeSilentlyChangedAfterRegistration()
     {
         var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock);

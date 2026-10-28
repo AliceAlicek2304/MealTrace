@@ -35,6 +35,23 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
   List<SchoolRecord> children = [];
   bool prerequisitesReady = true;
   bool reviewed = false;
+  bool get unavailableAbsence {
+    if (widget.form.operation != SchoolOperation.reportAbsence &&
+        widget.form.operation != SchoolOperation.replaceAbsence) {
+      return false;
+    }
+    final studentId = values['studentId'] ?? widget.contextValues['studentId'];
+    final child = children
+        .where((record) => record.text('studentId') == studentId)
+        .firstOrNull;
+    var from = editors['fromDate']?.text ?? '';
+    if (widget.form.operation == SchoolOperation.replaceAbsence &&
+        from.compareTo(schoolToday()) < 0) {
+      from = schoolToday();
+    }
+    return isUnavailableMealPeriod(from, editors['toDate']?.text ?? '', child);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +86,7 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
       SchoolOperation.reviewAmendment,
       SchoolOperation.linkParent,
       SchoolOperation.reportAbsence,
+      SchoolOperation.replaceAbsence,
     ].contains(widget.form.operation)) {
       prerequisitesReady = false;
       loadPrerequisites();
@@ -91,6 +109,7 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
             values['sendRegistrationNotification'] = false;
           }
         case SchoolOperation.reportAbsence:
+        case SchoolOperation.replaceAbsence:
           children = (await widget.controller.execute(
             SchoolOperation.children,
           )).records;
@@ -119,6 +138,7 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
     if (busy ||
         confirming ||
         !prerequisitesReady ||
+        unavailableAbsence ||
         !key.currentState!.validate()) {
       return;
     }
@@ -257,6 +277,10 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(failure.message)));
+        if (widget.form.operation == SchoolOperation.reportAbsence ||
+            widget.form.operation == SchoolOperation.replaceAbsence) {
+          await loadPrerequisites();
+        }
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -493,7 +517,11 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                   top: false,
                   minimum: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: FilledButton(
-                    onPressed: busy || confirming || !prerequisitesReady
+                    onPressed:
+                        busy ||
+                            confirming ||
+                            !prerequisitesReady ||
+                            unavailableAbsence
                         ? null
                         : submit,
                     child: Text(busy ? 'Đang xử lý…' : widget.form.title),
@@ -588,6 +616,13 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                   ),
                 ],
                 if (preview == null) ...[
+                  if (unavailableAbsence)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        'Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.',
+                      ),
+                    ),
                   for (final field in widget.form.fields)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 18),

@@ -38,6 +38,27 @@ public sealed class MealCalendarService(IMealCalendarRepository repository, Time
         return ForDate(schedule, exception, date).Contains(type, StringComparer.Ordinal);
     }
 
+    public async Task<DateOnly[]> UnavailableMealDatesAsync(string code, DateOnly from, DateOnly to)
+    {
+        var schedule = await repository.FindScheduleAsync(code);
+        var exceptions = await repository.GetDayExceptionsByDateAsync(code, from, to);
+        var sessions = (await repository.ListMealDaysAsync(code, from, to)).ToLookup(x => x.Date);
+        var unavailable = new List<DateOnly>();
+        for (var number = from.DayNumber; number <= to.DayNumber; number++)
+        {
+            var date = DateOnly.FromDayNumber(number);
+            exceptions.TryGetValue(date, out var exception);
+            var daySessions = sessions[date].ToArray();
+            // An unconfigured weekly schedule does not prove the school is closed.
+            if (exception is { IsOpen: false }
+                || (daySessions.Length > 0 && daySessions.All(x => x.IsCancelled))
+                || (schedule is not null && ForDate(schedule, exception, date).Length == 0
+                    && !daySessions.Any(x => !x.IsCancelled)))
+                unavailable.Add(date);
+        }
+        return unavailable.ToArray();
+    }
+
     public async Task<Result<MealCalendarResponse>> GetCalendarAsync(string code, DateOnly? from, DateOnly? to)
     {
         var year = await repository.FindAcademicYearAsync(code);
@@ -88,7 +109,7 @@ public sealed class MealCalendarService(IMealCalendarRepository repository, Time
             Revision = schedule?.Revision ?? 0,
             Weekdays = Enumerable.Range(0, 7).Where(x => ((schedule?.WeekdayMask ?? 0) & (1 << x)) != 0),
             MealTypes = schedule is null ? [] : Types(schedule.MealTypesJson),
-            Days = days
+            Days = days.OrderByDescending(x => x.Date == today).ToList()
         });
     }
 

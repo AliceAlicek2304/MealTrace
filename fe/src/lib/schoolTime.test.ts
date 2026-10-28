@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { earlierSchoolDate, laterSchoolDate, schoolDateTime, schoolTime, schoolToday } from './schoolTime'
+import { earlierSchoolDate, laterSchoolDate, schoolDateTime, schoolTime, schoolToday, isUnavailableMealPeriod } from './schoolTime'
 
 describe('School timezone', () => {
+  it('blocks only periods entirely without school meals, including duplicate dates and month boundaries', () => {
+    const closed = ['2026-10-31', '2026-11-01', '2026-11-01']
+    expect(isUnavailableMealPeriod('2026-10-31', '2026-10-31', closed)).toBe(true)
+    expect(isUnavailableMealPeriod('2026-10-31', '2026-11-01', closed)).toBe(true)
+    expect(isUnavailableMealPeriod('2026-10-31', '2026-11-02', closed)).toBe(false)
+    expect(isUnavailableMealPeriod('2026-10-31', '2026-11-01')).toBe(false)
+    expect(isUnavailableMealPeriod('', '', closed)).toBe(false)
+  })
   it('uses the school date across the UTC midnight boundary', () => {
     expect(schoolToday(new Date('2026-10-05T18:00:00Z'))).toBe('2026-10-06')
     expect(schoolTime('2026-10-06T00:30:00Z')).toBe('07:30')

@@ -6,6 +6,31 @@ import 'package:mealtrace_mobile/features/school/domain/school_commands.dart';
 import 'package:mealtrace_mobile/features/school/domain/school_models.dart';
 
 void main() {
+  test(
+    'School closures block single days and closed periods but allow mixed periods',
+    () {
+      final child = SchoolRecord({
+        'unavailableMealDates': ['2026-10-31', '2026-11-01', '2026-11-01'],
+      });
+      expect(
+        isUnavailableMealPeriod('2026-10-31', '2026-10-31', child),
+        isTrue,
+      );
+      expect(
+        isUnavailableMealPeriod('2026-10-31', '2026-11-01', child),
+        isTrue,
+      );
+      expect(
+        isUnavailableMealPeriod('2026-10-31', '2026-11-02', child),
+        isFalse,
+      );
+      expect(isUnavailableMealPeriod('', '', child), isFalse);
+      expect(
+        isUnavailableMealPeriod('2026-10-31', '2026-11-01', null),
+        isFalse,
+      );
+    },
+  );
   test('Absence shortcuts stay within the academic year', () {
     expect(absencePeriodEnd('2026-10-08', 'week', '2027-05-31'), '2026-10-14');
     expect(absencePeriodEnd('2026-05-29', 'week', '2026-05-31'), '2026-05-31');

@@ -270,14 +270,20 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
 
     public async Task<Result<List<ParentChildSummary>>> ListParentStudentsAsync()
     {
-        return Result.Success(await repository.ListParentChildrenAsync(clock.GetUtcNow(), CurrentUserId()));
+        var children = await repository.ListParentChildrenAsync(clock.GetUtcNow(), CurrentUserId());
+        var unavailable = new Dictionary<string, DateOnly[]>();
+        foreach (var child in children)
+            if (!unavailable.ContainsKey(child.SchoolYear) && child.YearStartDate is { } start && child.YearEndDate is { } end)
+                unavailable[child.SchoolYear] = await calendar.UnavailableMealDatesAsync(child.SchoolYear, start, end);
+        return Result.Success(children.Select(child => child with
+        {
+            UnavailableMealDates = unavailable.GetValueOrDefault(child.SchoolYear) ?? []
+        }).ToList());
     }
 
     public async Task<Result<AbsenceCreatedResponse>> ReportAbsenceAsync(ReportAbsence input)
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync();
-        // Lock a shared parent row so two guardians cannot create overlapping absence intervals.
-        await repository.LockStudentAsync(input.StudentId);
         var userId = CurrentUserId();
         var today = SchoolTime.Today(clock.GetUtcNow());
         if (!await repository.ParentCanAccessStudentAsync(userId, input) || !await repository.HasActiveEnrollmentAsync(today, input))
@@ -287,6 +293,15 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
         var year = await AbsenceYear(input.StudentId, input.FromDate, input.ToDate);
         if (year is null)
             return Result.Invalid("Khoảng không ăn phải nằm trong năm học đã được nhà trường thiết lập và có ghi danh tại ngày bắt đầu.");
+        // Match calendar edits' lock order: year before student, never student -> year -> day.
+        await calendar.LockYear(year.Code);
+        await repository.LockStudentAsync(input.StudentId);
+        if (!await repository.ParentCanAccessStudentAsync(userId, input) || !await repository.HasActiveEnrollmentAsync(SchoolTime.Today(clock.GetUtcNow()), input))
+            return Result.Forbidden();
+        if ((await AbsenceYear(input.StudentId, input.FromDate, input.ToDate))?.Code != year.Code)
+            return Result.Conflict("Ghi danh hoặc năm học vừa thay đổi. Vui lòng tải lại.");
+        if ((await calendar.UnavailableMealDatesAsync(year.Code, input.FromDate, input.ToDate)).Length == input.ToDate.DayNumber - input.FromDate.DayNumber + 1)
+            return Result.Conflict("Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.");
         if (await repository.HasOverlappingAbsenceAsync(input))
             return Result.Conflict("Khoảng ngày vắng bị trùng với báo vắng đang hiệu lực.");
         var acceptedAt = clock.GetUtcNow();
@@ -330,18 +345,25 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
         var original = await repository.FindReportedAbsenceAsync(id, userId);
         if (original is null)
             return Result.NotFound();
-        await repository.LockStudentAsync(original.StudentId);
-        var absence = await repository.GetTrackedAbsenceAsync(id);
-        if (!await repository.HasGuardianLinkAsync(userId, absence))
-            return Result.Forbidden();
-        if (absence.CancelledAt is not null)
-            return Result.Conflict("Đăng ký đã hủy hoặc được cập nhật. Hãy tải lại danh sách.");
+        var absence = original;
         var today = SchoolTime.Today(clock.GetUtcNow());
         if (input.StudentId != absence.StudentId || input.ToDate < today || input.ToDate < input.FromDate || (input.FromDate < today && input.FromDate != absence.FromDate) || string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
             return Result.Invalid("Giữ ngày bắt đầu cũ hoặc chọn từ hôm nay; ngày kết thúc từ hôm nay và có lý do. Muốn ăn lại ngay hãy hủy đăng ký.");
         var year = await AbsenceYear(input.StudentId, input.FromDate, input.ToDate);
         if (year is null || (absence.SchoolYear is not null && absence.SchoolYear != year.Code))
             return Result.Invalid("Khoảng không ăn phải nằm trong cùng năm học đã được nhà trường thiết lập.");
+        await calendar.LockYear(year.Code);
+        await repository.LockStudentAsync(original.StudentId);
+        absence = await repository.GetTrackedAbsenceAsync(id);
+        if (!await repository.HasGuardianLinkAsync(userId, absence))
+            return Result.Forbidden();
+        if (absence.CancelledAt is not null)
+            return Result.Conflict("Đăng ký đã hủy hoặc được cập nhật. Hãy tải lại danh sách.");
+        if ((await AbsenceYear(input.StudentId, input.FromDate, input.ToDate))?.Code != year.Code)
+            return Result.Conflict("Ghi danh hoặc năm học vừa thay đổi. Vui lòng tải lại.");
+        var remainingFrom = input.FromDate < today ? today : input.FromDate;
+        if ((await calendar.UnavailableMealDatesAsync(year.Code, remainingFrom, input.ToDate)).Length == input.ToDate.DayNumber - remainingFrom.DayNumber + 1)
+            return Result.Conflict("Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.");
         if (await repository.HasOtherOverlappingAbsenceAsync(id, absence, input))
             return Result.Conflict("Khoảng ngày trùng với đăng ký đang hiệu lực.");
         var now = clock.GetUtcNow();

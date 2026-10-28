@@ -1,16 +1,19 @@
 using MealTrace.Application.Abstractions.Repositories;
 using MealTrace.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using MealTrace.Domain.Time;
 
 namespace MealTrace.Infrastructure.Persistence.Repositories;
 
 public class KitchenSettlementRepository : IKitchenSettlementRepository
 {
     private readonly MealTraceDbContext _db;
+    private readonly TimeProvider _clock;
 
-    public KitchenSettlementRepository(MealTraceDbContext db)
+    public KitchenSettlementRepository(MealTraceDbContext db, TimeProvider clock)
     {
         _db = db;
+        _clock = clock;
     }
 
     public Task<MealDay?> LockMealDayAsync(Guid id, CancellationToken ct) => _db.LockMealDayAsync(id, ct);
@@ -28,8 +31,10 @@ public class KitchenSettlementRepository : IKitchenSettlementRepository
             query = query.Where(d => d.Date == date.Value);
         }
 
+        var today = SchoolTime.Today(_clock.GetUtcNow());
         return await query
-            .OrderByDescending(d => d.Date)
+            .OrderByDescending(d => d.Date == today)
+            .ThenByDescending(d => d.Date)
             .ThenByDescending(d => d.CutoffAt)
             .ThenBy(d => d.Id)
             .Skip(skip).Take(take)

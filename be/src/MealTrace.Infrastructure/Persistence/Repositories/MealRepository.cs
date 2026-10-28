@@ -3,11 +3,13 @@ using MealTrace.Application.Dtos.Meals;
 using MealTrace.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using MealTrace.Application.Abstractions.Repositories;
+using MealTrace.Domain.Time;
 
 namespace MealTrace.Infrastructure.Persistence.Repositories;
 
-internal sealed class MealRepository(MealTraceDbContext db) : IMealRepository
+internal sealed class MealRepository(MealTraceDbContext db, TimeProvider clock) : IMealRepository
 {
+    private DateOnly Today => SchoolTime.Today(clock.GetUtcNow());
     private IQueryable<MealDay> FilterMealDays(MealDayListFilter filter)
     {
         var query = db.MealDays.AsNoTracking();
@@ -31,7 +33,7 @@ internal sealed class MealRepository(MealTraceDbContext db) : IMealRepository
         PersistenceErrors.ExecuteAsync(() => FilterMealDays(filter).CountAsync(ct));
 
     public Task<List<MealDaySummary>> SearchMealDaysAsync(MealDayListFilter filter, int page, int size, CancellationToken ct) =>
-        PersistenceErrors.ExecuteAsync(() => FilterMealDays(filter).OrderByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id)
+        PersistenceErrors.ExecuteAsync(() => FilterMealDays(filter).OrderByDescending(x => x.Date == Today).ThenByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id)
             .Skip((page - 1) * size).Take(size).Select(x => new MealDaySummary
             {
                 Id = x.Id, Date = x.Date, MealType = x.MealType, CutoffAt = x.CutoffAt,
@@ -53,7 +55,7 @@ internal sealed class MealRepository(MealTraceDbContext db) : IMealRepository
                 query = query.Where(x => x.Date >= from);
             if (to is not null)
                 query = query.Where(x => x.Date <= to);
-            return await query.OrderByDescending(x => x.Date).Take(100).Include("Dishes.RecipeVersion.Recipe").Include("Settlements").AsSplitQuery().ToListAsync();
+            return await query.OrderByDescending(x => x.Date == Today).ThenByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Take(100).Include("Dishes.RecipeVersion.Recipe").Include("Settlements").AsSplitQuery().ToListAsync();
         });
     }
     public async Task<MealDay?> FindMealDayDetailsAsync(Guid id)

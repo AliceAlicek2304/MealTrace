@@ -1,6 +1,6 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 20/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 22/10/2026. Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Roadmap: [docs/implementation-plan.md](docs/implementation-plan.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
@@ -75,6 +75,8 @@ Các API nguyên liệu/công thức chưa đồng nghĩa đã hoàn thành toà
 ## 3. Quy tắc nghiệp vụ đang áp dụng
 
 - Trẻ có ghi danh hiệu lực mặc định **dự kiến ăn**; Parent báo không ăn và Teacher ghi ngoại lệ khi cần. Đây không phải điểm danh có mặt thực tế.
+- Ngày nhà trường nghỉ ăn hoặc mọi phiên ăn đã hủy thì Parent không tạo/sửa đăng ký không ăn chỉ cho ngày đó. Khoảng nhiều ngày vẫn được đăng ký nếu còn ngày phục vụ; nếu chỉ hủy một bữa mà còn bữa khác phục vụ thì vẫn cho đăng ký. Web/Android khóa nút gửi và giải thích ngắn; BE kiểm tra lại khi lưu, đồng bộ với sửa lịch bằng khóa năm học trước khóa trẻ. Không sửa lịch sử đăng ký cũ; việc hủy báo vắng cũ không khôi phục ngày ăn đã bị trường hủy.
+- Danh sách lịch bữa ăn, phiên ăn/số suất, hồ sơ ngày ăn và tiếp nhận suất ghim ngày hôm nay (UTC+7) lên đầu trong phạm vi bộ lọc. Giữ thứ tự các ngày còn lại; thứ tự API áp dụng trước phân trang/giới hạn, dùng chung cho web và Android. Lịch sử thao tác giữ thứ tự thời gian ghi nhận.
 - Lớp tại ngày ăn lấy từ Enrollment, không dùng lớp hiện tại để sửa lịch sử.
 - “Cả năm” là đến cuối **năm học**, không phải 365 ngày; báo không ăn không làm trẻ ngừng học.
 - Giờ chốt mặc định **07:30 UTC+7**. Sau cut-off, thay đổi không được sửa suất đã khóa; xử lý qua điều chỉnh sau chốt. Báo không ăn sửa/hủy muộn vẫn giữ lịch sử và không làm đổi bản chốt cũ.

@@ -26,6 +26,66 @@ void size(WidgetTester tester, double width, {double height = 780}) {
 }
 
 void main() {
+  for (final width in [320.0, 390.0, 768.0]) {
+    testWidgets(
+      'Parent cannot submit a closed day at $width but can choose a mixed period',
+      (tester) async {
+        size(tester, width);
+        final today = schoolToday();
+        final repo = FakeSchoolRepository();
+        repo.handler = (operation, context, input) async {
+          final result = schoolFixture(operation);
+          if (operation != SchoolOperation.children) return result;
+          return SchoolResult(
+            summary: result.summary,
+            records: [
+              SchoolRecord({
+                ...result.records.first.fields,
+                'unavailableMealDates': [today],
+              }),
+            ],
+          );
+        };
+        final controller = SchoolController(repo, ['PARENT'], () async {});
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: mealTraceTheme,
+            home: SchoolFormPage(
+              form: schoolForms[SchoolOperation.reportAbsence]!,
+              controller: controller,
+              contextValues: {
+                ...validSchoolValues(),
+                'fromDate': today,
+                'toDate': today,
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final button = find.widgetWithText(FilledButton, 'Đăng ký không ăn');
+        expect(tester.widget<FilledButton>(button).onPressed, isNull);
+        expect(
+          find.textContaining('Nhà trường không phục vụ ăn'),
+          findsOneWidget,
+        );
+        await tester.ensureVisible(
+          find.widgetWithText(OutlinedButton, '1 tuần'),
+        );
+        await tester.tap(find.widgetWithText(OutlinedButton, '1 tuần'));
+        await tester.pumpAndSettle();
+        expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+        expect(
+          repo.calls.where(
+            (call) => call.operation == SchoolOperation.reportAbsence,
+          ),
+          isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   final screens = [
     SchoolOperation.parentLinks,
     SchoolOperation.reviewableParentLinks,

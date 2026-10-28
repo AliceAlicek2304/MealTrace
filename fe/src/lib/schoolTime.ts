@@ -1,5 +1,10 @@
 export const schoolTimeZone = 'Asia/Ho_Chi_Minh'
 
+export function isUnavailableMealPeriod(from: string, to: string, unavailable: string[] = []): boolean {
+  const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000 + 1
+  return days > 0 && new Set(unavailable.filter(date => date >= from && date <= to)).size === days
+}
+
 export function earlierSchoolDate(left: string, right: string): string {
   if (left < right) return left
   return right

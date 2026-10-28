@@ -17,6 +17,38 @@ namespace MealTrace.Api.Tests;
 public sealed class ListPaginationTests
 {
     [Fact]
+    public Task TodayIsPinnedBeforePagingAndOtherDatesKeepTheirOrder() => CheckTodayOrder(false);
+
+    [PostgresFact]
+    public Task PostgresTodayIsPinnedBeforePaging() => CheckTodayOrder(true);
+
+    private static async Task CheckTodayOrder(bool postgres)
+    {
+        var clock = new TestClock(); clock.Set(DateTimeOffset.Parse("2026-10-05T18:00:00Z"));
+        using var factory = new AuthTestFactory(postgres: postgres, clock: clock); using var client = factory.CreateClient();
+        var seed = await SeedScenario(factory, clock);
+        var today = SchoolTime.Today(clock.GetUtcNow());
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            (await db.MealDays.FindAsync(seed.DayId))!.SettledAt = clock.GetUtcNow();
+            for (var i = 1; i <= 30; i++)
+                db.MealDays.Add(new MealDay { Date = today.AddDays(i), MealType = "Lunch", CutoffAt = seed.Cutoff.AddDays(i), SettledAt = clock.GetUtcNow() });
+            await db.SaveChangesAsync();
+        }
+        await Authorize(client, seed.AdminEmail, seed.Password);
+        foreach (var route in new[] { "/api/meal-days/search", "/api/meal-days/workflow", "/api/kitchen/settlements/search" })
+        {
+            var result = await client.GetFromJsonAsync<JsonElement>(route);
+            var items = result.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(today.ToString("yyyy-MM-dd"), items[0].GetProperty("date").GetString());
+            Assert.Equal(today.AddDays(30).ToString("yyyy-MM-dd"), items[1].GetProperty("date").GetString());
+            var next = await client.GetFromJsonAsync<JsonElement>(route + "?page=2");
+            Assert.DoesNotContain(next.GetProperty("items").EnumerateArray(), x => x.GetProperty("date").GetString() == today.ToString("yyyy-MM-dd"));
+        }
+    }
+
+    [Fact]
     public Task AbsencesBeyondOneHundredRemainSearchableAndRestrictedToGuardian() => CheckAbsences(false);
 
     [PostgresFact]

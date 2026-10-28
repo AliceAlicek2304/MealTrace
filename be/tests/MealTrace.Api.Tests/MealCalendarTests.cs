@@ -15,6 +15,40 @@ namespace MealTrace.Api.Tests;
 
 public sealed class MealCalendarTests
 {
+    [Fact]
+    public async Task CalendarPinsSchoolTodayAndKeepsOtherDatesInChronologicalOrder()
+    {
+        var clock = new TestClock(); clock.Set(DateTimeOffset.Parse("2026-10-05T18:00:00Z"));
+        using var factory = new AuthTestFactory(clock: clock); using var client = factory.CreateClient();
+        var seed = await SeedScenario(factory, clock);
+        var today = DateOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).DateTime);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            (await db.AcademicYears.FindAsync("2026-2027"))!.StartDate = today.AddDays(-2);
+            await db.SaveChangesAsync();
+        }
+        await Authorize(client, seed.AdminEmail, seed.Password);
+        var response = await client.GetFromJsonAsync<JsonElement>($"{Root}?from={today.AddDays(-2):yyyy-MM-dd}&to={today.AddDays(2):yyyy-MM-dd}");
+        Assert.Equal(new[] { today, today.AddDays(-2), today.AddDays(-1), today.AddDays(1), today.AddDays(2) }.Select(x => x.ToString("yyyy-MM-dd")),
+            response.GetProperty("days").EnumerateArray().Select(x => x.GetProperty("date").GetString()));
+    }
+
+    [Fact]
+    public async Task ParentCannotReportClosedDayWithoutGeneratedSessions()
+    {
+        var clock = new TestClock(); using var factory = new AuthTestFactory(clock: clock); using var client = factory.CreateClient();
+        var (seed, monday) = await Setup(factory, clock, client);
+        Assert.Equal(HttpStatusCode.OK, (await EditDay(client, monday, "CLOSED", 1)).StatusCode);
+        await Authorize(client, "parent@test.local", seed.Password);
+        var closed = await client.PostAsJsonAsync("/api/parent/absences", new
+            { studentId = seed.PresentId, fromDate = monday, toDate = monday, reason = "Không ăn" });
+        Assert.Equal(HttpStatusCode.Conflict, closed.StatusCode);
+        var open = await client.PostAsJsonAsync("/api/parent/absences", new
+            { studentId = seed.PresentId, fromDate = monday.AddDays(1), toDate = monday.AddDays(1), reason = "Không ăn" });
+        Assert.Equal(HttpStatusCode.Created, open.StatusCode);
+    }
+
     private const string Root = "/api/admin/meal-calendar/2026-2027";
     private static async Task<(Scenario Seed, DateOnly Monday)> Setup(AuthTestFactory factory, TestClock clock, HttpClient client, int days = 30)
     {

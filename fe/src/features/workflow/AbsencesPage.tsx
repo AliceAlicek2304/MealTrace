@@ -1,6 +1,6 @@
 import { FilterPanel } from '../../components/FilterPanel'
 import { ResponsiveTable } from '../../components/ResponsiveTable'
-import { schoolToday, earlierSchoolDate, laterSchoolDate } from '../../lib/schoolTime'
+import { schoolToday, earlierSchoolDate, laterSchoolDate, isUnavailableMealPeriod } from '../../lib/schoolTime'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { SearchFeedback } from '../../components/SearchFeedback'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -11,7 +11,7 @@ import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import { QueryState } from '../../components/QueryState'
 
-type Child = { studentId: string; fullName: string; className: string; schoolYear: string; yearStartDate: string | null; yearEndDate: string | null }
+type Child = { studentId: string; fullName: string; className: string; schoolYear: string; yearStartDate: string | null; yearEndDate: string | null; unavailableMealDates?: string[] }
 type Year = { code: string; startDate: string; endDate: string }
 type Absence = { id: string; studentId: string; studentName: string; fromDate: string; toDate: string; reason: string; reportedAt: string; cancelledAt: string | null; schoolYear: string | null }
 const localToday = schoolToday
@@ -50,6 +50,9 @@ export function AbsencesPage() {
   const children = useQuery({ queryKey: ['parent-students'], queryFn: async () => (await api.get<Child[]>('/parent/students')).data })
   const years = useQuery({ queryKey: ['academic-years'], queryFn: async () => (await api.get<Year[]>('/academic-years')).data })
   const child = children.data?.find(x => x.studentId === studentId)
+  const unavailable = isUnavailableMealPeriod(fromDate, toDate, child?.unavailableMealDates)
+  const editChild = children.data?.find(x => x.studentId === editing?.studentId)
+  const editUnavailable = isUnavailableMealPeriod(laterSchoolDate(editFrom, localToday()), editTo, editChild?.unavailableMealDates)
   const editYear = years.data?.find(x => x.code === editing?.schoolYear)
   const absences = useQuery({ queryKey: ['parent-absences', page, filterStudent, filterStatus, searchTerm], enabled: !searchWaiting, queryFn: async () => (await api.get<{items: Absence[]; total: number; students: {studentId: string; name: string}[]}>('/parent/absences/search', { params: { page, studentId: filterStudent || undefined, status: filterStatus || undefined, search: searchTerm || undefined } })).data })
   useEffect(() => {
@@ -57,14 +60,14 @@ export function AbsencesPage() {
   }, [absences.data])
   const report = useMutation({ mutationFn: () => api.post('/parent/absences', { studentId, fromDate, toDate, reason }),
     onSuccess: async () => { setCreateOpen(false); setReason(''); toast.success('Đã lưu đăng ký không ăn. Thay đổi sau giờ chốt không làm đổi số suất đã chốt.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
-    onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
+    onError: async error => { toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }); await children.refetch() } })
   const cancel = useMutation({ mutationFn: (id: string) => api.post(`/parent/absences/${id}/cancel`),
     onSuccess: async () => { setCancelTarget(null); toast.success('Đã hủy báo vắng. Bản suất đã chốt trước đó vẫn được giữ.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
     onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
   const update = useMutation({ mutationFn: () => api.post(`/parent/absences/${editing!.id}/replace`, { studentId: editing!.studentId, fromDate: editFrom, toDate: editTo, reason: editReason }),
     onSuccess: async () => { setEditing(null); toast.success('Đã cập nhật khoảng không ăn; giữ lịch sử và số suất đã chốt.'); await queryClient.invalidateQueries({ queryKey: ['parent-absences'] }) },
-    onError: error => toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }) })
-  function submit(event: FormEvent) { event.preventDefault(); if (!report.isPending) report.mutate() }
+    onError: async error => { toast.error(apiErrorMessage(error), { toasterId: 'edit-modal' }); await children.refetch() } })
+  function submit(event: FormEvent) { event.preventDefault(); if (!report.isPending && !unavailable) report.mutate() }
   function openEdit(item: Absence) { setEditing(item); setEditFrom(item.fromDate); setEditTo(item.toDate); setEditReason(item.reason) }
   const statusOf = (item: Absence) => {
     if (item.cancelledAt) return 'CANCELLED'
@@ -89,10 +92,11 @@ export function AbsencesPage() {
       {child && <p className="form-help">Năm học {child.schoolYear}: {child.yearStartDate && child.yearEndDate ? `${child.yearStartDate} đến ${child.yearEndDate}` : 'Chưa thiết lập ngày bắt đầu/kết thúc. Liên hệ nhà trường.'}</p>}
       <p className="form-help">Tính cả ngày bắt đầu và kết thúc. Có thể sửa khoảng ngày hoặc hủy khi muốn ăn lại; phiên đã qua giờ chốt giữ nguyên.</p>
       <label className="field">Lý do<textarea required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></label>
-      <button type="submit" className="button primary" disabled={report.isPending || !child?.yearEndDate}>Gửi đăng ký</button>
+      {unavailable && <p role="status" className="form-help">Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.</p>}
+      <button type="submit" className="button primary" disabled={report.isPending || !child?.yearEndDate || unavailable}>Gửi đăng ký</button>
       {children.isError ? <p className="form-error">Không tải được danh sách trẻ. Đóng cửa sổ và thử lại.</p> : !children.isPending && !children.data?.length && <p className="form-error">Tài khoản chưa được liên kết với trẻ. Vào mục Liên kết trẻ để gửi yêu cầu.</p>}
     </form></Modal>}
-    <section className="panel workflow-lists"><div className="panel-head"><h2>Đăng ký đã gửi</h2><button type="button" className="button primary" onClick={() => setCreateOpen(true)}>Đăng ký không ăn</button></div>
+    <section className="panel workflow-lists"><div className="panel-head"><h2>Đăng ký đã gửi</h2><button type="button" className="button primary" onClick={() => { void children.refetch(); setCreateOpen(true) }}>Đăng ký không ăn</button></div>
       <FilterPanel activeCount={[searchTerm, filterStudent, filterStatus].filter(Boolean).length}><div className="list-toolbar"><label className="field">Tìm kiếm<input placeholder="Tên trẻ hoặc lý do" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></label>
         <label className="field">Trẻ<select value={filterStudent} onChange={e => { setFilterStudent(e.target.value); setPage(1) }}><option value="">Tất cả trẻ</option>{absences.data?.students.map(child => <option key={child.studentId} value={child.studentId}>{child.name}</option>)}</select></label>
         <label className="field">Trạng thái<select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option>{Object.entries(statusLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label></div></FilterPanel>
@@ -104,13 +108,14 @@ export function AbsencesPage() {
       <Pagination page={page} total={absences.data?.total ?? 0} pageSize={25} busy={searchWaiting || absences.isFetching} onChange={setPage} /></section>
     {cancelTarget && <Modal title={`Hủy đăng ký: ${cancelTarget.studentName}`} busy={cancel.isPending} onClose={() => setCancelTarget(null)}><div className="workflow-form"><p>Hủy khoảng không ăn từ {cancelTarget.fromDate} đến {cancelTarget.toDate}? Số suất đã qua giờ chốt giữ nguyên; lịch sử đăng ký vẫn được lưu.</p><div className="form-actions"><button type="button" className="button secondary" disabled={cancel.isPending} onClick={() => setCancelTarget(null)}>Quay lại</button><button type="button" className="button danger" disabled={cancel.isPending} onClick={() => cancel.mutate(cancelTarget.id)}>Xác nhận hủy</button></div></div></Modal>}
     {editing && <Modal title={`Cập nhật: ${editing.studentName}`} description="Bản cũ được giữ trong lịch sử. Số suất đã qua giờ chốt không thay đổi." busy={update.isPending} onClose={() => setEditing(null)}>
-      <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!update.isPending) update.mutate() }}>
+      <form className="workflow-form" onSubmit={e => { e.preventDefault(); if (!update.isPending && !editUnavailable) update.mutate() }}>
         <label className="field">Từ ngày<input type="date" required disabled={update.isPending} min={earlierSchoolDate(editing.fromDate, localToday())} value={editFrom} onChange={e => setEditFrom(e.target.value)} /></label>
         <p className="form-help">Nếu ngày bắt đầu đã qua, giữ nguyên ngày đó hoặc chọn một ngày từ hôm nay.</p>
         <p className="form-help">{editYear ? `Năm học ${editYear.code}: ${editYear.startDate} đến ${editYear.endDate}` : 'Nhà trường chưa thiết lập mốc năm học. Bạn vẫn có thể hủy đăng ký để ăn lại.'}</p>
         <label className="field">Đến ngày<input type="date" required disabled={update.isPending} min={laterSchoolDate(editFrom, localToday())} max={editYear?.endDate} value={editTo} onChange={e => setEditTo(e.target.value)} /></label>
         <label className="field">Lý do<textarea required maxLength={500} disabled={update.isPending} value={editReason} onChange={e => setEditReason(e.target.value)} /></label>
-        <div className="form-actions"><button type="button" className="button secondary" disabled={update.isPending} onClick={() => setEditing(null)}>Hủy</button><button type="submit" className="button primary" disabled={update.isPending || !editReason.trim() || !editYear}>Lưu cập nhật</button></div>
+        {editUnavailable && <p role="status" className="form-help">Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.</p>}
+        <div className="form-actions"><button type="button" className="button secondary" disabled={update.isPending} onClick={() => setEditing(null)}>Hủy</button><button type="submit" className="button primary" disabled={update.isPending || !editReason.trim() || !editYear || editUnavailable}>Lưu cập nhật</button></div>
       </form>
     </Modal>}
   </>

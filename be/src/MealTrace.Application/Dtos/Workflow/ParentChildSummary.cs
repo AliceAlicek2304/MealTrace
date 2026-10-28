@@ -11,4 +11,5 @@ public sealed record ParentChildSummary
     public required string SchoolYear { get; init; }
     public DateOnly? YearStartDate { get; init; }
     public DateOnly? YearEndDate { get; init; }
+    public DateOnly[] UnavailableMealDates { get; init; } = [];
 }
