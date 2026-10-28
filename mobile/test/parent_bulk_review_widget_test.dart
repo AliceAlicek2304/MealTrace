@@ -73,6 +73,10 @@ void main() {
         await tester.tap(find.text('A3 · 2026-2027').last);
         await tester.pumpAndSettle();
         expect(repo.calls.last.input['classId'], schoolId);
+        if (find.text('Chọn yêu cầu trên trang').evaluate().isEmpty) {
+          await tester.tap(find.byTooltip('Thao tác'));
+          await tester.pumpAndSettle();
+        }
         await tester.tap(find.text('Chọn yêu cầu trên trang'));
         await tester.pumpAndSettle();
         final first = find.byType(CheckboxListTile).first;

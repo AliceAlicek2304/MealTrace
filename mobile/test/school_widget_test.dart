@@ -69,10 +69,17 @@ void main() {
           find.textContaining('Nhà trường không phục vụ ăn'),
           findsOneWidget,
         );
-        await tester.ensureVisible(
-          find.widgetWithText(OutlinedButton, '1 tuần'),
-        );
-        await tester.tap(find.widgetWithText(OutlinedButton, '1 tuần'));
+        if (find.widgetWithText(OutlinedButton, '1 tuần').evaluate().isEmpty) {
+          await tester.ensureVisible(find.byTooltip('Chọn khoảng ngày'));
+          await tester.tap(find.byTooltip('Chọn khoảng ngày'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('1 tuần'));
+        } else {
+          await tester.ensureVisible(
+            find.widgetWithText(OutlinedButton, '1 tuần'),
+          );
+          await tester.tap(find.widgetWithText(OutlinedButton, '1 tuần'));
+        }
         await tester.pumpAndSettle();
         expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
         expect(

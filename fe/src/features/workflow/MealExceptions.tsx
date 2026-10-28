@@ -92,10 +92,10 @@ export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
       <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">{decisions.data?.isSettled ? 'Suất tại giờ chốt' : 'Suất dự kiến'}</th>{decisions.data?.isSettled && <th scope="col">Suất hiện hành</th>}<th scope="col">{decisions.data?.isSettled ? 'Nguồn tại giờ chốt / lý do' : 'Nguồn / lý do'}</th><th scope="col">Thao tác</th></tr></thead><tbody>
       {decisions.data?.items.map(student => {
         const room = appliedRooms.get(student.classId)
-        return <tr key={student.studentId}><td><strong>{student.fullName}</strong><small>{student.studentCode}</small></td><td>{student.className}</td><td>{student.willEat ? 'Có suất' : 'Không có suất'}</td>{decisions.data.isSettled && <td><CurrentPortionCell student={student} room={room} loading={applied.isPending} error={applied.isError} /></td>}<td>{sourceLabel[student.source] ?? student.source}
+        return <tr key={student.studentId}><td><strong>{student.fullName}</strong><small className="record-secondary">{student.studentCode}</small></td><td>{student.className}</td><td>{student.willEat ? 'Có suất' : 'Không có suất'}</td>{decisions.data.isSettled && <td><CurrentPortionCell student={student} room={room} loading={applied.isPending} error={applied.isError} /></td>}<td>{sourceLabel[student.source] ?? student.source}
         {student.latestReason && <small>{student.latestReason}</small>}</td>
         <td><div className="table-actions"><button type="button" className="button secondary" disabled={!canEdit || decisions.isFetching} onClick={() => open(student, 'edit')}>Ghi ngoại lệ</button>
-          <button type="button" className="button secondary" onClick={() => open(student, 'history')}>{decisions.data.isSettled ? 'Lịch sử ngoại lệ trước chốt' : 'Lịch sử'}</button></div></td></tr>})}
+          <button type="button" className="button secondary" data-compact-label="Lịch sử" aria-label={decisions.data.isSettled ? "Lịch sử ngoại lệ trước chốt" : "Lịch sử"} title={decisions.data.isSettled ? 'Lịch sử ngoại lệ trước chốt' : 'Lịch sử'} onClick={() => open(student, 'history')}>{decisions.data.isSettled ? 'Lịch sử ngoại lệ trước chốt' : 'Lịch sử'}</button></div></td></tr>})}
       </tbody></ResponsiveTable></div>
     </QueryState>
     <Pagination page={page} total={decisions.data?.total ?? 0} pageSize={25} busy={searchWaiting || decisions.isFetching} onChange={setPage} />

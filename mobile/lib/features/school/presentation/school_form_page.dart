@@ -569,16 +569,17 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                   ),
                 ],
                 if (widget.form.operation == SchoolOperation.reportAbsence)
-                  Wrap(
-                    spacing: 8,
-                    children: [
+                  MealActions(
+                    menuLabel: 'Chọn khoảng ngày',
+                    actions: [
                       for (final period in {
                         'week': '1 tuần',
                         'month': '1 tháng',
                         'year': 'Hết năm học',
                       }.entries)
-                        OutlinedButton(
-                          onPressed: busy || values['studentId'] == null
+                        MealAction(
+                          period.value,
+                          busy || values['studentId'] == null
                               ? null
                               : () {
                                   final matching = children.where(
@@ -601,7 +602,6 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                                         ),
                                   );
                                 },
-                          child: Text(period.value),
                         ),
                     ],
                   ),

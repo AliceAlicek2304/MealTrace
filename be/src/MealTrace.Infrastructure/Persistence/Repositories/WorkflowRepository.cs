@@ -329,7 +329,7 @@ internal sealed class WorkflowRepository(MealTraceDbContext db, TimeProvider clo
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
             var query = db.MealDays.AsNoTracking().Where(x => date == null || x.Date == date);
-            return await query.OrderByDescending(x => x.Date == Today).ThenByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Skip((number - 1) * 25).Take(25).Select(x => new WorkflowMealDaySummary
+            return await query.OrderByDescending(x => x.Date == Today).ThenBy(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Skip((number - 1) * 25).Take(25).Select(x => new WorkflowMealDaySummary
             {
                 Id = x.Id,
                 Date = x.Date,

@@ -33,7 +33,7 @@ internal sealed class MealRepository(MealTraceDbContext db, TimeProvider clock) 
         PersistenceErrors.ExecuteAsync(() => FilterMealDays(filter).CountAsync(ct));
 
     public Task<List<MealDaySummary>> SearchMealDaysAsync(MealDayListFilter filter, int page, int size, CancellationToken ct) =>
-        PersistenceErrors.ExecuteAsync(() => FilterMealDays(filter).OrderByDescending(x => x.Date == Today).ThenByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id)
+        PersistenceErrors.ExecuteAsync(() => FilterMealDays(filter).OrderByDescending(x => x.Date == Today).ThenBy(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id)
             .Skip((page - 1) * size).Take(size).Select(x => new MealDaySummary
             {
                 Id = x.Id, Date = x.Date, MealType = x.MealType, CutoffAt = x.CutoffAt,
@@ -55,7 +55,7 @@ internal sealed class MealRepository(MealTraceDbContext db, TimeProvider clock) 
                 query = query.Where(x => x.Date >= from);
             if (to is not null)
                 query = query.Where(x => x.Date <= to);
-            return await query.OrderByDescending(x => x.Date == Today).ThenByDescending(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Take(100).Include("Dishes.RecipeVersion.Recipe").Include("Settlements").AsSplitQuery().ToListAsync();
+            return await query.OrderByDescending(x => x.Date == Today).ThenBy(x => x.Date).ThenBy(x => x.MealType).ThenBy(x => x.Id).Take(100).Include("Dishes.RecipeVersion.Recipe").Include("Settlements").AsSplitQuery().ToListAsync();
         });
     }
     public async Task<MealDay?> FindMealDayDetailsAsync(Guid id)

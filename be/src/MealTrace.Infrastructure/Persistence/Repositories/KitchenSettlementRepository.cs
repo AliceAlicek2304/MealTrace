@@ -34,7 +34,7 @@ public class KitchenSettlementRepository : IKitchenSettlementRepository
         var today = SchoolTime.Today(_clock.GetUtcNow());
         return await query
             .OrderByDescending(d => d.Date == today)
-            .ThenByDescending(d => d.Date)
+            .ThenBy(d => d.Date)
             .ThenByDescending(d => d.CutoffAt)
             .ThenBy(d => d.Id)
             .Skip(skip).Take(take)

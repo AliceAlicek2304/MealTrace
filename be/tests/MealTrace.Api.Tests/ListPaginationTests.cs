@@ -17,7 +17,7 @@ namespace MealTrace.Api.Tests;
 public sealed class ListPaginationTests
 {
     [Fact]
-    public Task TodayIsPinnedBeforePagingAndOtherDatesKeepTheirOrder() => CheckTodayOrder(false);
+    public Task TodayIsPinnedBeforePagingAndOtherDatesAreAscending() => CheckTodayOrder(false);
 
     [PostgresFact]
     public Task PostgresTodayIsPinnedBeforePaging() => CheckTodayOrder(true);
@@ -32,20 +32,55 @@ public sealed class ListPaginationTests
         {
             var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
             (await db.MealDays.FindAsync(seed.DayId))!.SettledAt = clock.GetUtcNow();
-            for (var i = 1; i <= 30; i++)
+            db.MealDays.Add(new MealDay { Date = today, MealType = "Breakfast", CutoffAt = seed.Cutoff.AddHours(-10), SettledAt = clock.GetUtcNow() });
+            for (var i = -30; i <= 30; i++)
+            {
+                if (i == 0) continue;
                 db.MealDays.Add(new MealDay { Date = today.AddDays(i), MealType = "Lunch", CutoffAt = seed.Cutoff.AddDays(i), SettledAt = clock.GetUtcNow() });
+            }
             await db.SaveChangesAsync();
         }
         await Authorize(client, seed.AdminEmail, seed.Password);
         foreach (var route in new[] { "/api/meal-days/search", "/api/meal-days/workflow", "/api/kitchen/settlements/search" })
         {
-            var result = await client.GetFromJsonAsync<JsonElement>(route);
-            var items = result.GetProperty("items").EnumerateArray().ToArray();
-            Assert.Equal(today.ToString("yyyy-MM-dd"), items[0].GetProperty("date").GetString());
-            Assert.Equal(today.AddDays(30).ToString("yyyy-MM-dd"), items[1].GetProperty("date").GetString());
-            var next = await client.GetFromJsonAsync<JsonElement>(route + "?page=2");
-            Assert.DoesNotContain(next.GetProperty("items").EnumerateArray(), x => x.GetProperty("date").GetString() == today.ToString("yyyy-MM-dd"));
+            var all = new List<JsonElement>();
+            for (var page = 1; page <= 3; page++)
+            {
+                var result = await client.GetFromJsonAsync<JsonElement>(route + $"?page={page}&pageSize=25");
+                Assert.Equal(62, result.GetProperty("total").GetInt32());
+                all.AddRange(result.GetProperty("items").EnumerateArray());
+            }
+            Assert.Equal(62, all.Select(x => x.TryGetProperty("id", out var id) ? id.GetGuid() : x.GetProperty("mealDayId").GetGuid()).Distinct().Count());
+            AssertTodayThenAscending(all, today);
+            var filtered = await client.GetFromJsonAsync<JsonElement>(route + $"?date={today.AddDays(10):yyyy-MM-dd}");
+            var only = Assert.Single(filtered.GetProperty("items").EnumerateArray());
+            Assert.Equal(today.AddDays(10).ToString("yyyy-MM-dd"), only.GetProperty("date").GetString());
         }
+        foreach (var route in new[] { "/api/meal-days", "/api/kitchen/settlements" })
+        {
+            var compatibility = await client.GetFromJsonAsync<JsonElement>(route);
+            Assert.Equal(62, compatibility.GetArrayLength());
+            AssertTodayThenAscending(compatibility.EnumerateArray().ToList(), today);
+        }
+
+        clock.Set(clock.GetUtcNow().AddDays(31));
+        await Authorize(client, seed.AdminEmail, seed.Password);
+        foreach (var route in new[] { "/api/meal-days/search", "/api/meal-days/workflow", "/api/kitchen/settlements/search" })
+        {
+            var noToday = await client.GetFromJsonAsync<JsonElement>(route);
+            var dates = noToday.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("date").GetString()).ToArray();
+            Assert.Equal(today.AddDays(-30).ToString("yyyy-MM-dd"), dates[0]);
+            Assert.Equal(dates.OrderBy(x => x, StringComparer.Ordinal), dates);
+        }
+    }
+
+    private static void AssertTodayThenAscending(List<JsonElement> items, DateOnly today)
+    {
+        var todayText = today.ToString("yyyy-MM-dd");
+        Assert.All(items.Take(2), x => Assert.Equal(todayText, x.GetProperty("date").GetString()));
+        var remainingDates = items.Skip(2).Select(x => x.GetProperty("date").GetString()).ToArray();
+        Assert.DoesNotContain(todayText, remainingDates);
+        Assert.Equal(remainingDates.OrderBy(x => x, StringComparer.Ordinal), remainingDates);
     }
 
     [Fact]

@@ -191,27 +191,36 @@ class RecordDetails extends StatelessWidget {
           (entry) => fieldLabels.containsKey(entry.key) && entry.value != null,
         )
         .toList();
-    final primary = entries
-        .where(
-          (entry) => [
-            'className',
-            'schoolYear',
-            'date',
-            'mealType',
-            'status',
-            'isActive',
-            'studentCount',
-            'count',
-            'version',
-            'isSettled',
-            'isCancelled',
-            'willEat',
-            'fromDate',
-            'toDate',
-            'startDate',
-            'endDate',
-          ].contains(entry.key),
-        )
+    final primary =
+        [
+              'date',
+              'mealType',
+              'count',
+              'studentCount',
+              'className',
+              'phoneNumber',
+              'parentPhone',
+              'status',
+              'fromDate',
+              'toDate',
+              'isActive',
+              'isSettled',
+              'willEat',
+              'startDate',
+              'endDate',
+            ]
+            .expand((key) => entries.where((entry) => entry.key == key))
+            .take(3)
+            .toList();
+    if (record.flag('isCancelled')) {
+      final cancelled = entries.where((entry) => entry.key == 'isCancelled');
+      if (cancelled.isNotEmpty) {
+        if (primary.length == 3) primary.removeLast();
+        primary.add(cancelled.first);
+      }
+    }
+    final secondary = entries
+        .where((entry) => !primary.contains(entry) && entry.key != 'parents')
         .toList();
     Widget row(MapEntry<String, Object?> entry) {
       final value = entry.value;
@@ -384,15 +393,10 @@ class RecordDetails extends StatelessWidget {
               ),
             ),
           ),
-        if (compact && entries.length > primary.length)
+        if (compact && secondary.isNotEmpty)
           ExpansionTile(
             title: const Text('Thông tin thêm'),
-            children: [
-              for (final entry in entries.where(
-                (x) => !primary.contains(x) && x.key != 'parents',
-              ))
-                row(entry),
-            ],
+            children: [for (final entry in secondary) row(entry)],
           ),
       ],
     );
@@ -648,30 +652,23 @@ class _ReferencePickerState extends State<ReferencePicker> {
             ),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: 12,
-                children: [
+              child: MealActions(
+                actions: [
                   if (!widget.field.required)
-                    TextButton(
-                      onPressed: () {
-                        widget.onSelected?.call([], []);
-                        Navigator.pop(context, <String>[]);
-                      },
-                      child: const Text('Bỏ chọn'),
-                    ),
+                    MealAction('Bỏ chọn', () {
+                      widget.onSelected?.call([], []);
+                      Navigator.pop(context, <String>[]);
+                    }),
                   if (multi)
-                    FilledButton(
-                      onPressed: () {
-                        widget.onSelected?.call(
-                          selected.toList(),
-                          selected
-                              .map((id) => selectedLabels[id] ?? 'Mục đã chọn')
-                              .toList(),
-                        );
-                        Navigator.pop(context, selected.toList());
-                      },
-                      child: Text('Chọn ${selected.length} mục'),
-                    ),
+                    MealAction('Chọn ${selected.length} mục', () {
+                      widget.onSelected?.call(
+                        selected.toList(),
+                        selected
+                            .map((id) => selectedLabels[id] ?? 'Mục đã chọn')
+                            .toList(),
+                      );
+                      Navigator.pop(context, selected.toList());
+                    }, primary: true),
                 ],
               ),
             ),

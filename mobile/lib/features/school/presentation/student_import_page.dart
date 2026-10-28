@@ -268,7 +268,11 @@ class _StudentImportPageState extends State<StudentImportPage> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: busy ? null : () => setState(reset),
-                        child: const Text('Chọn lại file'),
+                        child: const Text(
+                          'Chọn lại file',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -277,7 +281,11 @@ class _StudentImportPageState extends State<StudentImportPage> {
                         onPressed: busy || !preview!.summary.flag('canImport')
                             ? null
                             : () => send(true),
-                        child: Text('Nhập ${preview!.records.length} trẻ'),
+                        child: Text(
+                          'Nhập ${preview!.records.length} trẻ',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   ],
@@ -289,8 +297,15 @@ class _StudentImportPageState extends State<StudentImportPage> {
           padding: const EdgeInsets.all(16),
           children: [
             if (preview == null) ...[
-              const Text(
-                'Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Quản lý chọn lớp và ngày bắt đầu. Không tạo phụ huynh hoặc gửi WhatsApp. Một sheet, tối đa 500 trẻ, 5 MB.',
+              const Text('Nhập danh sách trẻ từ Excel vào lớp đã chọn.'),
+              const ExpansionTile(
+                title: Text('Hướng dẫn nhập file'),
+                childrenPadding: EdgeInsets.only(bottom: 12),
+                children: [
+                  Text(
+                    'File cần có họ tên; có thể bổ sung ngày sinh và giới tính. Chọn lớp, ngày bắt đầu và kiểm tra danh sách trước khi nhập. Một sheet, tối đa 500 trẻ, 5 MB.',
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(

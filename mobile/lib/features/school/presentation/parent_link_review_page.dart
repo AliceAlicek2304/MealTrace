@@ -5,6 +5,7 @@ import 'school_forms.dart';
 import 'school_form_page.dart';
 import 'school_page.dart';
 import 'school_widgets.dart';
+import '../../../core/presentation/meal_widgets.dart';
 
 class ParentLinkReviewPage extends StatefulWidget {
   const ParentLinkReviewPage({
@@ -223,19 +224,13 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
                       load();
                     },
             ),
-            Wrap(
-              spacing: 8,
-              children: [
-                TextButton(
-                  onPressed: busy ? null : load,
-                  child: const Text('Tải lại danh sách'),
-                ),
-                TextButton(
-                  onPressed: busy ? null : history,
-                  child: const Text('Lịch sử / sửa liên kết'),
-                ),
-                TextButton(
-                  onPressed: busy || (classId == null && year == null)
+            MealActions(
+              actions: [
+                MealAction('Tải lại danh sách', busy ? null : load),
+                MealAction('Lịch sử / sửa liên kết', busy ? null : history),
+                MealAction(
+                  'Chọn yêu cầu trên trang',
+                  busy || (classId == null && year == null)
                       ? null
                       : () => setState(() {
                           selected.clear();
@@ -246,11 +241,10 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
                             }
                           }
                         }),
-                  child: const Text('Chọn yêu cầu trên trang'),
                 ),
-                TextButton(
-                  onPressed: busy ? null : () => setState(selected.clear),
-                  child: const Text('Bỏ chọn'),
+                MealAction(
+                  'Bỏ chọn',
+                  busy ? null : () => setState(selected.clear),
                 ),
               ],
             ),
