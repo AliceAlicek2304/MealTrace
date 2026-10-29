@@ -36,10 +36,24 @@ internal sealed class NutritionRepository(MealTraceDbContext db) : INutritionRep
                     IngredientId = ingredient.Id,
                     IngredientName = ingredient.Name,
                     PinnedVersionId = pinned.Id,
-                    GramsPerPortion = ri.GramsPerPortion
+                    GramsPerPortion = ri.GramsPerPortion,
+                    Quantity = ri.Quantity,
+                    Unit = ri.Unit,
+                    WeightBasis = ri.WeightBasis,
+                    Pinned = pinned
                 }
 
             ).ToListAsync(ct);
+        });
+    }
+    public async Task<List<NutrientReferenceRange>> ListReferenceRangesAsync(string ageGroup, DateTimeOffset knownUtc, CancellationToken ct)
+    {
+        return await PersistenceErrors.ExecuteAsync(async () =>
+        {
+            var lowered = ageGroup.ToLowerInvariant();
+            return await db.NutrientReferenceRanges.AsNoTracking()
+                .Where(r => r.AgeGroup.ToLower() == lowered && r.RecordedAt <= knownUtc)
+                .ToListAsync(ct);
         });
     }
 }

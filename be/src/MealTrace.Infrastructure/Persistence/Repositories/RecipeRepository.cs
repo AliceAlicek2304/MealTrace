@@ -13,11 +13,12 @@ internal sealed class RecipeRepository(MealTraceDbContext db) : IRecipeRepositor
             return await db.Recipes.AnyAsync(r => r.Id == recipeId, ct);
         });
     }
-    public async Task<int?> GetLatestVersionNumberAsync(Guid recipeId, CancellationToken ct)
+    public async Task<RecipeVersion?> FindLatestVersionAsync(Guid recipeId, CancellationToken ct)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            return await db.RecipeVersions.Where(v => v.RecipeId == recipeId).MaxAsync(v => (int?)v.Version, ct);
+            return await db.RecipeVersions.AsNoTracking().Where(v => v.RecipeId == recipeId)
+                .OrderByDescending(v => v.Version).FirstOrDefaultAsync(ct);
         });
     }
     public async Task<Dictionary<Guid, Ingredient>> GetIngredientsByIdAsync(Guid[] ids, CancellationToken ct)

@@ -156,6 +156,10 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("CarbGPer100G")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
                     b.Property<decimal>("EdibleFraction")
                         .HasPrecision(5, 4)
                         .HasColumnType("numeric(5,4)");
@@ -163,9 +167,20 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("EffectiveFrom")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("EffectiveTo")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("EnergyKcalPer100G")
                         .HasPrecision(12, 3)
                         .HasColumnType("numeric(12,3)");
+
+                    b.Property<decimal?>("FatGPer100G")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
+                    b.Property<decimal?>("GramsPerMl")
+                        .HasPrecision(8, 4)
+                        .HasColumnType("numeric(8,4)");
 
                     b.Property<Guid>("IngredientId")
                         .HasColumnType("uuid");
@@ -181,15 +196,37 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SourceRef")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("SupersedesId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Version")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RecordedByUserId");
+
+                    b.HasIndex("SupersedesId")
+                        .IsUnique();
+
                     b.HasIndex("IngredientId", "Version")
                         .IsUnique();
 
-                    b.ToTable("IngredientVersions");
+                    b.ToTable("IngredientVersions", t =>
+                        {
+                            t.HasCheckConstraint("CK_IngredientVersions_Interval", "\"EffectiveTo\" IS NULL OR \"EffectiveTo\" > \"EffectiveFrom\"");
+                        });
                 });
 
             modelBuilder.Entity("MealTrace.Domain.Entities.InspectorGrant", b =>
@@ -495,6 +532,69 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.HasIndex("RecipeVersionId");
 
                     b.ToTable("MenuDishes");
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.NutrientReferenceRange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AgeGroup")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("EffectiveTo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("MaxValue")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
+                    b.Property<decimal?>("MinValue")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
+                    b.Property<string>("Nutrient")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SourceRef")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.HasIndex("AgeGroup", "Nutrient");
+
+                    b.ToTable("NutrientReferenceRanges", t =>
+                        {
+                            t.HasCheckConstraint("CK_NutrientReferenceRanges_Bounds", "\"MinValue\" IS NOT NULL OR \"MaxValue\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_NutrientReferenceRanges_Interval", "\"EffectiveTo\" IS NULL OR \"EffectiveTo\" > \"EffectiveFrom\"");
+
+                            t.HasCheckConstraint("CK_NutrientReferenceRanges_Nutrient", "\"Nutrient\" IN ('kcal', 'proteinG', 'fatG', 'carbG')");
+
+                            t.HasCheckConstraint("CK_NutrientReferenceRanges_Order", "\"MinValue\" IS NULL OR \"MaxValue\" IS NULL OR \"MinValue\" <= \"MaxValue\"");
+                        });
                 });
 
             modelBuilder.Entity("MealTrace.Domain.Entities.ParentLinkRequest", b =>
@@ -812,8 +912,20 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("IngredientVersionId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("Quantity")
+                        .HasPrecision(14, 3)
+                        .HasColumnType("numeric(14,3)");
+
                     b.Property<Guid>("RecipeVersionId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("WeightBasis")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.HasKey("Id");
 
@@ -821,7 +933,12 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RecipeVersionId");
 
-                    b.ToTable("RecipeIngredients");
+                    b.ToTable("RecipeIngredients", t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeIngredients_Unit", "\"Unit\" IS NULL OR \"Unit\" IN ('g', 'ml')");
+
+                            t.HasCheckConstraint("CK_RecipeIngredients_WeightBasis", "\"WeightBasis\" IS NULL OR \"WeightBasis\" IN ('gross', 'edible')");
+                        });
                 });
 
             modelBuilder.Entity("MealTrace.Domain.Entities.RecipeVersion", b =>
@@ -830,21 +947,44 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid>("RecipeId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("RoundingKcalDecimals")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RoundingMacroDecimals")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ServingBasis")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Version")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RecordedByUserId");
+
                     b.HasIndex("RecipeId", "Version")
                         .IsUnique();
 
-                    b.ToTable("RecipeVersions");
+                    b.ToTable("RecipeVersions", t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeVersions_Rounding", "(\"RoundingKcalDecimals\" IS NULL OR \"RoundingKcalDecimals\" BETWEEN 0 AND 3) AND (\"RoundingMacroDecimals\" IS NULL OR \"RoundingMacroDecimals\" BETWEEN 0 AND 3)");
+
+                            t.HasCheckConstraint("CK_RecipeVersions_ServingBasis", "\"ServingBasis\" IS NULL OR \"ServingBasis\" >= 1");
+                        });
                 });
 
             modelBuilder.Entity("MealTrace.Domain.Entities.ReportSnapshot", b =>
@@ -1406,6 +1546,16 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Domain.Entities.IngredientVersion", null)
+                        .WithMany()
+                        .HasForeignKey("SupersedesId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Ingredient");
                 });
 
@@ -1511,6 +1661,14 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Navigation("MealDay");
 
                     b.Navigation("RecipeVersion");
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.NutrientReferenceRange", b =>
+                {
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("MealTrace.Domain.Entities.ParentLinkRequest", b =>
@@ -1668,6 +1826,11 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Recipe");
                 });

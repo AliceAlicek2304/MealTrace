@@ -149,3 +149,21 @@ Các API nguyên liệu/công thức chưa đồng nghĩa đã hoàn thành toà
 - Android thống nhất giao diện nền kem, tím trầm làm màu chủ đạo, xanh lá cho trạng thái hoàn tất; theme dùng chung cho chữ, input, nút, card, bottom sheet, điều hướng và SnackBar. Thành phần trình bày dùng chung ở core/presentation, không kéo nghiệp vụ/HTTP vào core. Trang chủ có lời chào theo vai trò và thẻ truy cập nhanh; menu chia nhóm nghiệp vụ. Danh sách có biểu tượng/tiêu đề và trạng thái rõ, thông tin phụ thu gọn; số suất/dinh dưỡng dùng khung số liệu nổi bật. Form giữ nút lưu trên bàn phím. Nút tạo công thức ở đầu trang để không che dữ liệu đối chiếu. Thiết kế không thêm thống kê giả hoặc API mới; giữ quyền/luồng hiện hành.
 
 - Test Android thật qua USB: bật USB debugging, chạy BE local 5184, dùng adb reverse tcp:5184 tcp:5184 và flutter run với API_BASE_URL=http://127.0.0.1:5184/api. FE không cần chạy, DB giữ trên máy tính. Debug network allowlist có emulator 10.0.2.2 và loopback 127.0.0.1/localhost; bản release vẫn yêu cầu HTTPS. Hướng dẫn đầy đủ trong mobile/README.md. APK mặc định emulator cần build/chạy lại với URL phù hợp, không tự dùng USB.
+
+# Kitchen (BE1) v1.3: các quyết định đã áp dụng trong code
+
+Những mục mà v1.3 đánh dấu "cần xác nhận" được triển khai theo các mặc định bên dưới. Mỗi mục nằm ở một chỗ trong code nên
+đổi quyết định chỉ cần sửa nhỏ. Không có giá trị nào được hard-code từ nguồn bên ngoài: khoảng tham chiếu theo nhóm tuổi và
+tỷ trọng (density) là dữ liệu.
+
+| Chủ đề | Mặc định trong code | Vị trí |
+| --- | --- | --- |
+| Quy tắc thời gian (BE1-BR02) | Một dòng dinh dưỡng là "đã biết" nếu `RecordedAt <= knownAt`, là "còn hiệu lực" (live) nếu không có dòng đã biết nào thay thế nó (supersede), và "áp dụng được" nếu `EffectiveFrom <= validAt < EffectiveTo` (null = không giới hạn). Thứ tự ưu tiên: `EffectiveFrom` muộn nhất, rồi `RecordedAt` muộn nhất, rồi `Version` cao nhất. Khoảng hiệu lực mới chỉ được chồng lên một dòng live nếu bắt đầu muộn hơn hẳn; nếu không thì phải đặt `supersedesId` (409 `INGREDIENT_VERSION_OVERLAP`). | `IngredientTimeline`, `IngredientService.AddVersionAsync` |
+| Làm tròn | Kcal 0 chữ số thập phân, macro 1 chữ số thập phân, làm tròn ra xa số 0, đúng một lần trên tổng mỗi khẩu phần. Lưu theo từng phiên bản công thức; có thể ghi đè bằng `roundingRule`. | `RecipeService.DefaultRounding` |
+| ml sang g | Không bao giờ tự giả định. Cần `gramsPerMl` trên phiên bản dinh dưỡng, nếu thiếu thì trả 422 `UNIT_CONVERSION_MISSING`. | `RecipeService.BuildLinesAsync`, `NutritionService.Compute` |
+| Khối lượng thô (gross) và ăn được (edible) | `weightBasis` của mỗi dòng là `gross` (mặc định, có áp dụng tỷ lệ ăn được) hoặc `edible` (không áp dụng). Lưu theo từng dòng. | `RecipeLineRequest`, `NutritionService.Compute` |
+| Giá trị dinh dưỡng | Tính trên 100 g phần ăn được. Nếu nguồn ghi trên 100 g nguyên liệu như khi mua, nhập `ediblePercent = 100`. | `CreateIngredientVersionRequest` |
+| Khoảng tham chiếu theo nhóm tuổi | Bảng `NutrientReferenceRanges`, chưa có dòng dữ liệu nào. So sánh với giá trị trên mỗi khẩu phần. Trả 422 `AGE_GROUP_REFERENCE_MISSING` nếu chưa ghi nhận khoảng nào. | `NutritionService.CompareAsync` |
+| Pinned và recompute | `mode=recompute` (mặc định, hành vi không đổi) hoặc `mode=pinned` (dùng phiên bản nguyên liệu đã lưu trên các dòng công thức, không dùng `validAt`/`knownAt`). Recompute cũng trả kết quả pinned và phần chênh lệch. | `NutritionService.CalculateAsync` |
+| Dữ liệu ghi trước v1.3 | Các cột mới cho phép null. Thiếu fat/carbohydrate thì tổng là `null` kèm `incompleteData`, không bao giờ là 0. Dòng không có `quantity` dùng `gramsPerPortion` đã lưu. | `NutritionService.Compute` |
+| Kiểm tra nguồn | `source` bắt buộc (tối đa 200 ký tự, không chứa ký tự điều khiển); `sourceRef` tối đa 500 ký tự, và giá trị bắt đầu bằng `http` phải là URL http(s) hợp lệ. Đặc tả không nêu định dạng chặt hơn. | `IngredientService.ValidateSource` |
