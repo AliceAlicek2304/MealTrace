@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/mealtrace_brand.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';
@@ -163,11 +164,22 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
         .where((x) => year == null || x.text('schoolYear') == year)
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Duyệt liên kết theo lớp')),
+      appBar: AppBar(
+        title: widget.roles.contains('TEACHER')
+            ? const MealTraceBrand(iconSize: 26, fontSize: 16)
+            : const Text('Duyệt liên kết theo lớp'),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.roles.contains('TEACHER')) ...[
+              Text(
+                'Duyệt liên kết theo lớp',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+            ],
             const Text(
               'Lọc năm học và lớp, rà tên trẻ, phụ huynh và SĐT. Bỏ chọn trường hợp chưa rõ trước khi xác nhận. Mỗi lượt tối đa 100 yêu cầu đã chọn.',
             ),

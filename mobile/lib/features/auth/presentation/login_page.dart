@@ -1,6 +1,8 @@
-import 'register_page.dart';
 import 'package:flutter/material.dart';
+
+import '../../../app/mealtrace_brand.dart';
 import 'auth_controller.dart';
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.auth});
@@ -61,21 +63,8 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        Icons.restaurant_outlined,
-                        size: 54,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'MealTrace',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Đăng nhập để theo dõi bữa ăn học đường',
-                        textAlign: TextAlign.center,
+                      const Center(
+                        child: MealTraceBrand(iconSize: 58, fontSize: 30),
                       ),
                       const SizedBox(height: 32),
                       TextFormField(

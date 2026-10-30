@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/mealtrace_brand.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';
@@ -224,23 +225,45 @@ class RecordDetails extends StatelessWidget {
             context: context,
             builder: (context) => Dialog.fullscreen(
               child: Scaffold(
-                appBar: AppBar(title: const Text('Ảnh minh chứng')),
-                body: Center(
-                  child: InteractiveViewer(
-                    child: Image.network(
-                      uri.toString(),
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, error, stackTrace) => const Padding(
-                        padding: EdgeInsets.all(24),
+                appBar: AppBar(
+                  title: const MealTraceBrand(iconSize: 26, fontSize: 16),
+                ),
+                body: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
                         child: Text(
-                          'Không tải được ảnh. Kiểm tra kết nối rồi mở lại.',
+                          'Ảnh minh chứng',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      loadingBuilder: (_, child, progress) => progress == null
-                          ? child
-                          : const Center(child: CircularProgressIndicator()),
                     ),
-                  ),
+                    Expanded(
+                      child: Center(
+                        child: InteractiveViewer(
+                          child: Image.network(
+                            uri.toString(),
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, error, stackTrace) =>
+                                const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Text(
+                                    'Không tải được ảnh. Kiểm tra kết nối rồi mở lại.',
+                                  ),
+                                ),
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null
+                                ? child
+                                : const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -525,10 +548,25 @@ class _ReferencePickerState extends State<ReferencePicker> {
   Widget build(BuildContext context) {
     final multi = widget.field.kind == FieldKind.references;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.field.label)),
+      appBar: AppBar(
+        title: widget.controller.roles.contains('TEACHER')
+            ? const MealTraceBrand(iconSize: 26, fontSize: 16)
+            : Text(widget.field.label),
+      ),
       body: SafeArea(
         child: Column(
           children: [
+            if (widget.controller.roles.contains('TEACHER'))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    widget.field.label,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
