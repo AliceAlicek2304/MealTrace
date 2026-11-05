@@ -52,6 +52,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.OperationFilter<AuditOpenApiFilter>();
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "MealTrace API",
@@ -100,6 +101,7 @@ else
 app.UseRouting();
 app.UseCors("Frontend");
 app.UseRateLimiter();
+app.UseAuditErrors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapGet("/api/health", () => Results.Ok(new MealTrace.Application.Dtos.Common.HealthResponse("ok", "MealTrace API"))).Produces<MealTrace.Application.Dtos.Common.HealthResponse>();
@@ -115,6 +117,7 @@ app.MapStudentAdministrationEndpoints();
 app.MapParentLinkEndpoints();
 app.MapStudentImportEndpoints();
 app.MapKitchenEndpoints();
+app.MapAuditEndpoints();
 app.Run();
 
 public partial class Program;

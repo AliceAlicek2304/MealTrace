@@ -34,6 +34,20 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString, bool development)
     {
         services.AddDbContext<MealTraceDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddScoped<IAuditSource, Persistence.Audit.CalendarAuditSource>();
+        services.AddScoped<IAuditSource, Persistence.Audit.PasswordResetAuditSource>();
+        services.AddScoped<IAuditSource>(sp => new Persistence.Audit.EnrollmentAuditSource(sp.GetRequiredService<MealTraceDbContext>()));
+        services.AddScoped<IAuditSource>(sp => new Persistence.Audit.EnrollmentAuditSource(sp.GetRequiredService<MealTraceDbContext>(), ending: true));
+        services.AddScoped<IAuditSource, Persistence.Audit.MealExceptionAuditSource>();
+        services.AddScoped<IAuditSource>(sp => new Persistence.Audit.AbsenceAuditSource(sp.GetRequiredService<MealTraceDbContext>()));
+        services.AddScoped<IAuditSource>(sp => new Persistence.Audit.AbsenceAuditSource(sp.GetRequiredService<MealTraceDbContext>(), cancelled: true));
+        services.AddScoped<IAuditSource, Persistence.Audit.AmendmentAuditSource>();
+        services.AddScoped<IAuditSource, Persistence.Audit.AmendmentResolutionAuditSource>();
+        services.AddScoped<IAuditSource, Persistence.Audit.SettlementAuditSource>();
+        services.AddScoped<IAuditSource>(sp => new Persistence.Audit.ParentLinkAuditSource(sp.GetRequiredService<MealTraceDbContext>()));
+        services.AddScoped<IAuditSource>(sp => new Persistence.Audit.ParentLinkAuditSource(sp.GetRequiredService<MealTraceDbContext>(), "review"));
+        services.AddScoped<IAuditSource>(sp => new Persistence.Audit.ParentLinkAuditSource(sp.GetRequiredService<MealTraceDbContext>(), "revoke"));
+        services.AddScoped<IAuditSource, Persistence.Audit.StudentImportAuditSource>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddIdentityCore<ApplicationUser>(options =>
         {
