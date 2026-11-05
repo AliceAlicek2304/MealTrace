@@ -4,6 +4,7 @@ const schoolId = '11111111-1111-4111-8111-111111111111';
 const otherId = '22222222-2222-4222-8222-222222222222';
 Map<String, Object?> validSchoolValues() => {
   'id': schoolId,
+  'v': 1,
   'dayId': schoolId,
   'studentId': schoolId,
   'requestId': schoolId,

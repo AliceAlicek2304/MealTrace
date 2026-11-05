@@ -5,6 +5,7 @@ import 'school_controller.dart';
 import 'school_form_page.dart';
 import 'school_forms.dart';
 import 'school_widgets.dart';
+import '../../../core/presentation/meal_widgets.dart';
 
 class SchoolPage extends StatefulWidget {
   const SchoolPage({
@@ -231,6 +232,7 @@ class _SchoolPageState extends State<SchoolPage> {
           enabled: record.text('status') == 'PENDING',
         );
       case SchoolOperation.users:
+        read(SchoolOperation.userDetail, 'Chi tiết tài khoản');
         edit(SchoolOperation.updateUser, 'Sửa tài khoản');
         edit(SchoolOperation.resetPassword, 'Đặt lại mật khẩu');
       case SchoolOperation.classes:
@@ -834,13 +836,10 @@ class _SchoolPageState extends State<SchoolPage> {
                     result != null &&
                     result.records.isEmpty &&
                     (paged || widget.operation == SchoolOperation.children))
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      widget.operation == SchoolOperation.children
-                          ? 'Tài khoản chưa được liên kết với trẻ. Mở Chức năng → Liên kết trẻ để gửi yêu cầu cho nhà trường.'
-                          : 'Không có dữ liệu phù hợp.',
-                    ),
+                  MealEmpty(
+                    widget.operation == SchoolOperation.children
+                        ? 'Tài khoản chưa được liên kết với trẻ. Mở Chức năng → Liên kết trẻ để gửi yêu cầu cho nhà trường.'
+                        : 'Không có dữ liệu phù hợp.',
                   ),
                 for (final record
                     in (widget.operation == SchoolOperation.yearConfiguration
@@ -857,6 +856,22 @@ class _SchoolPageState extends State<SchoolPage> {
                         children: [
                           Row(
                             children: [
+                              MealIcon(switch (widget.operation) {
+                                SchoolOperation.students ||
+                                SchoolOperation.scopedStudents ||
+                                SchoolOperation.children =>
+                                  Icons.child_care_outlined,
+                                SchoolOperation.classes =>
+                                  Icons.school_outlined,
+                                SchoolOperation.users =>
+                                  Icons.person_outline_rounded,
+                                SchoolOperation.workflowDays ||
+                                SchoolOperation.meals ||
+                                SchoolOperation.portions =>
+                                  Icons.restaurant_outlined,
+                                _ => Icons.assignment_outlined,
+                              }, size: 40),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   record.title,
@@ -882,6 +897,7 @@ class _SchoolPageState extends State<SchoolPage> {
                                 ),
                             ],
                           ),
+                          const SizedBox(height: 12),
                           RecordDetails(record: record, compact: true),
                         ],
                       ),

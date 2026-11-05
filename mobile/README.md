@@ -1,6 +1,6 @@
 # MealTrace Mobile
 
-Ứng dụng Flutter chỉ dành cho Android, dùng chung REST API trong `be/`. Có đăng nhập, tài khoản và các luồng đã có trên web cho Admin, Giáo viên, Bếp và Phụ huynh. Giao diện riêng cho mobile: điều hướng dưới, truy cập nhanh theo vai trò, danh sách thẻ, tìm kiếm trực tiếp, bộ lọc nâng cao và form tiếng Việt có nút lưu cố định. Xem [phạm vi](docs/web-parity.md).
+Ứng dụng Flutter chỉ dành cho Android, dùng chung REST API trong `be/`. Có đăng nhập, tài khoản và giao diện cho các API nghiệp vụ hiện có của Admin, Giáo viên, Bếp và Phụ huynh, gồm nguyên liệu, công thức/dinh dưỡng và truy vết báo cáo. Giao diện riêng cho mobile: điều hướng dưới, truy cập nhanh theo vai trò, danh sách thẻ, tìm kiếm trực tiếp, bộ lọc nâng cao và form tiếng Việt có nút lưu cố định. Xem [phạm vi](docs/web-parity.md).
 
 ## Cấu trúc
 
@@ -28,6 +28,29 @@ flutter run -d <device-id> --dart-define=API_BASE_URL=http://10.0.2.2:5184/api
 ```
 
 Địa chỉ mặc định dành cho Android Emulator truy cập BE trên máy chủ. Điện thoại thật dùng địa chỉ LAN của máy chạy BE; BE cần lắng nghe trên giao diện mạng phù hợp. Bản debug cho phép HTTP để test local; bản production cần API HTTPS. Không có dự án iOS.
+
+### Điện thoại Android qua USB
+
+Bật Tùy chọn nhà phát triển và Gỡ lỗi USB trên điện thoại, kết nối cáp dữ liệu rồi chấp nhận quyền gỡ lỗi cho máy tính. BE vẫn chạy trên máy tính, dùng DB local hiện có; không cần DB cloud hoặc mở cổng ra mạng LAN.
+
+Tại root repo, chạy BE trong một terminal:
+
+```powershell
+dotnet run --project be/src/MealTrace.Api --launch-profile http -- --Seed:Enabled=false
+```
+
+Terminal khác, chạy:
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+& $adb devices
+& $adb reverse tcp:5184 tcp:5184
+Set-Location mobile
+flutter devices
+flutter run -d <device-id> --dart-define=API_BASE_URL=http://127.0.0.1:5184/api --android-project-arg=kotlin.incremental=false --android-project-arg=kotlin.compiler.execution.strategy=in-process
+```
+
+Nếu có nhiều điện thoại, dùng `& $adb -s <device-id> reverse tcp:5184 tcp:5184`. Debug chỉ cho HTTP tới emulator/loopback; LAN cần cấu hình riêng cho đúng host. Rút cáp hoặc khởi động lại thiết bị có thể cần chạy lại `adb reverse`. FE web không cần chạy. APK được build sẵn với mặc định emulator không tự chuyển sang địa chỉ USB.
 
 Không đưa khóa Vonage/Twilio, JWT signing key hoặc mật khẩu DB vào ứng dụng. Mobile chỉ gọi backend; gửi WhatsApp do backend xử lý.
 

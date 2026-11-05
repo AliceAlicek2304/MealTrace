@@ -200,18 +200,42 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: LoginPage(auth: auth)));
       final signup = find.text('Đăng ký tài khoản phụ huynh');
       await tester.ensureVisible(signup);
+      await tester.pumpAndSettle();
       await tester.tap(signup);
       await tester.pumpAndSettle();
-      final fields = find.byType(TextFormField);
-      await tester.enterText(fields.at(0), input.fullName);
-      await tester.enterText(fields.at(1), input.phoneNumber);
+      Future<void> fill(String label, String value) async {
+        final field = find.widgetWithText(TextFormField, label);
+        if (field.evaluate().isEmpty) {
+          await tester.scrollUntilVisible(
+            field,
+            160,
+            scrollable: find
+                .byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable &&
+                      widget.axisDirection == AxisDirection.down,
+                )
+                .last,
+          );
+        }
+        await tester.ensureVisible(field);
+        await tester.pumpAndSettle();
+        await tester.enterText(field, value);
+        await tester.pump();
+      }
+
+      await fill('Họ tên', input.fullName);
+      await fill('Số điện thoại', input.phoneNumber);
       final send = find.text('Gửi OTP qua WhatsApp');
       await tester.ensureVisible(send);
+      await tester.pumpAndSettle();
       await tester.tap(send);
       await tester.pumpAndSettle();
-      await tester.enterText(fields.at(2), input.otpCode!);
-      await tester.enterText(fields.at(3), input.password);
-      await tester.enterText(fields.at(4), input.password);
+      await fill('Mã OTP WhatsApp', input.otpCode!);
+      await fill('Mật khẩu', input.password);
+      await fill('Nhập lại mật khẩu', input.password);
+      await tester.ensureVisible(find.text('Tạo tài khoản phụ huynh'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Tạo tài khoản phụ huynh'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Đăng ký thành công'), findsOneWidget);

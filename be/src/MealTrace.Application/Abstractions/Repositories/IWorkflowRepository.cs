@@ -51,6 +51,7 @@ public interface IWorkflowRepository
     Task<string?> FindEnrollmentYearCodeAsync(DateOnly from, Guid studentId);
     Task<AcademicYear?> FindAcademicYearContainingPeriodAsync(string? code, DateOnly from, DateOnly to);
     Task<bool> HasTeacherAssignmentAsync(Guid classId, Guid userId);
+    Task<bool> TeacherCanManageStudentAsync(Guid studentId, Guid userId, DateOnly date);
 
     void AddAcademicYear(AcademicYear value);
     void AddMealAbsence(MealAbsence value);

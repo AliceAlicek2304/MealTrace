@@ -62,6 +62,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(
+          repo.calls.last.operation,
+          SchoolOperation.reviewableParentLinks,
+        );
+        expect(repo.calls.last.input['status'], 'PENDING');
+        expect(find.text('Nguyễn An'), findsWidgets);
         await tester.tap(find.text('Lớp phụ trách'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('A3 · 2026-2027').last);

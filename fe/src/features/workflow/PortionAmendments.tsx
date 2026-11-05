@@ -63,7 +63,7 @@ function AmendmentContent({ model, data }: ContentProps) {
       </div></details>
       {!data.hasOriginalSources && <p className="muted">Bản chốt cũ chưa lưu đầy đủ nguồn quyết định. Giữ danh sách gốc; không suy diễn lại lịch sử báo vắng.</p>}
       {!data.hasCompleteRoster && <p className="error">Bản cũ thiếu danh sách trẻ khớp tổng suất. Cần đối chiếu hồ sơ trước khi điều chỉnh theo trẻ.</p>}
-      <div className="list-tabs amendment-view-switch" aria-label="Yêu cầu điều chỉnh"><button type="button" aria-pressed={view === 'requests'} onClick={() => setView('requests')}>Yêu cầu và lịch sử</button>{data.canRequest && <button type="button" aria-pressed={view === 'candidates'} onClick={() => setView('candidates')}>Tạo yêu cầu</button>}</div>
+      <div className="list-tabs amendment-view-switch" aria-label="Yêu cầu điều chỉnh"><button type="button" aria-pressed={view === 'requests'} onClick={() => setView('requests')}>Lịch sử</button>{data.canRequest && <button type="button" aria-pressed={view === 'candidates'} onClick={() => setView('candidates')}>Tạo yêu cầu</button>}</div>
 
     {view === 'candidates' && data.canRequest && <CandidateEditor model={model} data={data} />}
     {view === 'requests' && <RequestHistory model={model} data={data} />}

@@ -1,6 +1,7 @@
 import 'register_page.dart';
 import 'package:flutter/material.dart';
 import 'auth_controller.dart';
+import '../../../core/presentation/meal_widgets.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.auth});
@@ -61,29 +62,36 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        Icons.restaurant_outlined,
-                        size: 54,
-                        color: Theme.of(context).colorScheme.primary,
+                      const Center(
+                        child: MealIcon(Icons.spa_outlined, size: 76),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       Text(
                         'MealTrace',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineLarge,
+                        style: Theme.of(context).textTheme.headlineLarge
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: MealColors.ink,
+                              letterSpacing: -1,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
                         'Đăng nhập để theo dõi bữa ăn học đường',
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 36),
+                      const MealSectionTitle(
+                        'Chào mừng trở lại',
+                        subtitle: 'Đăng nhập tài khoản của bạn để bắt đầu',
+                      ),
                       TextFormField(
                         controller: _identifier,
                         enabled: !auth.busy,
                         decoration: const InputDecoration(
                           labelText: 'Số điện thoại hoặc email',
-                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person_outline_rounded),
                         ),
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
@@ -101,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: _obscure,
                         decoration: InputDecoration(
                           labelText: 'Mật khẩu',
-                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.lock_outline_rounded),
                           suffixIcon: IconButton(
                             onPressed: auth.busy
                                 ? null

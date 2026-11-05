@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';
+import '../../../core/presentation/meal_widgets.dart';
 
 const fieldLabels = <String, String>{
+  'signedAt': 'Ngày ký',
+  'createdAt': 'Ngày tạo',
+  'energyKcalPerPortion': 'Năng lượng mỗi suất (kcal)',
+  'costPerPortion': 'Chi phí mỗi suất',
+  'lastPasswordResetAt': 'Đặt lại mật khẩu gần nhất',
   'dateOfBirth': 'Ngày sinh',
   'gender': 'Giới tính',
   'fileName': 'File',
@@ -329,12 +335,23 @@ class RecordDetails extends StatelessWidget {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    color:
+                        ['ACTIVE', 'APPROVED'].contains(entry.value) ||
+                            entry.value == true
+                        ? MealColors.mint
+                        : MealColors.background,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${fieldLabels[entry.key]}: ${displayValue(entry.value)}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color:
+                          ['ACTIVE', 'APPROVED'].contains(entry.value) ||
+                              entry.value == true
+                          ? MealColors.green
+                          : MealColors.muted,
+                    ),
                   ),
                 ),
             ],
@@ -390,12 +407,14 @@ class ReferencePicker extends StatefulWidget {
     required this.contextValues,
     required this.selected,
     this.onSelected,
+    this.onSelectRecord,
   });
   final SchoolField field;
   final SchoolController controller;
   final Map<String, Object?> contextValues;
   final List<String> selected;
   final void Function(List<String> ids, List<String> labels)? onSelected;
+  final ValueChanged<SchoolRecord>? onSelectRecord;
   @override
   State<ReferencePicker> createState() => _ReferencePickerState();
 }
@@ -585,6 +604,7 @@ class _ReferencePickerState extends State<ReferencePicker> {
                                   [id(record)],
                                   [record.title],
                                 );
+                                widget.onSelectRecord?.call(record);
                                 Navigator.pop(context, <String>[id(record)]);
                                 return;
                               }

@@ -4,6 +4,7 @@ import '../domain/school_commands.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';
 import 'school_widgets.dart';
+import '../../../core/presentation/meal_widgets.dart';
 
 class SchoolFormPage extends StatefulWidget {
   const SchoolFormPage({
@@ -516,7 +517,20 @@ class _SchoolFormPageState extends State<SchoolFormPage> {
                     widget.form.operation ==
                         SchoolOperation.bulkReviewParentLinks)
                   RecordDetails(record: SchoolRecord(widget.contextValues)),
-                Text(widget.form.help),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: MealColors.lavender,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Text(
+                    widget.form.help,
+                    style: const TextStyle(
+                      color: MealColors.primary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 20),
                 if (!prerequisitesReady) ...[
                   if (error == null) const LinearProgressIndicator(),

@@ -16,4 +16,5 @@ public sealed class MealDay
     public List<MealRegistration> Registrations { get; set; } = [];
     public List<PortionSettlement> Settlements { get; set; } = [];
     public List<MealEvidence> Evidence { get; set; } = [];
+    public List<SettlementAcknowledgement> Acknowledgements { get; set; } = [];
 }

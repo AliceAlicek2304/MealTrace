@@ -384,6 +384,8 @@ void main() {
   testWidgets('Capture student cards at phone width for visual inspection', (
     tester,
   ) async {
+    debugDisableShadows = false;
+    addTearDown(() => debugDisableShadows = true);
     size(tester, 390);
     await tester.runAsync(() async {
       final icons = File(
@@ -402,6 +404,10 @@ void main() {
             file.readAsBytes().then((bytes) => ByteData.sublistView(bytes)),
           );
         await loader.load();
+        await (FontLoader('Roboto')..addFont(
+              file.readAsBytes().then((bytes) => ByteData.sublistView(bytes)),
+            ))
+            .load();
       }
     });
     final capture = GlobalKey();
@@ -439,6 +445,7 @@ void main() {
       ).writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     });
+    debugDisableShadows = true;
     expect(tester.takeException(), isNull);
   });
 }

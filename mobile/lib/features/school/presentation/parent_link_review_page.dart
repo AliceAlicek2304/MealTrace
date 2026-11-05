@@ -57,8 +57,8 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
       if (!mounted) return;
       setState(() {
         classes = response.records;
-        busy = false;
       });
+      await load();
     } on SchoolFailure catch (failure) {
       if (mounted) {
         setState(() {

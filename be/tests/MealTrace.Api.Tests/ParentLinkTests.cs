@@ -14,6 +14,44 @@ namespace MealTrace.Api.Tests;
 
 public sealed class ParentLinkTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VerifiedSignupCanRequestClassLinkAndUseSameSessionAfterSchoolApproval(bool teacherReviews)
+    {
+        using var factory = new AuthTestFactory(otpSender: new ParentSignupTests.RecordingOtpSender());
+        var seed = await factory.SeedUsersAsync();
+        var child = new Student { FullName = "Nguyễn An", ClassId = seed.ClassId };
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            db.Students.Add(child);
+            db.TeacherAssignments.Add(new TeacherAssignment { UserId = seed.TeacherId, ClassId = seed.ClassId });
+            await db.SaveChangesAsync();
+        }
+        using var parent = factory.CreateClient();
+        var signup = await ParentSignupTests.SignupInputAsync(parent, factory, "Mẹ An");
+        Assert.Equal(HttpStatusCode.NoContent, (await parent.PostAsJsonAsync("/api/auth/register", signup)).StatusCode);
+        parent.DefaultRequestHeaders.Authorization = new("Bearer", await LoginAsync(parent, signup.PhoneNumber!, signup.Password!));
+        var me = await parent.GetFromJsonAsync<JsonElement>("/api/auth/me");
+        Assert.Equal(new[] { RoleNames.Parent }, me.GetProperty("roles").EnumerateArray().Select(x => x.GetString()));
+        Assert.Empty((await parent.GetFromJsonAsync<JsonElement>("/api/parent/students")).EnumerateArray());
+        Assert.Equal(HttpStatusCode.NoContent, (await parent.PostAsJsonAsync("/api/parent/link-requests", new { classId = seed.ClassId, studentName = child.FullName, relationship = "MOTHER" })).StatusCode);
+        var requests = await parent.GetFromJsonAsync<JsonElement>("/api/parent/link-requests");
+        var request = Assert.Single(requests.GetProperty("items").EnumerateArray());
+        Assert.Empty((await parent.GetFromJsonAsync<JsonElement>("/api/parent/students")).EnumerateArray());
+        using var reviewer = factory.CreateClient();
+        reviewer.DefaultRequestHeaders.Authorization = new("Bearer", await LoginAsync(reviewer, teacherReviews ? seed.TeacherEmail : seed.AdminEmail, seed.Password));
+        Assert.Equal(HttpStatusCode.NoContent, (await reviewer.PostAsJsonAsync("/api/student-link-requests/bulk-review", new {
+            classId = seed.ClassId, items = new[] { new { id = request.GetProperty("id").GetGuid(), revision = request.GetProperty("revision").GetInt32() } },
+            approve = true, reason = "Đã đối chiếu hồ sơ nhập học"
+        })).StatusCode);
+        var linked = Assert.Single((await parent.GetFromJsonAsync<JsonElement>("/api/parent/students")).EnumerateArray());
+        Assert.Equal(child.Id, linked.GetProperty("studentId").GetGuid());
+        requests = await parent.GetFromJsonAsync<JsonElement>("/api/parent/link-requests");
+        Assert.Equal("APPROVED", Assert.Single(requests.GetProperty("items").EnumerateArray()).GetProperty("status").GetString());
+    }
+
     [Fact] public Task ApprovalRequiresSchoolReviewBeforeChildAccess() => Flow(false);
     [PostgresFact] public Task PostgreSqlApprovalRequiresSchoolReviewBeforeChildAccess() => Flow(true);
 
