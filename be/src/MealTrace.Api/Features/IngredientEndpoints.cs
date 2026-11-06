@@ -1,4 +1,3 @@
-using MealTrace.Application.Dtos.Common;
 using MealTrace.Application.Dtos.Kitchen;
 using MealTrace.Application.Abstractions.Kitchen;
 
@@ -14,11 +13,12 @@ internal static class IngredientEndpoints
         group.MapPost("", async (CreateIngredientRequest request, IIngredientService service, CancellationToken ct) =>
             Results.Json(await service.CreateAsync(request, ct), statusCode: StatusCodes.Status201Created)).Produces<IngredientCreatedResponse>(StatusCodes.Status201Created);
 
-        // GET /api/kitchen/ingredients?search=&page=&pageSize=
+        // GET /api/kitchen/ingredients?search=&page=&pageSize=   (the response states the validAt/knownAt it used)
         group.MapGet("", async (string? search, int? page, int? pageSize, IIngredientService service, CancellationToken ct) =>
-            Results.Ok(await service.ListAsync(search, page, pageSize, ct))).Produces<PagedResult<IngredientListItem>>();
+            Results.Ok(await service.ListAsync(search, page, pageSize, ct))).Produces<IngredientListPage>();
 
         // POST /api/kitchen/ingredients/{id}/ingredient-versions  (append-only: no PUT/DELETE)
+        // 400 VALIDATION_ERROR | 404 INGREDIENT_NOT_FOUND | 409 INGREDIENT_VERSION_OVERLAP / _ALREADY_SUPERSEDED / _CONFLICT
         group.MapPost("/{id:guid}/ingredient-versions",
             async (Guid id, CreateIngredientVersionRequest request, IIngredientService service, CancellationToken ct) =>
                 Results.Json(await service.AddVersionAsync(id, request, ct), statusCode: StatusCodes.Status201Created)).Produces<IngredientVersionCreatedResponse>(StatusCodes.Status201Created);

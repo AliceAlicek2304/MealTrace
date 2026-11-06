@@ -5,4 +5,7 @@ public sealed record NutritionLineInput(
     decimal GramsPerPortion,
     decimal EdibleFraction,
     decimal EnergyKcalPer100G,
-    decimal ProteinGPer100G);
+    decimal ProteinGPer100G,
+    decimal? FatGPer100G = null,
+    decimal? CarbGPer100G = null,
+    string? WeightBasis = null);

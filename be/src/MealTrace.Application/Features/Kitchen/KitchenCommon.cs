@@ -32,6 +32,12 @@ public sealed class KitchenException : Exception
                 ["validAt"] = validAt.ToVn(),
                 ["knownAt"] = knownAt.ToVn()
             });
+
+    /// <summary>422: an ml quantity cannot be converted to grams because no confirmed density exists.</summary>
+    public static KitchenException UnitConversionMissing(IReadOnlyList<MissingIngredient> missingIngredients) =>
+        new(422, "UNIT_CONVERSION_MISSING",
+            "ml quantities need a confirmed density (gramsPerMl) on the ingredient's nutrient version; ml is never assumed to equal g.",
+            new Dictionary<string, object?> { ["missingIngredients"] = missingIngredients });
 }
 
 internal sealed class ValidationErrors

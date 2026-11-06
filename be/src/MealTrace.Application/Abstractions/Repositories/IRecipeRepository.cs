@@ -6,7 +6,7 @@ namespace MealTrace.Application.Abstractions.Repositories;
 public interface IRecipeRepository
 {
     Task<bool> RecipeExistsAsync(Guid recipeId, CancellationToken ct);
-    Task<int?> GetLatestVersionNumberAsync(Guid recipeId, CancellationToken ct);
+    Task<RecipeVersion?> FindLatestVersionAsync(Guid recipeId, CancellationToken ct);
     Task<Dictionary<Guid, Ingredient>> GetIngredientsByIdAsync(Guid[] ids, CancellationToken ct);
 
     void AddRecipeIngredients(IEnumerable<RecipeIngredient> value);
