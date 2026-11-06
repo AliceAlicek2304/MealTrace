@@ -48,6 +48,7 @@ public interface IWorkflowRepository
     Task<MealDay?> FindMealDayAsync(Guid id, CancellationToken ct);
     Task<Guid[]> ListAssignedClassIdsAsync(CancellationToken ct, Guid userId);
     Task<bool> HasSettlementAsync(Guid id, CancellationToken ct);
+    Task<List<Guid>> ListPendingSettlementMealDayIdsAsync(DateTimeOffset now, CancellationToken ct = default);
     Task<string?> FindEnrollmentYearCodeAsync(DateOnly from, Guid studentId);
     Task<AcademicYear?> FindAcademicYearContainingPeriodAsync(string? code, DateOnly from, DateOnly to);
     Task<bool> HasTeacherAssignmentAsync(Guid classId, Guid userId);

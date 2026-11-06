@@ -356,6 +356,19 @@ internal sealed class WorkflowRepository(MealTraceDbContext db, TimeProvider clo
             return await db.TeacherAssignments.AsNoTracking().Where(x => x.UserId == userId).Select(x => x.ClassId).ToArrayAsync(ct);
         });
     }
+    public async Task<List<Guid>> ListPendingSettlementMealDayIdsAsync(DateTimeOffset now, CancellationToken ct = default)
+    {
+        var utcNow = now.ToUniversalTime();
+        return await PersistenceErrors.ExecuteAsync(async () =>
+        {
+            return await db.MealDays.AsNoTracking()
+                .Where(x => !x.IsCancelled && x.SettledAt == null && x.CutoffAt <= utcNow)
+                .OrderBy(x => x.CutoffAt)
+                .ThenBy(x => x.Id)
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+        });
+    }
     public async Task<bool> HasSettlementAsync(Guid id, CancellationToken ct)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>

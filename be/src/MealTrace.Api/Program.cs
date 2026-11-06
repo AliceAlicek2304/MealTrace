@@ -84,6 +84,8 @@ builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => poli
     .WithOrigins(builder.Configuration["Frontend:Origin"] ?? "http://localhost:5173")
     .AllowAnyHeader().AllowAnyMethod()));
 
+builder.Services.AddHostedService<MealTrace.Api.Workers.MealSettlementWorker>();
+
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
