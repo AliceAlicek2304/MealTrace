@@ -1,15 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-
-import 'dependencies.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../features/auth/presentation/auth_controller.dart';
-
-import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/account_page.dart';
-import 'theme.dart';
+import '../features/auth/presentation/login_page.dart';
 import '../features/school/domain/school_models.dart';
 import '../features/school/presentation/school_home.dart';
+import 'dependencies.dart';
+import 'startup_loading_screen.dart';
+import 'theme.dart';
 
 class MealTraceApp extends StatefulWidget {
   const MealTraceApp({super.key, this.controller, this.schoolRepository});
@@ -22,10 +24,17 @@ class MealTraceApp extends StatefulWidget {
 class _MealTraceAppState extends State<MealTraceApp>
     with WidgetsBindingObserver {
   late final AuthController? _auth;
+  late final FlutterSecureStorage? _themeStorage;
   SchoolRepository? _school;
+  ThemeMode _themeMode = ThemeMode.system;
+  int _themeModeRevision = 0;
+
   @override
   void initState() {
     super.initState();
+    _themeStorage = widget.controller == null
+        ? const FlutterSecureStorage()
+        : null;
     try {
       if (widget.controller != null) {
         _auth = widget.controller;
@@ -41,10 +50,45 @@ class _MealTraceAppState extends State<MealTraceApp>
     WidgetsBinding.instance.addObserver(this);
     _auth?.addListener(_authChanged);
     _auth?.restore();
+    if (_themeStorage != null) unawaited(_restoreThemeMode());
   }
 
   void _authChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _restoreThemeMode() async {
+    final revision = _themeModeRevision;
+    try {
+      final stored = await _themeStorage?.read(key: 'mealtrace.themeMode');
+      if (!mounted || stored == null || revision != _themeModeRevision) return;
+      final mode = switch (stored) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+      setState(() => _themeMode = mode);
+    } catch (_) {
+      // Use the device theme if the saved preference cannot be read.
+    }
+  }
+
+  void _setThemeMode(ThemeMode mode) {
+    if (_themeMode == mode) return;
+    _themeModeRevision++;
+    setState(() => _themeMode = mode);
+    unawaited(_saveThemeMode(mode));
+  }
+
+  Future<void> _saveThemeMode(ThemeMode mode) async {
+    try {
+      await _themeStorage?.write(
+        key: 'mealtrace.themeMode',
+        value: mode.name,
+      );
+    } catch (_) {
+      // The selected theme still applies for this session.
+    }
   }
 
   @override
@@ -80,6 +124,8 @@ class _MealTraceAppState extends State<MealTraceApp>
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       debugShowCheckedModeBanner: false,
       theme: mealTraceTheme,
+      darkTheme: mealTraceDarkTheme,
+      themeMode: _themeMode,
       home: auth == null
           ? const Scaffold(
               body: SafeArea(
@@ -98,15 +144,22 @@ class _MealTraceAppState extends State<MealTraceApp>
               builder: (context, _) {
                 switch (auth.status) {
                   case AuthStatus.restoring:
-                    return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    );
+                    return const StartupLoadingScreen();
                   case AuthStatus.signedOut:
                     return LoginPage(auth: auth);
                   case AuthStatus.signedIn:
                     return _school == null
-                        ? AccountPage(auth: auth)
-                        : SchoolHome(auth: auth, repository: _school!);
+                        ? AccountPage(
+                            auth: auth,
+                            themeMode: _themeMode,
+                            onThemeModeChanged: _setThemeMode,
+                          )
+                        : SchoolHome(
+                            auth: auth,
+                            repository: _school!,
+                            themeMode: _themeMode,
+                            onThemeModeChanged: _setThemeMode,
+                          );
                   case AuthStatus.restoreFailed:
                     return Scaffold(
                       body: SafeArea(

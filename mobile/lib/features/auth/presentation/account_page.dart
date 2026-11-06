@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/mealtrace_brand.dart';
+import '../../../app/theme_mode_selector.dart';
 import 'auth_controller.dart';
 
 class AccountPage extends StatelessWidget {
-  const AccountPage({super.key, required this.auth});
+  const AccountPage({
+    super.key,
+    required this.auth,
+    this.themeMode = ThemeMode.system,
+    this.onThemeModeChanged,
+  });
   final AuthController auth;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode>? onThemeModeChanged;
   static const _roles = {
     'ADMIN': 'Quản lý nhà trường',
     'TEACHER': 'Giáo viên',
@@ -14,7 +24,9 @@ class AccountPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = auth.user!;
     return Scaffold(
-      appBar: AppBar(title: const Text('MealTrace')),
+      appBar: AppBar(
+        title: const MealTraceBrand(iconSize: 34, fontSize: 20),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -48,6 +60,15 @@ class AccountPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              if (onThemeModeChanged != null) ...[
+                Card(
+                  child: ThemeModeSelector(
+                    themeMode: themeMode,
+                    onChanged: onThemeModeChanged!,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               const Text(
                 'Bạn đã đăng nhập thành công. Các chức năng bữa ăn đang được phát triển.',
               ),

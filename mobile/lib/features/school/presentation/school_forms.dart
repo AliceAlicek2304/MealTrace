@@ -375,7 +375,7 @@ final schoolForms = <SchoolOperation, SchoolForm>{
       ),
       SchoolField('fromDate', 'Từ ngày', kind: FieldKind.date),
       SchoolField('toDate', 'Đến ngày', kind: FieldKind.date),
-      reasonField,
+      SchoolField('reason', 'Lý do vắng ăn', maxLength: 200),
     ],
     help:
         'Tính cả ngày bắt đầu và kết thúc. Không thay đổi ghi danh hoặc suất đã chốt.',
