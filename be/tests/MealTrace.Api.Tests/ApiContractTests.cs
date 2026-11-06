@@ -49,6 +49,13 @@ public sealed class ApiContractTests
                 foreach (var response in successes)
                 {
                     if (response.Key == "204") { Assert.Empty(response.Value.Content); continue; }
+                    if (path.Key == "/api/admin/audit-logs/export")
+                    {
+                        Assert.True(response.Value.Content.ContainsKey("text/csv"));
+                        Assert.Equal("string", response.Value.Content["text/csv"].Schema.Type);
+                        Assert.Equal("binary", response.Value.Content["text/csv"].Schema.Format);
+                        continue;
+                    }
                     Assert.True(response.Value.Content.ContainsKey("application/json"), $"Missing schema: {operation.Key} {path.Key} ({response.Key})");
                     var schema = response.Value.Content["application/json"].Schema;
                     Assert.True(schema.Reference is not null || schema.Items?.Reference is not null,
