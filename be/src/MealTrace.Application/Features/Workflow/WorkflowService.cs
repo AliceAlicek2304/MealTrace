@@ -491,7 +491,15 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
         });
     }
 
-    public async Task<Result<PortionsSettledResponse>> SettlePortionsAsync(Guid id, CancellationToken ct)
+    public async Task<List<Guid>> GetPendingSettlementMealDayIdsAsync(CancellationToken ct = default)
+    {
+        return await repository.ListPendingSettlementMealDayIdsAsync(clock.GetUtcNow(), ct);
+    }
+
+    public Task<Result<PortionsSettledResponse>> SettlePortionsAsync(Guid id, CancellationToken ct = default)
+        => SettlePortionsAsync(id, actor: null, ct);
+
+    public async Task<Result<PortionsSettledResponse>> SettlePortionsAsync(Guid id, string? actor, CancellationToken ct = default)
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var day = await repository.LockMealDayAsync(id, ct);
@@ -506,9 +514,9 @@ public sealed class WorkflowService(IWorkflowRepository repository, MealCalendar
         var decisions = await decisionService.ReadAsync(day, clock.GetUtcNow(), ct: ct);
         if (decisions.Count == 0)
             return Result.Invalid("Niên khóa chưa có lớp với trẻ đang hoạt động.");
-        var actor = CurrentUserId().ToString();
+        var resolvedActor = actor ?? CurrentUserId().ToString();
         var settledAt = clock.GetUtcNow();
-        var snapshots = PortionService.CreateSnapshots(day, decisions, actor, settledAt);
+        var snapshots = PortionService.CreateSnapshots(day, decisions, resolvedActor, settledAt);
         repository.AddPortionSettlements(snapshots);
         day.SettledAt = settledAt;
         try
