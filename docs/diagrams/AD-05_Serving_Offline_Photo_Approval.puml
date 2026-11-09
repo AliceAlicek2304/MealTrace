@@ -1,0 +1,51 @@
+@startuml
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #344054
+  ArrowColor #475467
+  FontName Arial
+  FontSize 13
+}
+skinparam DefaultFontName Arial
+skinparam ArrowThickness 1.2
+title AD-05 - Served-Dish Evidence and Offline Photograph (System Level)
+
+|Kitchen Staff|
+start
+:View published menu and\nlatest settled portions;
+:Record served dish, portion quantities,\nrecipe versions and substitution reasons;
+:Capture serving photographs\non Android;
+|MealTrace System|
+if (Internet available?) then (Yes)
+  :Accept serving photos and metadata;
+else (No)
+  :Preserve photo and metadata\nlocally across app restart;
+  :Synchronize after connectivity returns;
+endif
+:Avoid duplicate evidence records;
+:Preserve capture and receipt timestamps;
+:Submit serving evidence for review;
+|School Administrator|
+:Review served-dish evidence\nand photograph;
+if (Evidence approved?) then (Yes)
+  |MealTrace System|
+  :Publish approved serving evidence;
+else (No)
+  |MealTrace System|
+  :Keep evidence unpublished\nand record review reason;
+  stop
+endif
+|Parent|
+:Request approved meal details\nfor linked child;
+|MealTrace System|
+if (Verified guardian for child?) then (Yes)
+  :Display published menu,\nserving details and approved photo;
+else (No)
+  :Deny access to unrelated child data;
+endif
+stop
+@enduml

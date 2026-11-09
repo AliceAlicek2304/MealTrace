@@ -1,0 +1,28 @@
+@startuml
+' Source: MealStatus_Kitchen_Admin_OfflinePhotoUpload_Mermaid.txt
+' Converted from Mermaid stateDiagram-v2 without changing states or transitions.
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam state {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  FontColor #1D2939
+  ArrowColor #475467
+}
+title SM-01 - Meal Participation and Settlement State
+
+  [*] --> DefaultExpected
+  DefaultExpected --> AbsenceReported : Parent reports no meal
+  DefaultExpected --> SpecialException : Teacher/Admin exception
+  DefaultExpected --> Locked : Cutoff time reached
+  AbsenceReported --> Locked : Cutoff time reached
+  SpecialException --> Locked : Cutoff time reached
+  Locked --> AdjustmentRequested : Post-cutoff change request
+  AdjustmentRequested --> Approved : Admin approves
+  AdjustmentRequested --> Rejected : Admin rejects
+  Approved --> FinalMealState
+  Rejected --> FinalMealState
+  Locked --> FinalMealState : Serve / report
+  FinalMealState --> [*]
+@enduml

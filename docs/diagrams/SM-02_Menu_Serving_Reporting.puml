@@ -1,0 +1,21 @@
+@startuml
+' Source: MealStatus_Kitchen_Admin_OfflinePhotoUpload_Mermaid.txt
+' Converted from Mermaid stateDiagram-v2 without changing states or transitions.
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam state {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  FontColor #1D2939
+  ArrowColor #475467
+}
+title SM-02 - Menu, Serving and Reporting State
+
+  [*] --> PlannedMenu
+  PlannedMenu --> ApprovedMenu : Admin approves
+  ApprovedMenu --> MealSessionLocked : cutoff reached
+  MealSessionLocked --> ServingRecorded : Kitchen records served meal
+  ServingRecorded --> Reporting : Generate report
+  Reporting --> [*]
+@enduml

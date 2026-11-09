@@ -1,0 +1,49 @@
+@startuml
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #344054
+  ArrowColor #475467
+  FontName Arial
+  FontSize 13
+}
+skinparam DefaultFontName Arial
+skinparam ArrowThickness 1.2
+title AD-01 - Student Enrollment and Parent-Child Verification (System Level)
+
+|School Administrator|
+start
+:Create academic year, class,\nand student enrollment;
+|MealTrace System|
+:Validate student and\nenrollment information;
+if (Records valid?) then (Yes)
+  :Store student profile\nand enrollment history;
+else (No)
+  :Return validation errors;
+  stop
+endif
+|Parent|
+:Sign in and submit\nchild-linkage request;
+|MealTrace System|
+:Validate request and\nrecord Pending linkage;
+if (Assigned teacher can review?) then (Yes)
+  |Teacher|
+  :Verify child and guardian relationship\nwithin assigned class;
+else (No)
+  |School Administrator|
+  :Verify child and guardian relationship;
+endif
+|MealTrace System|
+if (Relationship verified?) then (Yes)
+  :Approve linkage and\nrecord approval history;
+  :Grant access to linked child;
+else (No)
+  :Reject linkage with reason\nand preserve review history;
+endif
+|Parent|
+:View linkage decision;
+stop
+@enduml

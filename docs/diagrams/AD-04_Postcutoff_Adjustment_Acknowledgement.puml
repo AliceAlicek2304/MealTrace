@@ -1,0 +1,51 @@
+@startuml
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #344054
+  ArrowColor #475467
+  FontName Arial
+  FontSize 13
+}
+skinparam DefaultFontName Arial
+skinparam ArrowThickness 1.2
+title AD-04 - Post-Cut-off Adjustment and Kitchen Acknowledgement (System Level)
+
+|Teacher|
+start
+:Request a justified post-cut-off\nportion adjustment;
+|MealTrace System|
+:Verify class authority and\nreferenced settlement version;
+if (Request valid and version current?) then (Yes)
+  :Record Pending adjustment request;
+else (No)
+  :Reject invalid or stale request;
+  stop
+endif
+|School Administrator|
+:Review adjustment and reason;
+if (Adjustment approved?) then (Yes)
+  |MealTrace System|
+  :Create successor settlement version\nand preserve previous version;
+  :Mark any earlier acknowledgement\nas superseded for current version;
+  :Mark new version awaiting\nkitchen acknowledgement;
+else (No)
+  |MealTrace System|
+  :Record rejected adjustment reason;
+  :Keep existing settlement unchanged;
+  stop
+endif
+|Kitchen Staff|
+:Review latest settled count\nand difference from earlier version;
+:Acknowledge the latest\nreceived settlement version;
+|MealTrace System|
+if (Acknowledgement targets latest version?) then (Yes)
+  :Record acknowledgement with\nuser and timestamp, without duplicates;
+else (No)
+  :Reject stale acknowledgement\nand show latest version;
+endif
+stop
+@enduml

@@ -1,0 +1,57 @@
+@startuml
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #344054
+  ArrowColor #475467
+  FontName Arial
+  FontSize 13
+}
+skinparam DefaultFontName Arial
+skinparam ArrowThickness 1.2
+title AD-03 - Non-Participation and Automatic Meal Settlement (System Level)
+
+|School Administrator|
+start
+:Configure meal calendar, holidays\nand eligible meal sessions;
+|MealTrace System|
+:Identify scheduled meal sessions\nand their applicable cut-offs;
+note right
+  Breakfast: 21:00 on the previous day
+  Lunch / afternoon snack: 07:00 on serving day
+  Time zone: UTC+7
+end note
+|Parent|
+if (Parent submits a meal change?) then (Yes)
+  :Submit, modify or cancel\nnon-participation report;
+  |MealTrace System|
+  :Identify affected meal sessions;
+  if (Cut-off already passed?) then (Yes)
+    :Preserve existing locked settlements;
+    :Apply change only to\nstill-open sessions;
+  else (No)
+    :Record timely report for\nexpected participation;
+  endif
+endif
+|Teacher|
+if (Participation exception identified?) then (Yes)
+  :Submit class exception\nwith reason;
+  |MealTrace System|
+  if (Authorized and before cut-off?) then (Yes)
+    :Record exception and its history;
+  else (No)
+    :Reject late or unauthorized exception;
+  endif
+endif
+|MealTrace System|
+:Applicable meal cut-off occurs;
+:Resolve eligible enrollments and\nreports known before cut-off,\neven when processing is delayed;
+:Automatically create settlement\nby class and meal session;
+:Preserve source decisions and\nsettlement version;
+|Teacher|
+:View settled portions\nand decision sources;
+stop
+@enduml
