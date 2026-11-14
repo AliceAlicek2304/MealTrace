@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
-export type Page = 'kitchen' | 'links' | 'accounts' | 'classes' | 'calendar' | 'portions' | 'absences' | 'meals' | 'profile'
+export type Page = 'catalog' | 'audit' | 'kitchen' | 'links' | 'accounts' | 'classes' | 'calendar' | 'portions' | 'absences' | 'meals' | 'profile'
 const permissions: Record<Page, string[]> = {
+  catalog: ['ADMIN', 'KITCHEN_STAFF'], audit: ['ADMIN'],
   kitchen: ['ADMIN', 'KITCHEN_STAFF'],
   links: ['ADMIN', 'TEACHER', 'PARENT'], accounts: ['ADMIN'], classes: ['ADMIN', 'TEACHER'], calendar: ['ADMIN'],
   portions: ['ADMIN', 'TEACHER', 'KITCHEN_STAFF'], absences: ['PARENT'],

@@ -246,7 +246,8 @@ class _RecipePageState extends State<RecipePage> {
                 label: 'Dinh dưỡng mỗi suất',
                 value:
                     '${data.record('perServing')?.text('kcal') ?? '—'} kcal · ${data.record('perServing')?.text('proteinG') ?? '—'} g đạm',
-                detail: 'Phiên bản $loadedVersion',
+                detail:
+                    'Phiên bản $loadedVersion · Béo: ${data.record('perServing')?.text('fatG').isNotEmpty == true ? data.record('perServing')!.text('fatG') : 'Chưa có'} g · Carbohydrate: ${data.record('perServing')?.text('carbG').isNotEmpty == true ? data.record('perServing')!.text('carbG') : 'Chưa có'} g',
                 icon: Icons.monitor_heart_outlined,
               ),
               TextButton.icon(

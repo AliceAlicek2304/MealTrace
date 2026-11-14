@@ -34,11 +34,15 @@ class _KitchenEditorPageState extends State<KitchenEditorPage> {
   final energy = TextEditingController();
   final protein = TextEditingController();
   final price = TextEditingController();
+  final fat = TextEditingController(),
+      carb = TextEditingController(),
+      source = TextEditingController(),
+      density = TextEditingController();
   final lines = <({SchoolRecord ingredient, TextEditingController quantity})>[];
   late final SchoolController controller;
   DateTime validFrom = DateTime.now().toUtc().add(const Duration(hours: 7));
   String unit = 'g';
-  bool busy = false, confirming = false;
+  bool busy = false, confirming = false, correcting = false;
   bool get ingredient => widget.operation == SchoolOperation.createIngredient;
   bool get nutrient => widget.operation == SchoolOperation.ingredientVersion;
   String get title => ingredient
@@ -61,6 +65,10 @@ class _KitchenEditorPageState extends State<KitchenEditorPage> {
       edible.text = nutrition.text('ediblePercent');
       energy.text = nutrition.text('energyKcalPer100G');
       protein.text = nutrition.text('proteinGPer100G');
+      fat.text = nutrition.text('fatGPer100G');
+      carb.text = nutrition.text('carbGPer100G');
+      source.text = nutrition.text('source');
+      density.text = nutrition.text('gramsPerMl');
     }
   }
 
@@ -73,6 +81,10 @@ class _KitchenEditorPageState extends State<KitchenEditorPage> {
       energy,
       protein,
       price,
+      fat,
+      carb,
+      source,
+      density,
       ...lines.map((line) => line.quantity),
     ]) {
       editor.dispose();
@@ -157,6 +169,15 @@ class _KitchenEditorPageState extends State<KitchenEditorPage> {
             'ediblePercent': kitchenNumber(edible.text),
             'energyKcal': kitchenNumber(energy.text),
             'proteinG': kitchenNumber(protein.text),
+            'fatG': kitchenNumber(fat.text),
+            'carbG': kitchenNumber(carb.text),
+            'source': source.text.trim(),
+            if (correcting)
+              'supersedesId': widget.record
+                  ?.record('nutrition')
+                  ?.text('versionId'),
+            if (density.text.isNotEmpty)
+              'gramsPerMl': kitchenNumber(density.text),
             'pricePerKg': price.text.trim().isEmpty
                 ? null
                 : kitchenNumber(price.text),
@@ -315,7 +336,7 @@ class _KitchenEditorPageState extends State<KitchenEditorPage> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Text(
-                    'Giá trị dinh dưỡng tính trên 100 g hoặc 100 ml theo đơn vị nguyên liệu.',
+                    'Giá trị dinh dưỡng tính trên 100 g phần ăn được. Nguyên liệu ml cần khối lượng g/ml để quy đổi.',
                   ),
                 ),
                 OutlinedButton.icon(
@@ -329,6 +350,28 @@ class _KitchenEditorPageState extends State<KitchenEditorPage> {
                 field(edible, 'Tỷ lệ ăn được (%)', number: true),
                 field(energy, 'Năng lượng (kcal / 100)', number: true),
                 field(protein, 'Chất đạm (g / 100)', number: true),
+                field(fat, 'Chất béo (g / 100)', number: true),
+                field(carb, 'Carbohydrate (g / 100)', number: true),
+                field(source, 'Nguồn dữ liệu'),
+                if (widget.record
+                        ?.record('nutrition')
+                        ?.text('versionId')
+                        .isNotEmpty ==
+                    true)
+                  CheckboxListTile(
+                    value: correcting,
+                    onChanged: busy
+                        ? null
+                        : (value) =>
+                              setState(() => correcting = value ?? false),
+                    title: const Text('Thay thế bản dinh dưỡng đang áp dụng'),
+                  ),
+                field(
+                  density,
+                  'Khối lượng g/ml (nguyên liệu lỏng)',
+                  number: true,
+                  optional: true,
+                ),
                 field(price, 'Giá mỗi kg', number: true, optional: true),
               ],
               if (!ingredient && !nutrient) ...[

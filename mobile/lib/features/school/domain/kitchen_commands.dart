@@ -16,11 +16,23 @@ String? validateIngredientVersion(Map<String, Object?> values) {
     'ediblePercent': 100,
     'energyKcal': 900,
     'proteinG': 100,
+    'fatG': 100,
+    'carbG': 100,
   }.entries) {
     final value = values[entry.key];
     if (value is! num || !value.isFinite || value < 0 || value > entry.value) {
-      return 'Tỷ lệ ăn được 0–100%, năng lượng 0–900 kcal, đạm 0–100 g.';
+      return 'Tỷ lệ ăn được 0–100%, năng lượng 0–900 kcal; đạm, béo và carbohydrate mỗi loại 0–100 g.';
     }
+  }
+  final source = values['source']?.toString().trim() ?? '';
+  if (source.isEmpty || source.length > 200) {
+    return 'Nhập nguồn dữ liệu tối đa 200 ký tự.';
+  }
+  if ((values['proteinG'] as num) +
+          (values['fatG'] as num) +
+          (values['carbG'] as num) >
+      100) {
+    return 'Tổng đạm, béo và carbohydrate không vượt quá 100 g.';
   }
   final price = values['pricePerKg'];
   if (price != null &&

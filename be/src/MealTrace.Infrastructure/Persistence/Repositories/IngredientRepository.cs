@@ -39,18 +39,22 @@ internal sealed class IngredientRepository(MealTraceDbContext db) : IIngredientR
             return await db.Ingredients.AnyAsync(i => i.Id == ingredientId, ct);
         });
     }
-    public async Task<int?> GetLatestVersionNumberAsync(Guid ingredientId, CancellationToken ct)
+    public async Task<bool> IngredientNameExistsAsync(string name, CancellationToken ct)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            return await db.IngredientVersions.Where(v => v.IngredientId == ingredientId).MaxAsync(v => (int?)v.Version, ct);
+            var lowered = name.ToLowerInvariant();
+            return await db.Ingredients.AnyAsync(i => i.Name.ToLower() == lowered, ct);
         });
     }
-    public async Task<List<IngredientVersion>> ListEffectiveVersionCandidatesAsync(Guid[] ids, DateTimeOffset validUtc, DateTimeOffset knownUtc, CancellationToken ct)
+    public async Task<List<IngredientVersion>> ListVersionsAsync(Guid[] ids, DateTimeOffset? knownUtc, CancellationToken ct)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            return await db.IngredientVersions.AsNoTracking().Where(v => ids.Contains(v.IngredientId) && v.EffectiveFrom <= validUtc && v.RecordedAt <= knownUtc).ToListAsync(ct);
+            var query = db.IngredientVersions.AsNoTracking().Where(v => ids.Contains(v.IngredientId));
+            if (knownUtc is { } known)
+                query = query.Where(v => v.RecordedAt <= known);
+            return await query.ToListAsync(ct);
         });
     }
     private static string EscapeLike(string value) => value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");

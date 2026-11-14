@@ -38,6 +38,7 @@ void main() {
       await tester.tap(find.text('Đăng nhập'));
       await tester.pumpAndSettle();
       expect(find.text('Xin chào, Nguyễn An'), findsOneWidget);
+      await tester.ensureVisible(find.text('Đăng xuất'));
       await tester.tap(find.text('Đăng xuất'));
       await tester.pumpAndSettle();
       expect(find.text('Đăng nhập'), findsOneWidget);

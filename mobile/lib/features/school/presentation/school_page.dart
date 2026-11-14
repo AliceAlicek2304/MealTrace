@@ -695,20 +695,21 @@ class _SchoolPageState extends State<SchoolPage> {
                             child: filter(field),
                           ),
                         const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 12,
-                          children: [
-                            FilledButton(
-                              onPressed: controller.loading
+                        MealActions(
+                          actions: [
+                            MealAction(
+                              'Áp dụng',
+                              controller.loading
                                   ? null
                                   : () {
                                       page = 1;
                                       load();
                                     },
-                              child: const Text('Áp dụng'),
+                              primary: true,
                             ),
-                            TextButton(
-                              onPressed: controller.loading
+                            MealAction(
+                              'Bỏ lọc',
+                              controller.loading
                                   ? null
                                   : () {
                                       setState(() {
@@ -722,7 +723,6 @@ class _SchoolPageState extends State<SchoolPage> {
                                       });
                                       load();
                                     },
-                              child: const Text('Bỏ lọc'),
                             ),
                           ],
                         ),
@@ -730,13 +730,12 @@ class _SchoolPageState extends State<SchoolPage> {
                     ),
                   ),
                 if (availableActions.length > 1)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
+                  MealActions(
+                    actions: [
                       for (final operation in availableActions)
-                        FilledButton(
-                          onPressed: controller.loading
+                        MealAction(
+                          schoolForms[operation]!.title,
+                          controller.loading
                               ? null
                               : () => openForm(
                                   operation,
@@ -760,30 +759,29 @@ class _SchoolPageState extends State<SchoolPage> {
                                         }
                                       : null,
                                 ),
-                          child: Text(schoolForms[operation]!.title),
+                          primary: true,
                         ),
                     ],
                   ),
                 if (widget.operation == SchoolOperation.portions &&
                     summary != null)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
+                  MealActions(
+                    actions: [
                       if (canExecute(SchoolOperation.decisions, widget.roles))
-                        OutlinedButton(
-                          onPressed: () => openPage(
+                        MealAction(
+                          'Nguồn trước điều chỉnh',
+                          () => openPage(
                             SchoolOperation.decisions,
                             'Nguồn trước điều chỉnh',
                           ),
-                          child: const Text('Nguồn trước điều chỉnh'),
                         ),
                       if (!summary.flag('isSettled') &&
                           !summary.flag('isCancelled') &&
                           canExecute(SchoolOperation.settle, widget.roles))
-                        FilledButton(
-                          onPressed: () => openForm(SchoolOperation.settle),
-                          child: const Text('Chốt suất'),
+                        MealAction(
+                          'Chốt suất',
+                          () => openForm(SchoolOperation.settle),
+                          primary: true,
                         ),
                     ],
                   ),
@@ -829,7 +827,17 @@ class _SchoolPageState extends State<SchoolPage> {
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: RecordDetails(record: summary),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            summary.title,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 12),
+                          RecordDetails(record: summary, compact: true),
+                        ],
+                      ),
                     ),
                   ),
                 if (!controller.loading &&

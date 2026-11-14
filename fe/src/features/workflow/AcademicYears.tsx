@@ -47,7 +47,7 @@ export function AcademicYears() {
         <label className="field">Ngày bắt đầu<input type="date" required disabled={save.isPending} value={start} onChange={e => setStart(e.target.value)} /></label>
         <label className="field">Ngày kết thúc<input type="date" required min={start} disabled={save.isPending} value={end} onChange={e => setEnd(e.target.value)} /></label>
         {sourceCode && <label className="form-help"><input type="checkbox" required disabled={save.isPending} /> Tôi đã kiểm tra ngày bắt đầu và kết thúc theo lịch trường.</label>}
-        <div className="form-actions"><button type="button" className="button secondary" disabled={save.isPending} onClick={() => setTarget(null)}>Hủy</button><button type="submit" className="button primary" disabled={save.isPending}>Lưu mốc năm học</button></div>
+        <div className="form-actions"><button type="button" className="button secondary" disabled={save.isPending} onClick={() => setTarget(null)}>Hủy</button><button type="submit" className="button primary" data-compact-label="Lưu năm học" aria-label="Lưu mốc năm học" disabled={save.isPending}>Lưu mốc năm học</button></div>
       </form></Modal>}
   </section>
 }

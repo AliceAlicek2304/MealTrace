@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/presentation/mealtrace_brand.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';
@@ -191,27 +192,36 @@ class RecordDetails extends StatelessWidget {
           (entry) => fieldLabels.containsKey(entry.key) && entry.value != null,
         )
         .toList();
-    final primary = entries
-        .where(
-          (entry) => [
-            'className',
-            'schoolYear',
-            'date',
-            'mealType',
-            'status',
-            'isActive',
-            'studentCount',
-            'count',
-            'version',
-            'isSettled',
-            'isCancelled',
-            'willEat',
-            'fromDate',
-            'toDate',
-            'startDate',
-            'endDate',
-          ].contains(entry.key),
-        )
+    final primary =
+        [
+              'date',
+              'mealType',
+              'count',
+              'studentCount',
+              'className',
+              'phoneNumber',
+              'parentPhone',
+              'status',
+              'fromDate',
+              'toDate',
+              'isActive',
+              'isSettled',
+              'willEat',
+              'startDate',
+              'endDate',
+            ]
+            .expand((key) => entries.where((entry) => entry.key == key))
+            .take(3)
+            .toList();
+    if (record.flag('isCancelled')) {
+      final cancelled = entries.where((entry) => entry.key == 'isCancelled');
+      if (cancelled.isNotEmpty) {
+        if (primary.length == 3) primary.removeLast();
+        primary.add(cancelled.first);
+      }
+    }
+    final secondary = entries
+        .where((entry) => !primary.contains(entry) && entry.key != 'parents')
         .toList();
     Widget row(MapEntry<String, Object?> entry) {
       final value = entry.value;
@@ -230,23 +240,44 @@ class RecordDetails extends StatelessWidget {
             context: context,
             builder: (context) => Dialog.fullscreen(
               child: Scaffold(
-                appBar: AppBar(title: const Text('Ảnh minh chứng')),
-                body: Center(
-                  child: InteractiveViewer(
-                    child: Image.network(
-                      uri.toString(),
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, error, stackTrace) => const Padding(
-                        padding: EdgeInsets.all(24),
+                appBar: AppBar(
+                  title: const MealTraceBrand(iconSize: 26, fontSize: 16),
+                ),
+                body: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
                         child: Text(
-                          'Không tải được ảnh. Kiểm tra kết nối rồi mở lại.',
+                          'Ảnh minh chứng',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      loadingBuilder: (_, child, progress) => progress == null
-                          ? child
-                          : const Center(child: CircularProgressIndicator()),
                     ),
-                  ),
+                    Expanded(
+                      child: Center(
+                        child: InteractiveViewer(
+                          child: Image.network(
+                            uri.toString(),
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, error, stackTrace) => const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text(
+                                'Không tải được ảnh. Kiểm tra kết nối rồi mở lại.',
+                              ),
+                            ),
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null
+                                ? child
+                                : const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -384,15 +415,10 @@ class RecordDetails extends StatelessWidget {
               ),
             ),
           ),
-        if (compact && entries.length > primary.length)
+        if (compact && secondary.isNotEmpty)
           ExpansionTile(
             title: const Text('Thông tin thêm'),
-            children: [
-              for (final entry in entries.where(
-                (x) => !primary.contains(x) && x.key != 'parents',
-              ))
-                row(entry),
-            ],
+            children: [for (final entry in secondary) row(entry)],
           ),
       ],
     );
@@ -544,10 +570,25 @@ class _ReferencePickerState extends State<ReferencePicker> {
   Widget build(BuildContext context) {
     final multi = widget.field.kind == FieldKind.references;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.field.label)),
+      appBar: AppBar(
+        title: widget.controller.roles.contains('TEACHER')
+            ? const MealTraceBrand(iconSize: 26, fontSize: 16)
+            : Text(widget.field.label),
+      ),
       body: SafeArea(
         child: Column(
           children: [
+            if (widget.controller.roles.contains('TEACHER'))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    widget.field.label,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
@@ -648,30 +689,23 @@ class _ReferencePickerState extends State<ReferencePicker> {
             ),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: 12,
-                children: [
+              child: MealActions(
+                actions: [
                   if (!widget.field.required)
-                    TextButton(
-                      onPressed: () {
-                        widget.onSelected?.call([], []);
-                        Navigator.pop(context, <String>[]);
-                      },
-                      child: const Text('Bỏ chọn'),
-                    ),
+                    MealAction('Bỏ chọn', () {
+                      widget.onSelected?.call([], []);
+                      Navigator.pop(context, <String>[]);
+                    }),
                   if (multi)
-                    FilledButton(
-                      onPressed: () {
-                        widget.onSelected?.call(
-                          selected.toList(),
-                          selected
-                              .map((id) => selectedLabels[id] ?? 'Mục đã chọn')
-                              .toList(),
-                        );
-                        Navigator.pop(context, selected.toList());
-                      },
-                      child: Text('Chọn ${selected.length} mục'),
-                    ),
+                    MealAction('Chọn ${selected.length} mục', () {
+                      widget.onSelected?.call(
+                        selected.toList(),
+                        selected
+                            .map((id) => selectedLabels[id] ?? 'Mục đã chọn')
+                            .toList(),
+                      );
+                      Navigator.pop(context, selected.toList());
+                    }, primary: true),
                 ],
               ),
             ),

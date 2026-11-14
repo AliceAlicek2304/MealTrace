@@ -67,7 +67,11 @@ void main() {
         expect(sent!.url.host, 'example.test');
         expect(sent!.url.path, startsWith('/api/'));
         expect(sent!.url.toString(), isNot(contains('{')));
-        expect(result.records.length, 1);
+        if (operation == SchoolOperation.auditExport) {
+          expect(result.summary.text('csv'), isNotEmpty);
+        } else {
+          expect(result.records.length, 1);
+        }
         expect(sent!.url.queryParameters, isNot(contains('phoneNumber')));
         if (schoolRoutes[operation]!.method == 'GET') {
           expect(sent!.body, isEmpty);

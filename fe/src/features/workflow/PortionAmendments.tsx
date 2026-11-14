@@ -25,7 +25,7 @@ function SnapshotView({ title, snapshot }: Readonly<{ title: string; snapshot: S
   return <details className="entry"><summary>{title} · bản {snapshot.version} · {snapshot.count} suất</summary>
     <p>Số trẻ có suất: {snapshot.students.length} · Điều chỉnh tổng số suất không gắn với trẻ: {snapshot.kitchenAdjustment > 0 ? "+" : ""}{snapshot.kitchenAdjustment}</p><p className="workflow-names">{snapshot.students.map(x => x.studentName).join(', ') || 'Không có trẻ ăn'}</p>
     {snapshot.decisions.length > 0 && <div className="table-wrap"><ResponsiveTable><thead><tr><th>Trẻ</th><th>Suất</th><th>Nguồn đã lưu</th></tr></thead>
-      <tbody>{snapshot.decisions.map(x => <tr key={x.studentId}><td>{x.studentCode} · {x.studentName}</td><td>{x.willEat ? 'Có' : 'Không'}</td><td>{sources[x.source] ?? x.source}</td></tr>)}</tbody></ResponsiveTable></div>}
+      <tbody>{snapshot.decisions.map(x => <tr key={x.studentId}><td><strong>{x.studentName}</strong><small className="record-secondary">{x.studentCode}</small></td><td>{x.willEat ? 'Có' : 'Không'}</td><td>{sources[x.source] ?? x.source}</td></tr>)}</tbody></ResponsiveTable></div>}
   </details>
 }
 
@@ -90,11 +90,11 @@ function CandidateEditor({ model, data }: ContentProps) {
 function CandidateSelection({ model, data }: ContentProps) {
   const { selected, query, searchWaiting, selectionStale, unselectedInPage, setSelectedBase, setSelected, selectedBase, willEat, candidatePage, setCandidatePage } = model
   return <>
-          <p>Đã chọn {selected.length} trẻ (giữ lựa chọn khi tìm kiếm/chuyển trang). <button type="button" className="button secondary" disabled={query.isFetching || searchWaiting || selectionStale || !unselectedInPage.length || selected.length + unselectedInPage.length > 200} onClick={() => { setSelectedBase(data.current.id); setSelected(previous => [...previous, ...unselectedInPage]) }}>Chọn trẻ phù hợp trong trang</button> <button type="button" className="button secondary" onClick={() => { setSelected([]); setSelectedBase('') }}>Bỏ chọn</button></p>
+          <p>Đã chọn {selected.length} trẻ (giữ lựa chọn khi tìm kiếm/chuyển trang).</p><div className="actions"><button type="button" className="button secondary" data-compact-label="Chọn trang" aria-label="Chọn trẻ phù hợp trong trang" title="Chọn trẻ phù hợp trong trang" disabled={query.isFetching || searchWaiting || selectionStale || !unselectedInPage.length || selected.length + unselectedInPage.length > 200} onClick={() => { setSelectedBase(data.current.id); setSelected(previous => [...previous, ...unselectedInPage]) }}>Chọn trẻ phù hợp trong trang</button><button type="button" className="button secondary" onClick={() => { setSelected([]); setSelectedBase('') }}>Bỏ chọn</button></div>
           {selected.length > 0 && <div className="selected-children" aria-label="Trẻ đã chọn">{selected.map(child => <button type="button" className="button secondary" key={child.studentId} aria-label={`Bỏ chọn ${child.studentName}`} onClick={() => setSelected(previous => previous.filter(x => x.studentId !== child.studentId))}>{child.studentName} ×</button>)}</div>}
           {selected.length > 0 && selectedBase !== data.current.id && <p className="error">Bản suất đã đổi. Bỏ chọn rồi đối chiếu lại danh sách.</p>}
           <div className="table-wrap"><ResponsiveTable><thead><tr><th>Chọn</th><th>Trẻ</th><th>Bản đang áp dụng</th><th>Nguồn</th></tr></thead><tbody>
-            {data.candidates.map(child => <tr key={child.studentId}><td><input type="checkbox" aria-label={`Chọn ${child.studentName}`} disabled={child.willEat === willEat || searchWaiting || query.isFetching || (selected.length >= 200 && !selected.some(x => x.studentId === child.studentId)) || (selected.length > 0 && selectedBase !== data.current.id)} checked={selected.some(x => x.studentId === child.studentId)} onChange={event => { setSelectedBase(data.current.id); setSelected(previous => event.target.checked ? [...previous, child] : previous.filter(x => x.studentId !== child.studentId)) }} /></td><td>{child.studentCode} · {child.studentName}</td><td>{child.willEat ? 'Có suất' : 'Không có suất'}</td><td>{sources[child.source] ?? child.source}</td></tr>)}
+            {data.candidates.map(child => <tr key={child.studentId}><td><input type="checkbox" aria-label={`Chọn ${child.studentName}`} disabled={child.willEat === willEat || searchWaiting || query.isFetching || (selected.length >= 200 && !selected.some(x => x.studentId === child.studentId)) || (selected.length > 0 && selectedBase !== data.current.id)} checked={selected.some(x => x.studentId === child.studentId)} onChange={event => { setSelectedBase(data.current.id); setSelected(previous => event.target.checked ? [...previous, child] : previous.filter(x => x.studentId !== child.studentId)) }} /></td><td><strong>{child.studentName}</strong><small className="record-secondary">{child.studentCode}</small></td><td>{child.willEat ? 'Có suất' : 'Không có suất'}</td><td>{sources[child.source] ?? child.source}</td></tr>)}
           </tbody></ResponsiveTable></div>
           {!data.candidates.length && <p className="empty">Không có trẻ phù hợp.</p>}
           <Pagination page={candidatePage} total={data.candidateTotal} pageSize={25} busy={searchWaiting || query.isFetching} onChange={setCandidatePage} />
@@ -106,7 +106,7 @@ function RequestHistory({ model, data }: ContentProps) {
   const { isAdmin, setReason, setTarget, page, searchWaiting, query, setPage } = model
   return <>
 <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Thay đổi</th><th scope="col">Trạng thái</th><th scope="col">Lý do</th><th scope="col">Người đề xuất / bản căn cứ</th><th scope="col">Thao tác</th></tr></thead><tbody>
-      {data.items.map(item => <tr key={item.id}><td><strong>{requestStudentNames(item)}</strong><small>{requestStudentCodes(item)}</small></td><td>{item.willEat ? '+' : '−'}{item.quantity} suất</td><td>{statuses[item.status]}</td>
+      {data.items.map(item => <tr key={item.id}><td><strong>{requestStudentNames(item)}</strong><small className="record-secondary">{requestStudentCodes(item)}</small></td><td>{item.willEat ? '+' : '−'}{item.quantity} suất</td><td>{statuses[item.status]}</td>
         <td>{item.reason}{item.reviewedAt && <small>{item.reviewedByName} · {time(item.reviewedAt)}: {item.reviewReason}</small>}</td><td>{item.requestedByName}<small>{time(item.requestedAt)} · bản {item.baseVersion}</small></td>
         <td><button type="button" className="button secondary" onClick={() => { setReason(''); setTarget({ kind: 'review', request: item }) }}>{isAdmin && item.status === 'PENDING' ? 'Xem và xử lý' : 'Xem bản nguồn'}</button></td></tr>)}
       </tbody></ResponsiveTable></div>
@@ -145,6 +145,6 @@ function ReviewForm({ model }: Readonly<{ model: PortionAmendmentModel }>) {
           {stale && <p className="error">Bản căn cứ đã thay đổi. Từ chối yêu cầu và đề nghị tạo yêu cầu mới sau khi đối chiếu bản hiện hành.</p>}
           <label className="field">Lý do duyệt hoặc từ chối<textarea required maxLength={500} disabled={busy} value={reason} onChange={event => setReason(event.target.value)} /></label>
           <div className="form-actions"><button type="button" className="button secondary" disabled={busy || !reason.trim()} onClick={() => review.mutate(false)}>Từ chối</button>
-            <button type="button" className="button primary" disabled={busy || stale || !reason.trim() || !detail.data || query.isError} onClick={() => review.mutate(true)}>Duyệt và áp dụng</button></div></>}
+            <button type="button" className="button primary" disabled={busy || stale || !reason.trim() || !detail.data || query.isError} onClick={() => review.mutate(true)} data-compact-label="Duyệt" aria-label="Duyệt và áp dụng">Duyệt và áp dụng</button></div></>}
       </div>
 }

@@ -148,6 +148,17 @@ String? validateAbsenceYear(Map<String, Object?> values, SchoolRecord? child) {
   return null;
 }
 
+bool isUnavailableMealPeriod(String from, String to, SchoolRecord? child) {
+  final start = DateTime.tryParse('${from}T00:00:00Z');
+  final end = DateTime.tryParse('${to}T00:00:00Z');
+  if (start == null || end == null || end.isBefore(start)) return false;
+  final unavailable = (child?.values('unavailableMealDates') ?? const [])
+      .whereType<String>()
+      .where((date) => date.compareTo(from) >= 0 && date.compareTo(to) <= 0)
+      .toSet();
+  return unavailable.length == end.difference(start).inDays + 1;
+}
+
 String absencePeriodEnd(String from, String period, String yearEnd) {
   final date = DateTime.tryParse(from);
   if (date == null) return from;

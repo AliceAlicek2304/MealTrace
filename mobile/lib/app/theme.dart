@@ -211,3 +211,13 @@ final mealTraceTheme = ThemeData(
     linearTrackColor: MealColors.lavender,
   ),
 );
+
+final mealTraceDarkTheme = ThemeData(
+  useMaterial3: true,
+  fontFamily: 'Roboto',
+  brightness: Brightness.dark,
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: MealColors.primary,
+    brightness: Brightness.dark,
+  ),
+);

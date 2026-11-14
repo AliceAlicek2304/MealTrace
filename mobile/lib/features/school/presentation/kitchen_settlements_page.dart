@@ -84,13 +84,12 @@ class _KitchenSettlementsPageState extends State<KitchenSettlementsPage> {
                     ? 'Đối chiếu bản suất hiện hành trước khi xác nhận. Khi có bản mới, bếp cần tiếp nhận lại.'
                     : 'Theo dõi số suất hiện hành, thay đổi theo lớp và lịch sử tiếp nhận của bếp.',
               ),
-              Wrap(
-                spacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.calendar_month),
-                    label: Text(date ?? 'Tất cả ngày'),
-                    onPressed: controller.loading
+              MealActions(
+                menuLabel: 'Lọc ngày ăn',
+                actions: [
+                  MealAction(
+                    date ?? 'Chọn ngày',
+                    controller.loading
                         ? null
                         : () async {
                             final chosen = await showDatePicker(
@@ -113,8 +112,9 @@ class _KitchenSettlementsPageState extends State<KitchenSettlementsPage> {
                             }
                           },
                   ),
-                  TextButton(
-                    onPressed: controller.loading
+                  MealAction(
+                    'Tất cả ngày',
+                    controller.loading
                         ? null
                         : () {
                             setState(() {
@@ -123,7 +123,6 @@ class _KitchenSettlementsPageState extends State<KitchenSettlementsPage> {
                             });
                             load();
                           },
-                    child: const Text('Tất cả ngày'),
                   ),
                 ],
               ),

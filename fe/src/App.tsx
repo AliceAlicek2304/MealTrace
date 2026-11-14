@@ -1,3 +1,5 @@
+import { KitchenWorkspace } from './features/kitchen/KitchenWorkspace'
+import { AdminToolsPage } from './features/access/AdminToolsPage'
 import { KitchenSettlementsPage } from './features/kitchen/KitchenSettlementsPage'
 import { ParentLinksPage } from './features/workflow/ParentLinksPage'
 import { useEffect, useRef, useState } from 'react'
@@ -18,7 +20,7 @@ import { MealCalendarPage } from './features/workflow/MealCalendarPage'
 
 const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
 const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
-  kitchen: 'Tiếp nhận suất ăn', links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
+  catalog: 'Nguyên liệu & công thức', audit: 'Lịch sử xử lý', kitchen: 'Tiếp nhận suất ăn', links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
   portions: 'Số suất', absences: 'Báo vắng', meals: 'Theo dõi bữa ăn', profile: 'Thông tin cá nhân',
 }
 
@@ -140,6 +142,8 @@ function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions,
     { id: 'absences', label: 'Báo vắng', icon: CalendarOff, visible: isParent },
     { id: 'meals', label: 'Theo dõi bữa ăn', icon: CalendarDays, visible: isMealStaff },
     { id: 'kitchen', label: 'Tiếp nhận suất ăn', icon: ClipboardList, visible: isMealStaff },
+    { id: 'catalog', label: 'Nguyên liệu & công thức', icon: Leaf, visible: isMealStaff },
+    { id: 'audit', label: 'Lịch sử xử lý', icon: ClipboardList, visible: isAdmin },
     { id: 'links', label: 'Liên kết trẻ', icon: Users, visible: isParent || canRegisterStudents },
     { id: 'profile', label: 'Thông tin cá nhân', icon: UserRound, visible: true },
   ] as const
@@ -162,6 +166,8 @@ function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions,
   onPasswordChanged: () => void
 }>) {
   switch (page) {
+    case 'catalog': if (isMealStaff) return <KitchenWorkspace />; break
+    case 'audit': if (isAdmin) return <AdminToolsPage />; break
     case 'kitchen': if (isMealStaff) return <KitchenSettlementsPage canAcknowledge={!isAdmin && user.roles.includes('KITCHEN_STAFF')} />; break
     case 'accounts': if (isAdmin) return <AccountsPage />; break
     case 'classes': if (canRegisterStudents) return <ClassesPage isAdmin={isAdmin} />; break

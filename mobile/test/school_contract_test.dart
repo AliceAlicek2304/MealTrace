@@ -39,7 +39,10 @@ void main() {
         if (!file.path.endsWith('.cs')) continue;
         final source = file.readAsStringSync();
         final name = file.uri.pathSegments.last;
-        final groups = <String, String>{'app': ''};
+        final groups = <String, String>{
+          'app': '',
+          if (name == 'AuditEndpoints.cs') 'group': '/api/admin/audit-logs',
+        };
         final groupMatches = RegExp(
           r'var\s+(\w+)\s*=\s*(\w+)\.MapGroup\("([^"]*)"\)',
         ).allMatches(source);
@@ -130,6 +133,10 @@ void main() {
       final candidates = [
         '/api${route.path}',
         suffix,
+        suffix
+            .replaceFirst('/admin/audit-logs', '')
+            .replaceAll('{id}', '{auditId}'),
+        suffix.replaceFirst('/admin/audit-logs', ''),
         suffix.replaceFirst('/admin', ''),
         suffix.replaceFirst('/auth', ''),
         suffix.replaceFirst('/meal-days', ''),

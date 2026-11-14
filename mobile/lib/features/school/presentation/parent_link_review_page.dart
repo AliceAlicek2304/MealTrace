@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../../core/presentation/mealtrace_brand.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';
 import 'school_form_page.dart';
 import 'school_page.dart';
 import 'school_widgets.dart';
+import '../../../core/presentation/meal_widgets.dart';
 
 class ParentLinkReviewPage extends StatefulWidget {
   const ParentLinkReviewPage({
@@ -163,11 +165,22 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
         .where((x) => year == null || x.text('schoolYear') == year)
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Duyệt liên kết theo lớp')),
+      appBar: AppBar(
+        title: widget.roles.contains('TEACHER')
+            ? const MealTraceBrand(iconSize: 26, fontSize: 16)
+            : const Text('Duyệt liên kết theo lớp'),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.roles.contains('TEACHER')) ...[
+              Text(
+                'Duyệt liên kết theo lớp',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+            ],
             const Text(
               'Lọc năm học và lớp, rà tên trẻ, phụ huynh và SĐT. Bỏ chọn trường hợp chưa rõ trước khi xác nhận. Mỗi lượt tối đa 100 yêu cầu đã chọn.',
             ),
@@ -223,19 +236,13 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
                       load();
                     },
             ),
-            Wrap(
-              spacing: 8,
-              children: [
-                TextButton(
-                  onPressed: busy ? null : load,
-                  child: const Text('Tải lại danh sách'),
-                ),
-                TextButton(
-                  onPressed: busy ? null : history,
-                  child: const Text('Lịch sử / sửa liên kết'),
-                ),
-                TextButton(
-                  onPressed: busy || (classId == null && year == null)
+            MealActions(
+              actions: [
+                MealAction('Tải lại danh sách', busy ? null : load),
+                MealAction('Lịch sử / sửa liên kết', busy ? null : history),
+                MealAction(
+                  'Chọn yêu cầu trên trang',
+                  busy || (classId == null && year == null)
                       ? null
                       : () => setState(() {
                           selected.clear();
@@ -246,11 +253,10 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
                             }
                           }
                         }),
-                  child: const Text('Chọn yêu cầu trên trang'),
                 ),
-                TextButton(
-                  onPressed: busy ? null : () => setState(selected.clear),
-                  child: const Text('Bỏ chọn'),
+                MealAction(
+                  'Bỏ chọn',
+                  busy ? null : () => setState(selected.clear),
                 ),
               ],
             ),

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type TableHTMLAttributes } from 'react'
 
-const secondaryHeadings = new Set(['Năm học', 'Thời điểm lưu', 'Người gửi / bản nguồn', 'Phạm vi', 'Phiên đã tạo', 'Ghi chú'])
+const secondaryHeadings = new Set(['Năm học', 'Thời điểm lưu', 'Người gửi / bản nguồn', 'Phạm vi', 'Phiên đã tạo', 'Ghi chú', 'Giờ chốt', 'Thứ', 'Lý do', 'Nguồn quyết định', 'Phiên bản', 'Thực đơn', 'Chụp / đồng bộ'])
 
 /** One set of data/actions: desktop table, labelled record cards on small screens. */
 export function ResponsiveTable({ className = '', children, ...props }: TableHTMLAttributes<HTMLTableElement>) {
@@ -15,7 +15,8 @@ export function ResponsiveTable({ className = '', children, ...props }: TableHTM
       for (const cell of row.cells) cell.setAttribute('role', 'columnheader')
     }
     const headings = Array.from(table.tHead?.rows[0]?.cells ?? []).map(cell => cell.textContent?.trim() || 'Thao tác')
-    setHasSecondary(headings.some(heading => secondaryHeadings.has(heading)) && Array.from(table.tBodies).some(body => Array.from(body.rows).some(row => row.cells.length > 1)))
+    const secondaryColumns = headings.map((heading, index) => index > 0 && secondaryHeadings.has(heading))
+    setHasSecondary((secondaryColumns.some(Boolean) || table.querySelector('.record-secondary') !== null) && Array.from(table.tBodies).some(body => Array.from(body.rows).some(row => row.cells.length > 1)))
     for (const body of table.tBodies) {
       body.setAttribute('role', 'rowgroup')
       for (const row of body.rows) {
@@ -24,7 +25,7 @@ export function ResponsiveTable({ className = '', children, ...props }: TableHTM
         for (const cell of row.cells) {
           cell.setAttribute('role', 'cell')
           cell.dataset.label = headings[column] ?? 'Thông tin'
-          cell.dataset.secondary = String(secondaryHeadings.has(headings[column]))
+          cell.dataset.secondary = String(secondaryColumns[column] ?? false)
           cell.dataset.fullRow = String(cell.colSpan > 1)
           column += cell.colSpan
         }

@@ -14,6 +14,8 @@ import 'school_controller.dart';
 import 'school_form_page.dart';
 import 'school_forms.dart';
 import 'school_page.dart';
+import 'audit_page.dart';
+import '../../../core/presentation/theme_mode_selector.dart';
 
 typedef SchoolSection = ({
   SchoolOperation operation,
@@ -22,9 +24,17 @@ typedef SchoolSection = ({
 });
 
 class SchoolHome extends StatefulWidget {
-  const SchoolHome({super.key, required this.auth, required this.repository});
+  const SchoolHome({
+    super.key,
+    required this.auth,
+    required this.repository,
+    this.themeMode = ThemeMode.system,
+    this.onThemeModeChanged,
+  });
   final AuthController auth;
   final SchoolRepository repository;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode>? onThemeModeChanged;
   @override
   State<SchoolHome> createState() => _SchoolHomeState();
 }
@@ -128,6 +138,11 @@ class _SchoolHomeState extends State<SchoolHome> {
         title: 'Kiểm tra gửi tin',
         icon: Icons.chat_outlined,
       ),
+      (
+        operation: SchoolOperation.auditLogs,
+        title: 'Lịch sử xử lý',
+        icon: Icons.history,
+      ),
     ].where((section) => canExecute(section.operation, roles)).toList();
   }
 
@@ -150,7 +165,9 @@ class _SchoolHomeState extends State<SchoolHome> {
   Future<void> open(SchoolSection section) => Navigator.push<void>(
     context,
     MaterialPageRoute(
-      builder: (_) => section.operation == SchoolOperation.ingredients
+      builder: (_) => section.operation == SchoolOperation.auditLogs
+          ? AuditPage(controller: controller)
+          : section.operation == SchoolOperation.ingredients
           ? KitchenCatalogPage(
               repository: widget.repository,
               roles: widget.auth.user!.roles,
@@ -396,6 +413,11 @@ class _SchoolHomeState extends State<SchoolHome> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        if (widget.onThemeModeChanged != null)
+          ThemeModeSelector(
+            themeMode: widget.themeMode,
+            onChanged: widget.onThemeModeChanged!,
+          ),
         CircleAvatar(
           radius: 32,
           backgroundColor: MealColors.primary,

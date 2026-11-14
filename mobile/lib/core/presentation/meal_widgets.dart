@@ -1,5 +1,117 @@
 import 'package:flutter/material.dart';
 
+class MealAction {
+  const MealAction(this.label, this.onPressed, {this.primary = false});
+  final String label;
+  final VoidCallback? onPressed;
+  final bool primary;
+}
+
+/// Keeps a group together. Narrow layouts expose every action in one menu.
+class MealActions extends StatelessWidget {
+  const MealActions({
+    super.key,
+    required this.actions,
+    this.menuLabel = 'Thao tác',
+  });
+  final List<MealAction> actions;
+  final String menuLabel;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      if (actions.isEmpty) return const SizedBox.shrink();
+      final style = Theme.of(context).textTheme.labelLarge!;
+      final widths = actions.map((action) {
+        final painter = TextPainter(
+          text: TextSpan(text: action.label, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        final width = painter.width + 40;
+        painter.dispose();
+        return width;
+      }).toList();
+      final requiredWidth =
+          widths.fold<double>(0, (sum, width) => sum + width) +
+          8 * (actions.length - 1);
+      if (requiredWidth > bounds.maxWidth) {
+        return PopupMenuButton<int>(
+          tooltip: menuLabel,
+          enabled: actions.any((action) => action.onPressed != null),
+          onSelected: (index) => actions[index].onPressed?.call(),
+          itemBuilder: (_) => [
+            for (final (index, action) in actions.indexed)
+              PopupMenuItem(
+                value: index,
+                enabled: action.onPressed != null,
+                child: Text(action.label),
+              ),
+          ],
+          child: Semantics(
+            button: true,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: MealColors.lavender,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: MealColors.primary.withValues(alpha: .2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      menuLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style,
+                    ),
+                  ),
+                  const Icon(Icons.keyboard_arrow_down),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      return Row(
+        children: [
+          for (final (index, action) in actions.indexed) ...[
+            if (index > 0) const SizedBox(width: 8),
+            Expanded(
+              flex: (widths[index] * 100).round(),
+              child: Tooltip(
+                message: action.label,
+                child: action.primary
+                    ? FilledButton(
+                        onPressed: action.onPressed,
+                        child: Text(
+                          action.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    : OutlinedButton(
+                        onPressed: action.onPressed,
+                        child: Text(
+                          action.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ],
+      );
+    },
+  );
+}
+
 abstract final class MealColors {
   static const primary = Color(0xFF6D4DB1),
       ink = Color(0xFF29344A),
