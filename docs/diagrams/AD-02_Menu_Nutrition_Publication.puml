@@ -1,0 +1,54 @@
+@startuml
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #344054
+  ArrowColor #475467
+  FontName Arial
+  FontSize 13
+}
+skinparam DefaultFontName Arial
+skinparam ArrowThickness 1.2
+title AD-02 - Menu, Nutrition and Ingredient Estimate (System Level)
+
+|Kitchen Staff|
+start
+:Maintain sourced ingredient nutrition\nand effective data versions;
+:Maintain versioned dish recipes;
+:Prepare daily or weekly menu draft;
+|MealTrace System|
+:Validate recipes, quantities,\nand nutrition source completeness;
+if (Required inputs available?) then (Yes)
+  :Calculate estimated energy and\nprotein, lipid, carbohydrate;
+  :Compare with age-group\nreference ranges;
+else (No)
+  :Report missing or invalid inputs;
+  |Kitchen Staff|
+  :Correct data before resubmission;
+  stop
+endif
+|Kitchen Staff|
+:Submit menu for approval;
+|School Administrator|
+:Review menu and nutrition findings;
+if (Menu approved?) then (Yes)
+  |MealTrace System|
+  :Publish immutable menu version\nwith approval history;
+else (No)
+  |MealTrace System|
+  :Record rejection reason and\nreturn menu for revision;
+  stop
+endif
+|MealTrace System|
+if (Settled portion counts available?) then (Yes)
+  :Estimate ingredient requirements\nfrom published menu, recipe versions,\nand settled portion counts;
+  |Kitchen Staff|
+  :Review ingredient requirement list;
+else (No)
+  :Defer ingredient requirement estimate\nuntil settlement is available;
+endif
+stop
+@enduml

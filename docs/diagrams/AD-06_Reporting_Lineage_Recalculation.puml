@@ -1,0 +1,55 @@
+@startuml
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #344054
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #344054
+  ArrowColor #475467
+  FontName Arial
+  FontSize 13
+}
+skinparam DefaultFontName Arial
+skinparam ArrowThickness 1.2
+title AD-06 - Approved Report and Historical Recalculation (System Level)
+
+|Kitchen Staff|
+start
+:Record served dishes and portion quantities\nfor the reporting period;
+|School Administrator|
+:Select reporting period and scope;
+:Request meal and nutrition report;
+|MealTrace System|
+:Gather applicable settlement versions,\nserved dishes, recipes and nutrition sources;
+if (Required reporting sources complete?) then (Yes)
+  :Calculate estimated indicators\nand create report draft;
+  :Associate each figure with\nits source versions and rules;
+else (No)
+  :List missing source records\nand prevent report approval;
+  stop
+endif
+|School Administrator|
+:Review draft figures and\ntraceable source records;
+if (Report approved?) then (Yes)
+  |MealTrace System|
+  :Preserve approved figures, source\nversions and calculation rules;
+  :Export approved report version;
+else (No)
+  |MealTrace System|
+  :Record rejection and retain\nreport as unapproved;
+  stop
+endif
+|MealTrace System|
+if (Later source correction recorded?) then (Yes)
+  |School Administrator|
+  :Request historical comparison;
+  |MealTrace System|
+  :Recalculate using corrected\nsource versions;
+  :Preserve the approved report unchanged;
+  :Show approved versus recalculated\nfigures and lineage differences;
+else (No)
+  :Keep approved report available\nfor as-approved reproduction;
+endif
+stop
+@enduml
