@@ -10,6 +10,13 @@ class ApiRoute {
 }
 
 const schoolRoutes = <SchoolOperation, ApiRoute>{
+  SchoolOperation.auditLogs: ApiRoute('GET', '/admin/audit-logs'),
+  SchoolOperation.auditDetail: ApiRoute('GET', '/admin/audit-logs/{id}'),
+  SchoolOperation.auditEntity: ApiRoute(
+    'GET',
+    '/admin/audit-logs/entities/{entityType}/{entityId}',
+  ),
+  SchoolOperation.auditExport: ApiRoute('GET', '/admin/audit-logs/export'),
   SchoolOperation.ingredients: ApiRoute('GET', '/kitchen/ingredients'),
   SchoolOperation.createIngredient: ApiRoute('POST', '/kitchen/ingredients'),
   SchoolOperation.ingredientVersion: ApiRoute(
@@ -227,6 +234,19 @@ const pagedOperations = {
 };
 
 List<String> queryFields(SchoolOperation operation) => switch (operation) {
+  SchoolOperation.auditLogs ||
+  SchoolOperation.auditEntity ||
+  SchoolOperation.auditExport => [
+    'from',
+    'to',
+    'actorId',
+    'entityType',
+    'entityId',
+    'action',
+    'page',
+    'pageSize',
+    'format',
+  ],
   SchoolOperation.ingredients => ['search', 'page', 'pageSize'],
   SchoolOperation.nutrition => ['validAt', 'knownAt'],
   SchoolOperation.parentLinks || SchoolOperation.reviewableParentLinks => [
@@ -375,6 +395,12 @@ class SchoolRepositoryImpl implements SchoolRepository {
           throw const FormatException();
         }
         return SchoolResult(summary: SchoolRecord({}), records: []);
+      }
+      if (operation == SchoolOperation.auditExport) {
+        return SchoolResult(
+          summary: SchoolRecord({'csv': utf8.decode(response.bodyBytes)}),
+          records: [],
+        );
       }
       final Object? data = jsonDecode(utf8.decode(response.bodyBytes));
       if (arrayOperations.contains(operation) && data is! List ||

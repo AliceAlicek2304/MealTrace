@@ -1,4 +1,8 @@
 enum SchoolOperation {
+  auditLogs,
+  auditDetail,
+  auditEntity,
+  auditExport,
   ingredients,
   createIngredient,
   ingredientVersion,

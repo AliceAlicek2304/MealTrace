@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../app/mealtrace_brand.dart';
-import '../../../app/theme_mode_selector.dart';
+import '../../../core/presentation/mealtrace_brand.dart';
+import '../../../core/presentation/theme_mode_selector.dart';
 import 'auth_controller.dart';
 
 class AccountPage extends StatelessWidget {
@@ -24,9 +24,7 @@ class AccountPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = auth.user!;
     return Scaffold(
-      appBar: AppBar(
-        title: const MealTraceBrand(iconSize: 34, fontSize: 20),
-      ),
+      appBar: AppBar(title: const MealTraceBrand(iconSize: 34, fontSize: 20)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

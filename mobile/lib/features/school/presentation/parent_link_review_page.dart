@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../app/mealtrace_brand.dart';
+import '../../../core/presentation/mealtrace_brand.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';

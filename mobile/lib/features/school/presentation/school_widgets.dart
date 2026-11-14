@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../app/mealtrace_brand.dart';
+import '../../../core/presentation/mealtrace_brand.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
 import 'school_forms.dart';
@@ -261,13 +261,12 @@ class RecordDetails extends StatelessWidget {
                           child: Image.network(
                             uri.toString(),
                             fit: BoxFit.contain,
-                            errorBuilder: (_, error, stackTrace) =>
-                                const Padding(
-                                  padding: EdgeInsets.all(24),
-                                  child: Text(
-                                    'Không tải được ảnh. Kiểm tra kết nối rồi mở lại.',
-                                  ),
-                                ),
+                            errorBuilder: (_, error, stackTrace) => const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text(
+                                'Không tải được ảnh. Kiểm tra kết nối rồi mở lại.',
+                              ),
+                            ),
                             loadingBuilder: (_, child, progress) =>
                                 progress == null
                                 ? child

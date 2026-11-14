@@ -435,3 +435,8 @@ h1 { color: #28374e; }
   .responsive-table td::before { grid-row: auto; }
   .responsive-table td > * { grid-column: 1; }
 }
+
+.record-detail-values { display: grid; gap: 12px; margin: 0; min-width: 0; }
+.record-detail-values > div { min-width: 0; border-bottom: 1px solid #f1e9df; padding: 10px 0; }
+.record-detail-values dt { color: #647086; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.record-detail-values dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }

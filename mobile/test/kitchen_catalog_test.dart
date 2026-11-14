@@ -318,6 +318,9 @@ void main() {
         'ediblePercent': 100,
         'energyKcal': 900,
         'proteinG': 0,
+        'fatG': 0,
+        'carbG': 0,
+        'source': 'Nguồn kiểm thử',
         'pricePerKg': null,
       };
       expect(validateIngredientVersion(valid), isNull);
@@ -469,6 +472,9 @@ void main() {
       );
       expect(find.text('Gạo tẻ'), findsOneWidget);
       await tap(tester, find.text('Cập nhật dinh dưỡng'));
+      await enter(tester, 'Chất béo (g / 100)', '1');
+      await enter(tester, 'Carbohydrate (g / 100)', '70');
+      await enter(tester, 'Nguồn dữ liệu', 'Nguồn kiểm thử');
       await enter(tester, 'Chất đạm (g / 100)', '7,5');
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       addTearDown(tester.view.resetViewInsets);
@@ -511,6 +517,9 @@ void main() {
         {'name': 'Gạo tẻ mới', 'unit': 'g'},
       );
       await tap(tester, find.text('Cập nhật dinh dưỡng'));
+      await enter(tester, 'Chất béo (g / 100)', '1');
+      await enter(tester, 'Carbohydrate (g / 100)', '70');
+      await enter(tester, 'Nguồn dữ liệu', 'Nguồn kiểm thử');
       await enter(tester, 'Năng lượng (kcal / 100)', '360,5');
       await tap(tester, find.widgetWithText(FilledButton, 'Lưu'));
       await tap(tester, find.widgetWithText(FilledButton, 'Lưu').last);

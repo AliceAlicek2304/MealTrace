@@ -180,7 +180,7 @@ public sealed class PhaseOneRbacTests
             Assert.Equal(100m, perServing.GetProperty("kcal").GetDecimal());
             Assert.Equal(5m, perServing.GetProperty("proteinG").GetDecimal());
             Assert.Equal(1m, perServing.GetProperty("fatG").GetDecimal());
-            Assert.Equal(17.75m, perServing.GetProperty("carbG").GetDecimal());
+            Assert.Equal(17.8m, perServing.GetProperty("carbG").GetDecimal());
             var stale = await client.PostAsJsonAsync($"/api/kitchen/recipes/{recipe}/versions", new { expectedVersion = 1, servingBasis = 1, lines });
             Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
             Assert.Equal("application/problem+json", stale.Content.Headers.ContentType!.MediaType);

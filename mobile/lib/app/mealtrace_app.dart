@@ -82,10 +82,7 @@ class _MealTraceAppState extends State<MealTraceApp>
 
   Future<void> _saveThemeMode(ThemeMode mode) async {
     try {
-      await _themeStorage?.write(
-        key: 'mealtrace.themeMode',
-        value: mode.name,
-      );
+      await _themeStorage?.write(key: 'mealtrace.themeMode', value: mode.name);
     } catch (_) {
       // The selected theme still applies for this session.
     }

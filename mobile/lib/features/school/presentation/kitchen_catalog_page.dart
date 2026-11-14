@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../domain/school_models.dart';
 import 'school_controller.dart';
+import 'school_widgets.dart' show displayValue;
 import 'kitchen_editor_page.dart';
 import '../../../core/presentation/meal_widgets.dart';
 
@@ -177,7 +178,27 @@ class _KitchenCatalogPageState extends State<KitchenCatalogPage> {
                               'Bản ${nutrition.number('version')} · Tỷ lệ ăn được ${nutrition.text('ediblePercent')}%',
                             ),
                             Text(
-                              '${nutrition.text('energyKcalPer100G')} kcal · ${nutrition.text('proteinGPer100G')} g đạm / 100 ${item.text('unit')}',
+                              '${nutrition.text('energyKcalPer100G')} kcal · ${nutrition.text('proteinGPer100G')} g đạm / 100 g phần ăn được',
+                            ),
+                            ExpansionTile(
+                              title: const Text('Chi tiết dinh dưỡng'),
+                              children: [
+                                for (final entry in const {
+                                  'fatGPer100G': 'Chất béo (g)',
+                                  'carbGPer100G': 'Carbohydrate (g)',
+                                  'source': 'Nguồn dữ liệu',
+                                  'sourceRef': 'Tài liệu tham chiếu',
+                                  'gramsPerMl': 'Khối lượng g/ml',
+                                  'validFrom': 'Bắt đầu áp dụng',
+                                  'recordedAt': 'Thời điểm ghi nhận',
+                                }.entries)
+                                  ListTile(
+                                    title: Text(entry.value),
+                                    subtitle: Text(
+                                      displayValue(nutrition[entry.key]),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ] else
                             const Text('Chưa có dữ liệu dinh dưỡng'),
