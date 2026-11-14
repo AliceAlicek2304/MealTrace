@@ -39,22 +39,52 @@ const labels: Record<string, string> = {
   version: 'Phiên bản',
   createdAt: 'Ngày tạo',
 }
+function scalarText(value: unknown): string {
+  if (typeof value === 'boolean') return value ? 'Có' : 'Không'
+  if (typeof value === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return schoolDateTime(value)
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'bigint')
+    return value.toString()
+  return 'Dữ liệu không hỗ trợ'
+}
+
+function valueIdentity(value: unknown): string {
+  if (value !== null && typeof value === 'object' && 'id' in value) {
+    if (typeof value.id === 'string' || typeof value.id === 'number')
+      return `id:${value.id}`
+  }
+  try {
+    return JSON.stringify(value) ?? scalarText(value)
+  } catch {
+    return scalarText(value)
+  }
+}
+
+function keyedValues(values: readonly unknown[]) {
+  const occurrences = new Map<string, number>()
+  return values.map((value) => {
+    const identity = valueIdentity(value)
+    const occurrence = occurrences.get(identity) ?? 0
+    occurrences.set(identity, occurrence + 1)
+    return { value, key: `${identity}:${occurrence}` }
+  })
+}
+
 export function DetailValues({
   value,
   depth = 0,
-}: {
-  value: unknown
-  depth?: number
-}) {
+}: Readonly<{ value: unknown; depth?: number }>) {
   if (depth > 5)
     return <p>Thông tin có nhiều cấp; xem từng phần trong hồ sơ nguồn.</p>
   if (value === null || value === undefined) return <span>Chưa có</span>
   if (Array.isArray(value))
     return (
       <ol>
-        {value.map((x, i) => (
-          <li key={i}>
-            <DetailValues value={x} depth={depth + 1} />
+        {keyedValues(value).map((item) => (
+          <li key={item.key}>
+            <DetailValues value={item.value} depth={depth + 1} />
           </li>
         ))}
       </ol>
@@ -72,13 +102,5 @@ export function DetailValues({
         ))}
       </dl>
     )
-  const text = String(value)
-  const display = /^\d{4}-\d{2}-\d{2}T/.test(text)
-    ? schoolDateTime(text)
-    : typeof value === 'boolean'
-      ? value
-        ? 'Có'
-        : 'Không'
-      : text
-  return <span style={{ overflowWrap: 'anywhere' }}>{display}</span>
+  return <span style={{ overflowWrap: 'anywhere' }}>{scalarText(value)}</span>
 }

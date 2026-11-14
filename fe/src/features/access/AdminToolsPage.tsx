@@ -20,6 +20,16 @@ type Entry = {
   entityId: string
   reason?: string
 }
+function notificationStatus(
+  pending: boolean,
+  error: boolean,
+  enabled: boolean,
+) {
+  if (pending) return 'Đang tải trạng thái gửi tin…'
+  if (error) return 'Không tải được trạng thái gửi tin.'
+  if (enabled) return 'Dịch vụ gửi tin đang bật.'
+  return 'Dịch vụ gửi tin chưa bật.'
+}
 export function AdminToolsPage() {
   const [page, setPage] = useState(1),
     [entityType, setEntityType] = useState(''),
@@ -125,7 +135,7 @@ export function AdminToolsPage() {
             }}
           >
             <label className="field">
-              Loại hồ sơ
+              <span>Loại hồ sơ</span>
               <input
                 value={entityType}
                 onChange={(e) => {
@@ -135,7 +145,7 @@ export function AdminToolsPage() {
               />
             </label>
             <label className="field">
-              Mã hồ sơ
+              <span>Mã hồ sơ</span>
               <input
                 value={entityId}
                 onChange={(e) => {
@@ -145,7 +155,7 @@ export function AdminToolsPage() {
               />
             </label>
             <label className="field">
-              Thao tác
+              <span>Thao tác</span>
               <input
                 value={action}
                 onChange={(e) => {
@@ -223,7 +233,7 @@ export function AdminToolsPage() {
         >
           <h2>Truy vết báo cáo</h2>
           <label className="field">
-            Mã báo cáo
+            <span>Mã báo cáo</span>
             <input
               required
               value={report}
@@ -238,11 +248,11 @@ export function AdminToolsPage() {
       <section className="panel workflow-form">
         <h2>Kiểm tra gửi thông báo</h2>
         <p>
-          {settings.isError
-            ? 'Không tải được trạng thái gửi tin.'
-            : settings.data?.enabled
-              ? 'Dịch vụ gửi tin đang bật.'
-              : 'Dịch vụ gửi tin chưa bật.'}
+          {notificationStatus(
+            settings.isPending,
+            settings.isError,
+            !!settings.data?.enabled,
+          )}
         </p>
         <button
           type="button"

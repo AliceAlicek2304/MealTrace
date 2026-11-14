@@ -62,6 +62,15 @@ describe('Session restoration and navigation', () => {
     expect(screen.queryByRole('button', { name: 'Tài khoản' })).toBeNull()
   })
 
+  it.each(['catalog','audit','kitchen'])('does not load restricted API screens for a teacher at %s', async page => {
+    setAccessToken('test-token')
+    window.history.replaceState(null,'',`#/${page}`)
+    const get=vi.spyOn(api,'get').mockResolvedValue({data:user})
+    mount()
+    await screen.findByRole('heading',{name:'Số suất thử'})
+    expect(get.mock.calls.every(([path])=>path === '/auth/me')).toBe(true)
+  })
+
   it('removes an expired saved token', async () => {
     setAccessToken('expired-token')
     vi.spyOn(api, 'get').mockRejectedValue({ response: { status: 401 } })
