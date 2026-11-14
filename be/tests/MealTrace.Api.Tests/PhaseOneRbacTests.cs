@@ -147,8 +147,23 @@ public sealed class PhaseOneRbacTests
         var create = await client.PostAsJsonAsync("/api/kitchen/ingredients", new { name = "Gạo thử", unit = "g" });
         Assert.Equal(allowed ? HttpStatusCode.Created : denied, create.StatusCode);
         var ingredient = allowed ? (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid() : Guid.NewGuid();
-        var version = await client.PostAsJsonAsync($"/api/kitchen/ingredients/{ingredient}/ingredient-versions",
+        // The pre-v1.3 payload must fail validation for authorized roles, never bypass authorization for others.
+        var legacy = await client.PostAsJsonAsync($"/api/kitchen/ingredients/{ingredient}/ingredient-versions",
             new { validFrom = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), ediblePercent = 100, energyKcal = 100, proteinG = 5 });
+        Assert.Equal(allowed ? HttpStatusCode.BadRequest : denied, legacy.StatusCode);
+        if (allowed)
+        {
+            Assert.Equal("application/problem+json", legacy.Content.Headers.ContentType!.MediaType);
+            var error = await legacy.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("VALIDATION_ERROR", error.GetProperty("code").GetString());
+            var missingFields = error.GetProperty("errors");
+            Assert.True(missingFields.TryGetProperty("fatG", out _));
+            Assert.True(missingFields.TryGetProperty("carbG", out _));
+            Assert.True(missingFields.TryGetProperty("source", out _));
+        }
+        var version = await client.PostAsJsonAsync($"/api/kitchen/ingredients/{ingredient}/ingredient-versions",
+            new { validFrom = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), ediblePercent = 100, energyKcal = 100,
+                proteinG = 5, fatG = 1m, carbG = 17.75m, source = "HTTP role matrix composition table" });
         Assert.Equal(allowed ? HttpStatusCode.Created : denied, version.StatusCode);
         Assert.Equal(allowed ? HttpStatusCode.OK : denied, (await client.GetAsync("/api/kitchen/ingredients")).StatusCode);
         var lines = new[] { new { ingredientId = ingredient, quantity = 100, unit = "g" } };
@@ -157,9 +172,15 @@ public sealed class PhaseOneRbacTests
         var recipe = allowed ? (await recipeResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("recipeId").GetGuid() : Guid.NewGuid();
         var next = await client.PostAsJsonAsync($"/api/kitchen/recipes/{recipe}/versions", new { expectedVersion = 1, servingBasis = 1, lines });
         Assert.Equal(allowed ? HttpStatusCode.Created : denied, next.StatusCode);
-        Assert.Equal(allowed ? HttpStatusCode.OK : denied, (await client.GetAsync($"/api/kitchen/recipes/{recipe}/versions/1/nutrition")).StatusCode);
+        var nutrition = await client.GetAsync($"/api/kitchen/recipes/{recipe}/versions/1/nutrition");
+        Assert.Equal(allowed ? HttpStatusCode.OK : denied, nutrition.StatusCode);
         if (allowed)
         {
+            var perServing = (await nutrition.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("perServing");
+            Assert.Equal(100m, perServing.GetProperty("kcal").GetDecimal());
+            Assert.Equal(5m, perServing.GetProperty("proteinG").GetDecimal());
+            Assert.Equal(1m, perServing.GetProperty("fatG").GetDecimal());
+            Assert.Equal(17.75m, perServing.GetProperty("carbG").GetDecimal());
             var stale = await client.PostAsJsonAsync($"/api/kitchen/recipes/{recipe}/versions", new { expectedVersion = 1, servingBasis = 1, lines });
             Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
             Assert.Equal("application/problem+json", stale.Content.Headers.ContentType!.MediaType);

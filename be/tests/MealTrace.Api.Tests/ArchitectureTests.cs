@@ -201,12 +201,15 @@ public sealed class ArchitectureTests
         var nutrition = scope.ServiceProvider.GetRequiredService<INutritionService>();
         var now = DateTimeOffset.UtcNow;
         var ingredient = await ingredients.CreateAsync(new("Test Rice", "g"), default);
-        await ingredients.AddVersionAsync(ingredient.Id, new(now.AddDays(-1), 100m, 100m, 10m, 20000m), default);
+        await ingredients.AddVersionAsync(ingredient.Id,
+            new(now.AddDays(-1), 100m, 100m, 10m, 20000m, FatG: 0m, CarbG: 15m, Source: "Integration test composition table"), default);
         var result = await ingredients.ListAsync("rIcE", 1, 25, default);
         Assert.Equal(ingredient.Id, Assert.Single(result.Items).Id);
         var recipe = await recipes.CreateAsync(new("Test Rice Dish", 2, [new(ingredient.Id, 200m, "g")]), default);
         var calculated = await nutrition.CalculateAsync(recipe.RecipeId, recipe.Version, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, default);
         Assert.Equal(100m, calculated.PerServing.Kcal);
         Assert.Equal(10m, calculated.PerServing.ProteinG);
+        Assert.Equal(0m, calculated.PerServing.FatG);
+        Assert.Equal(15m, calculated.PerServing.CarbG);
     }
 }
