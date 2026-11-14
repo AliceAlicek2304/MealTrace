@@ -92,7 +92,7 @@ export function AbsencesPage() {
       {child && <p className="form-help">Năm học {child.schoolYear}: {child.yearStartDate && child.yearEndDate ? `${child.yearStartDate} đến ${child.yearEndDate}` : 'Chưa thiết lập ngày bắt đầu/kết thúc. Liên hệ nhà trường.'}</p>}
       <p className="form-help">Tính cả ngày bắt đầu và kết thúc. Có thể sửa khoảng ngày hoặc hủy khi muốn ăn lại; phiên đã qua giờ chốt giữ nguyên.</p>
       <label className="field">Lý do<textarea required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></label>
-      {unavailable && <p role="status" className="form-help">Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.</p>}
+      {unavailable && <output aria-live="polite" className="form-help">Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.</output>}
       <button type="submit" className="button primary" disabled={report.isPending || !child?.yearEndDate || unavailable}>Gửi đăng ký</button>
       {children.isError ? <p className="form-error">Không tải được danh sách trẻ. Đóng cửa sổ và thử lại.</p> : !children.isPending && !children.data?.length && <p className="form-error">Tài khoản chưa được liên kết với trẻ. Vào mục Liên kết trẻ để gửi yêu cầu.</p>}
     </form></Modal>}
@@ -114,7 +114,7 @@ export function AbsencesPage() {
         <p className="form-help">{editYear ? `Năm học ${editYear.code}: ${editYear.startDate} đến ${editYear.endDate}` : 'Nhà trường chưa thiết lập mốc năm học. Bạn vẫn có thể hủy đăng ký để ăn lại.'}</p>
         <label className="field">Đến ngày<input type="date" required disabled={update.isPending} min={laterSchoolDate(editFrom, localToday())} max={editYear?.endDate} value={editTo} onChange={e => setEditTo(e.target.value)} /></label>
         <label className="field">Lý do<textarea required maxLength={500} disabled={update.isPending} value={editReason} onChange={e => setEditReason(e.target.value)} /></label>
-        {editUnavailable && <p role="status" className="form-help">Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.</p>}
+        {editUnavailable && <output aria-live="polite" className="form-help">Nhà trường không phục vụ ăn trong khoảng ngày đã chọn. Không cần đăng ký không ăn cho trẻ.</output>}
         <div className="form-actions"><button type="button" className="button secondary" disabled={update.isPending} onClick={() => setEditing(null)}>Hủy</button><button type="submit" className="button primary" disabled={update.isPending || !editReason.trim() || !editYear || editUnavailable}>Lưu cập nhật</button></div>
       </form>
     </Modal>}

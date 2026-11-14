@@ -10,6 +10,6 @@ export async function searchKitchenSettlements(date: string, page: number) {
 }
 export async function kitchenDiff(id: string) { return (await api.get<KitchenDiff>(`/kitchen/settlements/${id}/diff`)).data }
 export async function kitchenHistory(id: string) { return (await api.get<KitchenAcknowledgement[]>(`/kitchen/settlements/${id}/acknowledgements`)).data }
-export async function acknowledgeKitchen(id: string, snapshotToken: string, note: string) {
+export function acknowledgeKitchen(id: string, snapshotToken: string, note: string) {
   return api.post(`/kitchen/settlements/${id}/acknowledge`, { snapshotToken, note: note.trim() || null })
 }

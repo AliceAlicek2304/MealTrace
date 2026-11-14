@@ -116,8 +116,7 @@ export default function App() {
     </aside>
     <div className="content">
       <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
-      <main><PageContent page={page} user={user} isAdmin={isAdmin} canRegisterStudents={canRegisterStudents}
-        canSeePortions={canSeePortions} isParent={isParent} isMealStaff={isMealStaff} onPasswordChanged={clearSession} /></main>
+      <main><PageContent page={page} user={user} onPasswordChanged={clearSession} /></main>
     </div>
   </div>
 }
@@ -155,28 +154,25 @@ function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions,
   </nav>
 }
 
-function PageContent({ page, user, isAdmin, canRegisterStudents, canSeePortions, isParent, isMealStaff, onPasswordChanged }: Readonly<{
+function PageContent({ page, user, onPasswordChanged }: Readonly<{
   page: ReturnType<typeof usePageNavigation>[0]
   user: CurrentUser
-  isAdmin: boolean
-  canRegisterStudents: boolean
-  canSeePortions: boolean
-  isParent: boolean
-  isMealStaff: boolean
   onPasswordChanged: () => void
 }>) {
+  const profile = <ProfilePage user={user} onPasswordChanged={onPasswordChanged} />
+  if (page && !canOpenPage(page, user.roles)) return profile
+  const isAdmin = user.roles.includes('ADMIN')
   switch (page) {
-    case 'catalog': if (isMealStaff) return <KitchenWorkspace />; break
-    case 'audit': if (isAdmin) return <AdminToolsPage />; break
-    case 'kitchen': if (isMealStaff) return <KitchenSettlementsPage canAcknowledge={!isAdmin && user.roles.includes('KITCHEN_STAFF')} />; break
-    case 'accounts': if (isAdmin) return <AccountsPage />; break
-    case 'classes': if (canRegisterStudents) return <ClassesPage isAdmin={isAdmin} />; break
-    case 'calendar': if (isAdmin) return <MealCalendarPage />; break
-    case 'portions': if (canSeePortions) return <PortionsPage roles={user.roles} />; break
-    case 'absences': if (isParent) return <AbsencesPage />; break
-    case 'meals': if (isMealStaff) return <MealDaysPage />; break
-    case 'links': if (isParent || canRegisterStudents) return <ParentLinksPage roles={user.roles} />; break
-    default: break
+    case 'catalog': return <KitchenWorkspace />
+    case 'audit': return <AdminToolsPage />
+    case 'kitchen': return <KitchenSettlementsPage canAcknowledge={!isAdmin && user.roles.includes('KITCHEN_STAFF')} />
+    case 'accounts': return <AccountsPage />
+    case 'classes': return <ClassesPage isAdmin={isAdmin} />
+    case 'calendar': return <MealCalendarPage />
+    case 'portions': return <PortionsPage roles={user.roles} />
+    case 'absences': return <AbsencesPage />
+    case 'meals': return <MealDaysPage />
+    case 'links': return <ParentLinksPage roles={user.roles} />
+    default: return profile
   }
-  return <ProfilePage user={user} onPasswordChanged={onPasswordChanged} />
 }

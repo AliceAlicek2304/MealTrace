@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState, type TableHTMLAttributes } from 'rea
 const secondaryHeadings = new Set(['Năm học', 'Thời điểm lưu', 'Người gửi / bản nguồn', 'Phạm vi', 'Phiên đã tạo', 'Ghi chú', 'Giờ chốt', 'Thứ', 'Lý do', 'Nguồn quyết định', 'Phiên bản', 'Thực đơn', 'Chụp / đồng bộ'])
 
 /** One set of data/actions: desktop table, labelled record cards on small screens. */
-export function ResponsiveTable({ className = '', children, ...props }: TableHTMLAttributes<HTMLTableElement>) {
+export function ResponsiveTable({ className = '', children, ...props }: Readonly<TableHTMLAttributes<HTMLTableElement>>) {
   const ref = useRef<HTMLTableElement>(null)
   const [expanded, setExpanded] = useState(false)
   const [hasSecondary, setHasSecondary] = useState(false)

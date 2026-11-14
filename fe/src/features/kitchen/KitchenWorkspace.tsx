@@ -75,7 +75,10 @@ export function KitchenWorkspace() {
     event.preventDefault()
     if (busy) return
     const values = new FormData(event.currentTarget),
-      text = (key: string) => String(values.get(key) ?? '').trim(),
+      text = (key: string) => {
+        const value = values.get(key)
+        return typeof value === 'string' ? value.trim() : ''
+      },
       number = (key: string) => Number(text(key))
     setBusy(true)
     try {
@@ -169,6 +172,168 @@ export function KitchenWorkspace() {
       />
     </label>
   )
+  function editorTitle() {
+    if (edit === 'new') return 'Thêm nguyên liệu'
+    if (edit === 'recipe') return 'Công thức'
+    return edit ? `Dinh dưỡng: ${edit.name}` : ''
+  }
+  function editorFields() {
+    if (edit === 'new')
+      return (
+        <>
+          {field('name', 'Tên nguyên liệu')}
+          <label className="field">
+            <span>Đơn vị</span>
+            <select name="unit">
+              <option value="g">g</option>
+              <option value="ml">ml</option>
+            </select>
+          </label>
+        </>
+      )
+    if (edit === 'recipe')
+      return (
+        <>
+          <label className="field">
+            <span>Thao tác công thức</span>
+            <select
+              value={recipeEditing ? 'version' : 'new'}
+              disabled={busy}
+              onChange={(e) => setRecipeEditing(e.target.value === 'version')}
+            >
+              <option value="new">Tạo công thức mới</option>
+              <option value="version">Thêm phiên bản công thức</option>
+            </select>
+          </label>
+          {recipeEditing ? (
+            <>
+              {field('existing', 'Mã công thức', 'text', recipeId)}
+              {field(
+                'expectedVersion',
+                'Phiên bản đối chiếu',
+                'number',
+                String(version),
+              )}
+            </>
+          ) : (
+            field('name', 'Tên công thức')
+          )}
+          {field('servingBasis', 'Số suất', 'number', '1')}
+          {field('reason', 'Lý do phiên bản mới', 'text', '', false)}
+          <label className="field">
+            <span>Tìm thành phần</span>
+            <input
+              value={pickerSearch}
+              onChange={(e) => setPickerSearch(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <QueryState
+            loading={picker.isPending}
+            error={picker.isError}
+            loadingMessage="Đang tìm nguyên liệu…"
+            errorMessage="Không tải được nguyên liệu."
+            onRetry={() => {
+              void picker.refetch()
+            }}
+          >
+            {null}
+          </QueryState>
+          <label className="field">
+            <span>Thêm thành phần</span>
+            <select
+              value=""
+              onChange={(e) => {
+                const item = picker.data?.items.find(
+                  (x) => x.id === e.target.value,
+                )
+                if (item && !lines.some((x) => x.ingredientId === item.id))
+                  setLines([
+                    ...lines,
+                    {
+                      ingredientId: item.id,
+                      name: item.name,
+                      unit: item.unit,
+                      quantity: 1,
+                    },
+                  ])
+              }}
+            >
+              <option value="">Chọn nguyên liệu</option>
+              {picker.data?.items.map((x) => (
+                <option value={x.id} key={x.id}>
+                  {x.name} ({x.unit})
+                </option>
+              ))}
+            </select>
+          </label>
+          {lines.map((line, index) => (
+            <div key={line.ingredientId}>
+              <label className="field">
+                <span>
+                  {line.name} — tổng lượng ({line.unit})
+                </span>
+                <input
+                  required
+                  type="number"
+                  min="0.001"
+                  step="any"
+                  value={line.quantity}
+                  onChange={(e) =>
+                    setLines(
+                      lines.map((x, i) =>
+                        i === index
+                          ? { ...x, quantity: Number(e.target.value) }
+                          : x,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setLines(lines.filter((_, i) => i !== index))}
+              >
+                Bỏ thành phần
+              </button>
+            </div>
+          ))}
+        </>
+      )
+    if (edit)
+      return (
+        <>
+          {field(
+            'validFrom',
+            'Ngày bắt đầu áp dụng',
+            'datetime-local',
+            `${schoolToday()}T${schoolTime(new Date().toISOString())}`,
+          )}
+          {field('ediblePercent', 'Tỷ lệ ăn được (%)', 'number', '100')}
+          {field('energyKcal', 'Năng lượng / 100g (kcal)', 'number')}
+          {field('proteinG', 'Đạm / 100g (g)', 'number')}
+          {field('fatG', 'Béo / 100g (g)', 'number')}
+          {field('carbG', 'Carbohydrate / 100g (g)', 'number')}
+          {field('source', 'Nguồn dữ liệu')}
+          {edit.nutrition?.versionId && (
+            <label className="checkbox-field">
+              <input type="checkbox" name="supersede" disabled={busy} />
+              <span>Thay thế bản dinh dưỡng đang áp dụng</span>
+            </label>
+          )}
+          {field('sourceRef', 'Tài liệu tham chiếu', 'text', '', false)}
+          {field(
+            'gramsPerMl',
+            'Khối lượng g/ml (nguyên liệu lỏng)',
+            'number',
+            '',
+            false,
+          )}
+        </>
+      )
+    return null
+  }
   return (
     <>
       <h1>Nguyên liệu & công thức</h1>
@@ -186,7 +351,7 @@ export function KitchenWorkspace() {
         <FilterPanel activeCount={search ? 1 : 0}>
           <div className="list-toolbar">
             <label className="field">
-              Tìm nguyên liệu
+              <span>Tìm nguyên liệu</span>
               <input
                 value={search}
                 onChange={(e) => {
@@ -267,7 +432,7 @@ export function KitchenWorkspace() {
           }}
         >
           <label className="field">
-            Mã công thức
+            <span>Mã công thức</span>
             <input
               required
               value={recipeId}
@@ -278,7 +443,7 @@ export function KitchenWorkspace() {
             />
           </label>
           <label className="field">
-            Phiên bản
+            <span>Phiên bản</span>
             <input
               required
               type="number"
@@ -291,7 +456,7 @@ export function KitchenWorkspace() {
             />
           </label>
           <label className="field">
-            Dữ liệu tính
+            <span>Dữ liệu tính</span>
             <select
               value={mode}
               onChange={(e) => {
@@ -334,172 +499,9 @@ export function KitchenWorkspace() {
         </form>
       </section>
       {edit && (
-        <Modal
-          title={
-            edit === 'new'
-              ? 'Thêm nguyên liệu'
-              : edit === 'recipe'
-                ? 'Công thức'
-                : `Dinh dưỡng: ${edit.name}`
-          }
-          busy={busy}
-          onClose={() => setEdit(null)}
-        >
+        <Modal title={editorTitle()} busy={busy} onClose={() => setEdit(null)}>
           <form className="workflow-form" onSubmit={save}>
-            {edit === 'new' ? (
-              <>
-                {field('name', 'Tên nguyên liệu')}
-                <label className="field">
-                  Đơn vị
-                  <select name="unit">
-                    <option value="g">g</option>
-                    <option value="ml">ml</option>
-                  </select>
-                </label>
-              </>
-            ) : edit === 'recipe' ? (
-              <>
-                <label className="field">
-                  Thao tác công thức
-                  <select
-                    value={recipeEditing ? 'version' : 'new'}
-                    disabled={busy}
-                    onChange={(e) =>
-                      setRecipeEditing(e.target.value === 'version')
-                    }
-                  >
-                    <option value="new">Tạo công thức mới</option>
-                    <option value="version">Thêm phiên bản công thức</option>
-                  </select>
-                </label>
-                {recipeEditing ? (
-                  <>
-                    {field('existing', 'Mã công thức', 'text', recipeId)}
-                    {field(
-                      'expectedVersion',
-                      'Phiên bản đối chiếu',
-                      'number',
-                      String(version),
-                    )}
-                  </>
-                ) : (
-                  field('name', 'Tên công thức')
-                )}
-                {field('servingBasis', 'Số suất', 'number', '1')}
-                {field('reason', 'Lý do phiên bản mới', 'text', '', false)}
-                <label className="field">
-                  Tìm thành phần
-                  <input
-                    value={pickerSearch}
-                    onChange={(e) => setPickerSearch(e.target.value)}
-                    disabled={busy}
-                  />
-                </label>
-                <QueryState
-                  loading={picker.isPending}
-                  error={picker.isError}
-                  loadingMessage="Đang tìm nguyên liệu…"
-                  errorMessage="Không tải được nguyên liệu."
-                  onRetry={() => {
-                    void picker.refetch()
-                  }}
-                >
-                  {null}
-                </QueryState>
-                <label className="field">
-                  Thêm thành phần
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const item = picker.data?.items.find(
-                        (x) => x.id === e.target.value,
-                      )
-                      if (
-                        item &&
-                        !lines.some((x) => x.ingredientId === item.id)
-                      )
-                        setLines([
-                          ...lines,
-                          {
-                            ingredientId: item.id,
-                            name: item.name,
-                            unit: item.unit,
-                            quantity: 1,
-                          },
-                        ])
-                    }}
-                  >
-                    <option value="">Chọn nguyên liệu</option>
-                    {picker.data?.items.map((x) => (
-                      <option value={x.id} key={x.id}>
-                        {x.name} ({x.unit})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {lines.map((line, index) => (
-                  <div key={line.ingredientId}>
-                    <label className="field">
-                      {line.name} — tổng lượng ({line.unit})
-                      <input
-                        required
-                        type="number"
-                        min="0.001"
-                        step="any"
-                        value={line.quantity}
-                        onChange={(e) =>
-                          setLines(
-                            lines.map((x, i) =>
-                              i === index
-                                ? { ...x, quantity: Number(e.target.value) }
-                                : x,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      onClick={() =>
-                        setLines(lines.filter((_, i) => i !== index))
-                      }
-                    >
-                      Bỏ thành phần
-                    </button>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <>
-                {field(
-                  'validFrom',
-                  'Ngày bắt đầu áp dụng',
-                  'datetime-local',
-                  `${schoolToday()}T${schoolTime(new Date().toISOString())}`,
-                )}
-                {field('ediblePercent', 'Tỷ lệ ăn được (%)', 'number', '100')}
-                {field('energyKcal', 'Năng lượng / 100g (kcal)', 'number')}
-                {field('proteinG', 'Đạm / 100g (g)', 'number')}
-                {field('fatG', 'Béo / 100g (g)', 'number')}
-                {field('carbG', 'Carbohydrate / 100g (g)', 'number')}
-                {field('source', 'Nguồn dữ liệu')}
-                {edit.nutrition?.versionId && (
-                  <label className="checkbox-field">
-                    <input type="checkbox" name="supersede" disabled={busy} />
-                    Thay thế bản dinh dưỡng đang áp dụng
-                  </label>
-                )}
-                {field('sourceRef', 'Tài liệu tham chiếu', 'text', '', false)}
-                {field(
-                  'gramsPerMl',
-                  'Khối lượng g/ml (nguyên liệu lỏng)',
-                  'number',
-                  '',
-                  false,
-                )}
-              </>
-            )}
+            {editorFields()}
             <button
               type="submit"
               className="button primary"
