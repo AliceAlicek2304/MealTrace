@@ -317,6 +317,9 @@ h1 { color: #28374e; }
 .parent-contact dd { margin: 0; overflow-wrap: anywhere; }
 .session-status { display: grid; justify-items: start; gap: 16px; }
 .parent-summary:focus-visible { outline: 3px solid #9771cf; outline-offset: 3px; border-radius: 4px; }
+.link-status-filter { max-width: 360px; margin: 22px 0; }
+.link-status-filter .field { gap: 8px; font-size: 13px; line-height: 1.4; }
+.link-status-filter .field select { min-height: 44px; }
 .table-actions .button { font-size: 12px; padding: 8px 11px; }
 .table-actions .icon-button { background: #f5effc; border: 1px solid #e8dcf4; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; }
 .table-actions .action-danger { color: #a53f35; background: #fff0ed; border-color: #edb2a7; }
@@ -338,6 +341,7 @@ h1 { color: #28374e; }
 @media (max-width: 700px) {
   .list-toolbar { padding: 16px; gap: 12px; }
   .list-toolbar .field { flex-basis: 100%; max-width: none; }
+  .link-status-filter { max-width: none; }
   .table-wrap td, .table-wrap th { padding: 12px; }
   .panel-head { padding: 18px 16px; }
   .modal-tabs { padding: 16px; }

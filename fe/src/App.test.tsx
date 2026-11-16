@@ -8,7 +8,6 @@ import App from './App'
 vi.mock('./features/workflow/ClassesPage', () => ({ ClassesPage: () => <h1>Danh sách lớp thử</h1> }))
 vi.mock('./features/workflow/PortionsPage', () => ({ PortionsPage: () => <h1>Số suất thử</h1> }))
 vi.mock('./features/access/ProfilePage', () => ({ ProfilePage: () => <h1>Hồ sơ thử</h1> }))
-vi.mock('./features/landing/LandingPage', () => ({ LandingPage: () => <h1>Trang giới thiệu thử</h1> }))
 
 const user = { id: 'teacher', fullName: 'Giáo viên A', roles: ['TEACHER'], email: 'teacher@example.test', inspectorAccessUntil: null }
 let cache: QueryClient
@@ -60,7 +59,7 @@ describe('Session restoration and navigation', () => {
     setAccessToken('expired-token')
     vi.spyOn(api, 'get').mockRejectedValue({ response: { status: 401 } })
     mount()
-    await screen.findByRole('heading', { name: 'Trang giới thiệu thử' })
+    await screen.findByRole('heading', { name: 'Đăng nhập' })
     expect(getAccessToken()).toBeNull()
     expect(sessionStorage.getItem('mealtrace.session')).toBeNull()
   })

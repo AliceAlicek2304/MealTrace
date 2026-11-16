@@ -23,7 +23,7 @@ function fill() {
 describe('Parent signup', () => {
   it('requires a fresh OTP after editing the phone and sends no password when requesting OTP', async () => {
     const register = vi.spyOn(authApi, 'registerParent')
-    render(<LoginPage onLogin={vi.fn()} onBack={vi.fn()} />)
+    render(<LoginPage onLogin={vi.fn()} />)
     fireEvent.click(screen.getByText('Đăng ký tài khoản phụ huynh')); fill(); await receiveOtp()
     expect(authApi.requestParentOtp).toHaveBeenCalledExactlyOnceWith('0901234567')
     expect(screen.getByText(/Gửi lại sau/).hasAttribute('disabled')).toBe(true)
@@ -43,7 +43,7 @@ describe('Parent signup', () => {
     let finish!: () => void
     const request = vi.spyOn(authApi, 'registerParent').mockImplementation(() => new Promise<void>(resolve => { finish = resolve }))
     const onLogin = vi.fn()
-    render(<LoginPage onLogin={onLogin} onBack={vi.fn()} />)
+    render(<LoginPage onLogin={onLogin} />)
     fireEvent.click(screen.getByText('Đăng ký tài khoản phụ huynh')); fill(); await receiveOtp()
     expect(screen.queryByLabelText('Chọn tài khoản seed')).toBeNull()
     fireEvent.click(screen.getByText('Tạo tài khoản phụ huynh'))
@@ -56,7 +56,7 @@ describe('Parent signup', () => {
   })
   it('keeps signup open on a duplicate phone response', async () => {
     vi.spyOn(authApi, 'registerParent').mockRejectedValue({ isAxiosError: true, response: { status: 409, data: { message: 'SĐT đã có tài khoản.' } } })
-    render(<LoginPage onLogin={vi.fn()} onBack={vi.fn()} />)
+    render(<LoginPage onLogin={vi.fn()} />)
     fireEvent.click(screen.getByText('Đăng ký tài khoản phụ huynh')); fill(); await receiveOtp()
     fireEvent.click(screen.getByText('Tạo tài khoản phụ huynh'))
     expect((await screen.findByRole('alert')).textContent).toBe('SĐT đã có tài khoản.')
