@@ -44,8 +44,8 @@ describe('Teacher registration and notifications', () => {
   })
 
   it('preserves account credentials and shows notification failure separately from successful linking', async () => {
-    vi.spyOn(api, 'get').mockImplementation(async url => ({ data: url === '/notifications/settings' ? { enabled: true, channel: 'WhatsApp', templateOnly: true } : url === '/classes' ? [{ id: 'class-a', name: 'M1', schoolYear: '2026-2027' }] : { items: [{ id: 'child-a', studentCode: 'HS-A', fullName: 'Trẻ A', className: 'M1', isActive: true, parents: [] }], total: 1 } }))
-    const post = vi.spyOn(api, 'post').mockResolvedValue({ data: { created: true, phoneNumber: '0901234567', temporaryPassword: 'Fake!Password9', notification: { status: 'UNKNOWN', message: 'Hồ sơ đã lưu; chưa rõ kết quả thông báo.', providerMessageId: null } } })
+    vi.spyOn(api, 'get').mockImplementation(async url => ({ data: url === '/notifications/settings' ? { enabled: true, channel: 'WhatsApp — Vonage ưu tiên, Twilio dự phòng', templateOnly: true } : url === '/classes' ? [{ id: 'class-a', name: 'M1', schoolYear: '2026-2027' }] : { items: [{ id: 'child-a', studentCode: 'HS-A', fullName: 'Trẻ A', className: 'M1', isActive: true, parents: [] }], total: 1 } }))
+    const post = vi.spyOn(api, 'post').mockResolvedValue({ data: { created: true, phoneNumber: '0901234567', temporaryPassword: 'Fake!Password9', notification: { status: 'UNKNOWN', message: 'Vonage ưu tiên, Twilio dự phòng; sandbox nội bộ.', providerMessageId: null } } })
     cache = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={cache}><ClassesPage isAdmin={false} /></QueryClientProvider>)
     await screen.findByRole('option', { name: 'M1' })
@@ -56,7 +56,7 @@ describe('Teacher registration and notifications', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Gửi hướng dẫn đăng nhập qua WhatsApp/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Liên kết' }))
     await screen.findByText(/Hồ sơ đã lưu; chưa xác định được kết quả gửi tin/)
-    expect(screen.queryByText(/Twilio dùng mẫu demo/)).toBeNull()
+    expect(screen.queryByText(/Vonage ưu tiên|Twilio dự phòng|sandbox/)).toBeNull()
     expect(screen.getByText('Fake!Password9')).toBeTruthy()
     expect(post).toHaveBeenCalledWith('/admin/students/child-a/parents', { phoneNumber: '0901234567', fullName: 'Parent A', sendRegistrationNotification: true })
   })

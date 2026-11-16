@@ -91,6 +91,7 @@ public sealed class ParentSignupOtpTests
     [Theory]
     [InlineData(NotificationOutcome.Failed, HttpStatusCode.BadRequest)]
     [InlineData(NotificationOutcome.Unknown, HttpStatusCode.OK)]
+    [InlineData(NotificationOutcome.Disabled, HttpStatusCode.BadRequest)]
     public async Task SendFailureNeverCreatesAccountAndUnknownDoesNotResend(NotificationOutcome outcome, HttpStatusCode expected)
     {
         var sender = new RecordingOtpSender { Outcome = outcome };
@@ -98,10 +99,29 @@ public sealed class ParentSignupOtpTests
         await factory.SeedUsersAsync(); using var client = factory.CreateClient();
         var response = await client.PostAsJsonAsync("/api/auth/register/otp", new { phoneNumber = "0901234567" });
         Assert.Equal(expected, response.StatusCode);
-        Assert.DoesNotContain(sender.LastCode!, await response.Content.ReadAsStringAsync());
+        var publicBody = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(sender.LastCode!, publicBody);
+        Assert.DoesNotContain("sandbox", publicBody);
+        Assert.DoesNotContain("tester", publicBody);
         Assert.Equal(1, sender.Calls);
         using var scope = factory.Services.CreateScope();
         Assert.Equal(2, await scope.ServiceProvider.GetRequiredService<MealTraceDbContext>().Users.CountAsync());
+    }
+
+    [Fact]
+    public async Task UnavailableNumberStillCannotSendOtpAndDoesNotExposeSetupDetails()
+    {
+        var sender = new RecordingOtpSender();
+        using var factory = new AuthTestFactory(otpSender: sender);
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/register/otp", new { phoneNumber = "0907654321" });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("sandbox", body);
+        Assert.DoesNotContain("tester", body);
+        Assert.DoesNotContain("Twilio", body);
+        Assert.DoesNotContain("Vonage", body);
+        Assert.Equal(0, sender.Calls);
     }
 
     [Fact]

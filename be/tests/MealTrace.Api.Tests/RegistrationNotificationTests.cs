@@ -60,6 +60,9 @@ public sealed class RegistrationNotificationTests
         var password = result.GetProperty("temporaryPassword").GetString()!;
         Assert.Equal(failNotification ? "UNKNOWN" : "ACCEPTED", result.GetProperty("notification").GetProperty("status").GetString());
         Assert.Equal(1, sender.Calls);
+        var publicMessage = result.GetProperty("notification").GetProperty("message").GetString()!;
+        Assert.DoesNotContain("provider-internal", publicMessage);
+        Assert.DoesNotContain("Logs", publicMessage);
         Assert.Equal("84901234567", sender.Number);
         Assert.Contains("MEALTRACE | THÔNG BÁO ĐĂNG KÝ\n\nKính gửi Quý phụ huynh,", sender.Text);
         Assert.Contains("Hồ sơ của Child Notification đã được đăng ký", sender.Text);
@@ -128,7 +131,7 @@ public sealed class RegistrationNotificationTests
         {
             Calls++; Number = number; Text = text ?? "";
             if (fail) throw new HttpRequestException("simulated failure");
-            return Task.FromResult(new NotificationSendResult(NotificationOutcome.Accepted, Guid.NewGuid().ToString(), "Accepted, not delivered"));
+            return Task.FromResult(new NotificationSendResult(NotificationOutcome.Accepted, Guid.NewGuid().ToString(), "provider-internal: Vonage ưu tiên / Twilio dự phòng"));
         }
     }
 }

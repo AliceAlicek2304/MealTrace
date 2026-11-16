@@ -31,6 +31,24 @@ public sealed class NotificationTests
         Assert.Equal(2, fake.Calls);
     }
 
+    [Theory]
+    [InlineData(NotificationOutcome.Accepted, "ACCEPTED")]
+    [InlineData(NotificationOutcome.Failed, "FAILED")]
+    [InlineData(NotificationOutcome.Unknown, "UNKNOWN")]
+    [InlineData(NotificationOutcome.Disabled, "DISABLED")]
+    public async Task PublicNotificationKeepsOutcomeWithoutProviderDiagnostics(NotificationOutcome outcome, string expectedStatus)
+    {
+        var sender = new FakeSender(outcome);
+        var result = await new NotificationService(sender, new NotificationPolicy(true, "0901234567"),
+            new NotificationSendGate(new Clock()), new Actor(RoleNames.Admin)).SendTestAsync(default);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expectedStatus, result.Value!.Status);
+        Assert.Equal("******4567", result.Value.Recipient);
+        Assert.DoesNotContain("provider-internal", result.Value.Message);
+        Assert.DoesNotContain("sandbox", result.Value.Message);
+        Assert.Equal(1, sender.Calls);
+    }
+
     [Fact]
     public void GateBlocksConcurrentRequestsEvenAfterCooldown()
     {
@@ -43,11 +61,11 @@ public sealed class NotificationTests
         Assert.True(gate.TryBegin());
     }
 
-    private sealed class FakeSender : INotificationSender
+    private sealed class FakeSender(NotificationOutcome outcome = NotificationOutcome.Accepted) : INotificationSender
     {
         public int Calls { get; private set; }
         public string? Number { get; private set; }
-        public Task<NotificationSendResult> SendAsync(string number, CancellationToken ct, string? text = null) { Calls++; Number = number; return Task.FromResult(new NotificationSendResult(NotificationOutcome.Accepted, Guid.NewGuid().ToString(), "accepted")); }
+        public Task<NotificationSendResult> SendAsync(string number, CancellationToken ct, string? text = null) { Calls++; Number = number; return Task.FromResult(new NotificationSendResult(outcome, Guid.NewGuid().ToString(), "provider-internal: Vonage ưu tiên, Twilio dự phòng, sandbox")); }
     }
     private sealed class Actor(string role) : ICurrentActor
     {

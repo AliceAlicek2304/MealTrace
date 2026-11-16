@@ -188,7 +188,7 @@ class AuthController extends ChangeNotifier {
       _status = AuthStatus.signedOut;
       if (result == LogoutResult.localOnly) {
         _message =
-            'Đã đăng xuất trên thiết bị. Chưa thể kết thúc phiên trên máy chủ.';
+            'Đã đăng xuất trên thiết bị này. Chưa thể đăng xuất khỏi các thiết bị khác.';
       }
     } on AuthFailure catch (error) {
       if (!_disposed) _message = error.message;

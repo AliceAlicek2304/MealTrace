@@ -70,9 +70,7 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Gửi tin thử'),
-        content: const Text(
-          'Gửi một tin đến số nhận thử đã thiết lập? Thao tác sử dụng hạn mức gửi tin.',
-        ),
+        content: const Text('Gửi một tin nhắn kiểm tra qua WhatsApp?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

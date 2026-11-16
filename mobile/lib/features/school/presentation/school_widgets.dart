@@ -109,8 +109,6 @@ const fieldLabels = <String, String>{
   'photoUrl': 'Ảnh minh chứng',
   'message': 'Thông báo',
   'enabled': 'Đã bật gửi tin',
-  'channel': 'Kênh gửi',
-  'templateOnly': 'Chỉ dùng mẫu cố định',
   'notification': 'Kết quả gửi tin',
   'created': 'Đã tạo',
   'restored': 'Khôi phục',

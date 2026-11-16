@@ -19,7 +19,7 @@ public sealed class ParentSignupOtpService(IAuthRepository repository, IUnitOfWo
         var phone = PhoneNumbers.Normalize(request.PhoneNumber);
         if (phone is null) return Result.Invalid("SĐT Việt Nam không hợp lệ.");
         if (!policy.Enabled || phone != PhoneNumbers.Normalize(policy.TestNumber))
-            return Result.Invalid("WhatsApp đang ở chế độ thử: chỉ gửi OTP tới SĐT tester đã cấu hình và tham gia sandbox.");
+            return Result.Invalid("Chưa thể gửi mã xác nhận tới số điện thoại này. Vui lòng liên hệ nhà trường.");
         var now = clock.GetUtcNow();
         var code = RandomNumberGenerator.GetInt32(1000000).ToString("D6");
         ParentSignupOtp otp;
@@ -47,7 +47,7 @@ public sealed class ParentSignupOtpService(IAuthRepository repository, IUnitOfWo
         try { result = await sender.SendAsync("84" + phone[1..], code, CancellationToken.None); }
         catch (Exception) { result = new(NotificationOutcome.Unknown, null, "Chưa xác định kết quả gửi OTP."); }
         if (result.Outcome is NotificationOutcome.Failed or NotificationOutcome.Disabled)
-            return Result.Invalid("Chưa gửi được OTP WhatsApp. Kiểm tra SĐT đã tham gia sandbox và cửa sổ hội thoại 24 giờ; chờ 60 giây trước khi gửi lại.");
+            return Result.Invalid("Chưa gửi được mã xác nhận qua WhatsApp. Vui lòng thử lại sau 60 giây hoặc liên hệ nhà trường.");
         return Result.Success(new ParentOtpResponse(otp.ChallengeId, otp.ExpiresAt, now.AddSeconds(60),
             result.Outcome == NotificationOutcome.Unknown
                 ? "Chưa xác định kết quả gửi. Nếu nhận OTP, bạn vẫn có thể nhập mã; không gửi lại ngay."

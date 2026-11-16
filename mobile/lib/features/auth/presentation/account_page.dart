@@ -67,9 +67,6 @@ class AccountPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-              const Text(
-                'Bạn đã đăng nhập thành công. Các chức năng bữa ăn đang được phát triển.',
-              ),
               if (auth.message != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
@@ -82,7 +79,7 @@ class AccountPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Đăng xuất sẽ kết thúc các phiên hiện có của tài khoản trên máy chủ.',
+                'Đăng xuất sẽ kết thúc phiên đăng nhập trên các thiết bị khác.',
                 style: TextStyle(fontSize: 12),
               ),
             ],

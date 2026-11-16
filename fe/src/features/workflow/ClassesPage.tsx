@@ -25,8 +25,7 @@ function notificationMessage(result: NotificationResult) {
 export function ClassesPage({ isAdmin = true }: Readonly<{ isAdmin?: boolean }>) {
   const queryClient = useQueryClient()
   const notifications = useQuery({ queryKey: ['notification-settings'], queryFn: async () =>
-    (await api.get<{ enabled: boolean; channel: string }>('/notifications/settings')).data })
-  const channel = notifications.data?.channel ?? 'Thông báo'
+    (await api.get<{ enabled: boolean }>('/notifications/settings')).data })
 
   const [tab, setTab] = useState<'students' | 'classes' | 'years'>('students')
   const [importing, setImporting] = useState(false)
@@ -106,9 +105,9 @@ export function ClassesPage({ isAdmin = true }: Readonly<{ isAdmin?: boolean }>)
       <form className="workflow-form" onSubmit={submitLink}><p className="form-help">Nhập SĐT đã có tài khoản để liên kết ngay. Nếu SĐT chưa tồn tại, nhập thêm họ tên để tạo tài khoản phụ huynh mới; mật khẩu tạm chỉ hiển thị một lần.</p>
         <div className="workflow-fields"><label className="field">SĐT phụ huynh<input required type="tel" maxLength={30} value={parentPhone} onChange={e => setParentPhone(e.target.value)} /></label>
           <label className="field">Họ tên nếu tạo mới<input maxLength={120} value={parentName} onChange={e => setParentName(e.target.value)} /></label>
-          <label className="switch-line"><input type="checkbox" disabled={!notifications.data?.enabled} checked={sendRegistrationNotification} onChange={e => setSendRegistrationNotification(e.target.checked)} /> Gửi hướng dẫn đăng nhập qua {channel}</label>
+          <label className="switch-line"><input type="checkbox" disabled={!notifications.data?.enabled} checked={sendRegistrationNotification} onChange={e => setSendRegistrationNotification(e.target.checked)} /> Gửi hướng dẫn đăng nhập qua WhatsApp</label>
           <button type="submit" className="button primary" disabled={linkParent.isPending}>Liên kết</button></div></form>
-      <p className="form-help">Hồ sơ và tài khoản vẫn được lưu nếu gửi tin không thành công. Phụ huynh cần dùng WhatsApp để nhận tin.</p>
+
       {notificationResult && <output className={notificationResult.status === 'ACCEPTED' ? 'form-help' : 'error'} aria-live="polite">{notificationMessage(notificationResult)}</output>}
       {temporaryPassword && <div className="credential-once"><strong>Đăng nhập: {credentialPhone} · Mật khẩu tạm:</strong> <code>{temporaryPassword}</code><button type="button" onClick={() => setTemporaryPassword('')}>Đã lưu, ẩn mật khẩu</button><small>Chỉ hiển thị một lần. Chuyển riêng cho phụ huynh qua kênh an toàn.</small></div>}
     </Modal>}

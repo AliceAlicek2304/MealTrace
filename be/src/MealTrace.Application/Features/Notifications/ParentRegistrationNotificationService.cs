@@ -13,7 +13,7 @@ public sealed class ParentRegistrationNotificationService(INotificationSender se
             return new("DISABLED", null, "", "Hồ sơ đã lưu; thông báo chưa bật hoặc phụ huynh chưa có SĐT.");
         // Trial POC: never send credentials to an unapproved destination.
         if (phone != PhoneNumbers.Normalize(policy.TestNumber))
-            return new("DISABLED", null, "******" + phone[^4..], "Hồ sơ đã lưu; giai đoạn thử chỉ gửi tới số tester cấu hình.");
+            return new("DISABLED", null, "******" + phone[^4..], "Hồ sơ đã lưu; chưa thể gửi thông báo tới số điện thoại này.");
         if (!gate.TryBegin())
             return new("RATE_LIMITED", null, "******" + phone[^4..], "Hồ sơ đã lưu; chưa gửi thông báo vì đang trong khoảng giới hạn 60 giây.");
         try
@@ -28,12 +28,12 @@ public sealed class ParentRegistrationNotificationService(INotificationSender se
                 + $"THÔNG TIN ĐĂNG NHẬP\nTài khoản (SĐT): {phone}\n{loginInstructions}\n\n"
                 + "Trân trọng,\nMealTrace";
             var result = await sender.SendAsync("84" + phone[1..], CancellationToken.None, content);
-            return new(result.Outcome.ToString().ToUpperInvariant(), result.ProviderMessageId, "******" + phone[^4..], result.Message);
+            return NotificationResponse.FromSendResult(result, "******" + phone[^4..]);
         }
         catch (Exception)
         {
             // Keep registration successful and never expose credentials in error payloads.
-            return new("UNKNOWN", null, "******" + phone[^4..], "Hồ sơ đã lưu; chưa xác định kết quả thông báo. Kiểm tra Logs của nhà cung cấp trước khi gửi lại.");
+            return new("UNKNOWN", null, "******" + phone[^4..], "Hồ sơ đã lưu; chưa xác định được kết quả gửi tin. Vui lòng kiểm tra WhatsApp trước khi gửi lại.");
         }
         finally { gate.End(); }
     }

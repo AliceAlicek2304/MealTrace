@@ -46,14 +46,13 @@ export function StudentImportForm({ initialClassId = '', onDone, onBusy }: Reado
     upload.mutate(false)
   }
   return <form className="workflow-form" onSubmit={submit}>
-    <p className="form-help">Nhập họ tên, ngày sinh và giới tính có trong file; tự tạo mã trẻ. Quản lý chọn lớp và ngày bắt đầu bên dưới. Không tạo phụ huynh hoặc gửi WhatsApp.</p>
     <ClassPicker compact required assignedOnly showSchoolYear disabled={upload.isPending} value={classId} onChange={value => { setClassId(value); reset() }} />
     <label className="field">Ngày bắt đầu học<input type="date" required min={today} disabled={upload.isPending} value={startDate} onChange={event => { setStartDate(event.target.value); reset() }} /></label>
     <label className="field">File danh sách XLSX<input type="file" required accept=".xlsx" disabled={upload.isPending} onChange={event => { setFile(event.target.files?.[0] ?? null); reset() }} /></label>
     <p className="form-help">Một sheet, tối đa 500 trẻ, 5 MB. Cần cột “Họ tên” hoặc “Họ tên trẻ”; có thể có tiêu đề phía trên. Dòng lỗi/trùng phải sửa trước khi nhập.</p>
     <button className="button secondary" type="submit" disabled={upload.isPending || !file || !classId}>Xem trước danh sách</button>
     {preview && <Modal wide title="Kiểm tra danh sách trẻ" description={`${preview.rows.length} trẻ · ${preview.sheetName} · Ngày bắt đầu: ${displayBirth(startDate)}`} busy={upload.isPending} onClose={reset}><section aria-label="Danh sách nhập thử" className="student-import-preview">
-      <details className="student-import-help"><summary>Hướng dẫn kiểm tra</summary><p className="form-help">Kiểm tra thông tin trước khi nhập. Thông tin thiếu hiển thị “Chưa có”. SĐT chỉ hiển thị để đối chiếu, chưa lưu hoặc tạo phụ huynh.</p>
+      <details className="student-import-help"><summary>Hướng dẫn kiểm tra</summary><p className="form-help">Kiểm tra thông tin trẻ trước khi nhập. SĐT chỉ dùng để đối chiếu; liên kết phụ huynh sau khi nhập trẻ.</p>
       {preview.ignoredColumns.length > 0 && <p className="form-help">Các cột không nhập: {preview.ignoredColumns.join(', ')}.</p>}
       </details>
       {!preview.canImport && <p role="alert" className="error">Có dòng lỗi hoặc trùng. Sửa file rồi xem trước lại; chưa lưu trẻ nào.</p>}

@@ -27,8 +27,8 @@ function notificationStatus(
 ) {
   if (pending) return 'Đang tải trạng thái gửi tin…'
   if (error) return 'Không tải được trạng thái gửi tin.'
-  if (enabled) return 'Dịch vụ gửi tin đang bật.'
-  return 'Dịch vụ gửi tin chưa bật.'
+  if (enabled) return 'Đã sẵn sàng gửi tin.'
+  return 'Chưa thể gửi thông báo.'
 }
 export function AdminToolsPage() {
   const [page, setPage] = useState(1),
@@ -274,7 +274,7 @@ export function AdminToolsPage() {
           busy={busy}
           onClose={() => setConfirm(false)}
         >
-          <p>Gửi một tin nhắn đến số nhận thử đã được cấu hình?</p>
+          <p>Gửi một tin nhắn kiểm tra qua WhatsApp?</p>
           <div className="form-actions">
             <button
               type="button"

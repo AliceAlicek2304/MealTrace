@@ -502,7 +502,7 @@ class _SchoolHomeState extends State<SchoolHome> {
                           builder: (context) => AlertDialog(
                             title: const Text('Đăng xuất?'),
                             content: const Text(
-                              'Các phiên hiện có của tài khoản trên máy chủ cũng sẽ kết thúc.',
+                              'Bạn cũng sẽ đăng xuất khỏi các thiết bị khác.',
                             ),
                             actions: [
                               TextButton(
