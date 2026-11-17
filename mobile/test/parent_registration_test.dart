@@ -10,7 +10,9 @@ import 'package:mealtrace_mobile/features/auth/data/auth_repository_impl.dart';
 import 'package:mealtrace_mobile/features/auth/domain/parent_registration.dart';
 import 'package:mealtrace_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:mealtrace_mobile/features/auth/presentation/login_page.dart';
+import 'package:mealtrace_mobile/features/auth/presentation/register_page.dart';
 import 'support/auth_fixtures.dart';
+import 'package:mealtrace_mobile/app/theme.dart';
 
 // Ephemeral input for mocked signup, not a real account credential.
 final input = ParentRegistration(
@@ -21,6 +23,154 @@ final input = ParentRegistration(
   otpCode: '123456',
 );
 void main() {
+  testWidgets('Invalid phone does not start a resend cooldown', (tester) async {
+    var requests = 0;
+    final auth = createController(
+      AuthApi(
+        MockClient((_) async {
+          requests++;
+          return http.Response('', 400);
+        }),
+        'https://example.test/api',
+      ),
+      MemoryStore(),
+    );
+    await auth.restore();
+    await tester.pumpWidget(MaterialApp(home: RegisterPage(auth: auth)));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Số điện thoại'),
+      '123',
+    );
+    final send = find.text('Gửi OTP qua WhatsApp');
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(requests, 0);
+    expect(find.textContaining('Gửi lại sau'), findsNothing);
+    expect(
+      tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
+      isNotNull,
+    );
+    await tester.pumpWidget(const SizedBox());
+    auth.dispose();
+  });
+  testWidgets('OTP delivery has its own progress label and focuses the code', (
+    tester,
+  ) async {
+    final reply = Completer<http.Response>();
+    final auth = createController(
+      AuthApi(MockClient((_) => reply.future), 'https://example.test/api'),
+      MemoryStore(),
+    );
+    await auth.restore();
+    await tester.pumpWidget(MaterialApp(home: RegisterPage(auth: auth)));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Số điện thoại'),
+      input.phoneNumber,
+    );
+    final send = find.text('Gửi OTP qua WhatsApp');
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pump();
+    expect(find.text('Đang gửi OTP…'), findsOneWidget);
+    expect(find.text('Đang đăng ký…'), findsNothing);
+    reply.complete(
+      jsonResponse({
+        'challengeId': 'challenge-1',
+        'expiresAt': DateTime.now()
+            .add(const Duration(minutes: 5))
+            .toIso8601String(),
+        'resendAt': DateTime.now()
+            .add(const Duration(seconds: 90))
+            .toIso8601String(),
+        'message': 'OTP đã gửi.',
+      }),
+    );
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(
+      find.descendant(
+        of: find.widgetWithText(TextFormField, 'Mã OTP WhatsApp'),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(field.focusNode!.hasFocus, isTrue);
+    expect(find.textContaining('Gửi lại sau 9'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    auth.dispose();
+  });
+  for (final width in [320.0, 390.0, 768.0]) {
+    testWidgets(
+      'Signup remains usable with large text and keyboard at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 700);
+        tester.view.devicePixelRatio = 1;
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final auth = createController(
+          AuthApi(
+            MockClient(
+              (_) async => jsonResponse({
+                'challengeId': 'keyboard-code',
+                'expiresAt': DateTime.now()
+                    .add(const Duration(minutes: 5))
+                    .toIso8601String(),
+                'resendAt': DateTime.now()
+                    .add(const Duration(seconds: 60))
+                    .toIso8601String(),
+                'message': 'Mã xác nhận đã được gửi.',
+              }),
+            ),
+            'https://example.test/api',
+          ),
+          MemoryStore(),
+        );
+        await auth.restore();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: mealTraceTheme,
+            home: RegisterPage(auth: auth),
+          ),
+        );
+        final phone = find.widgetWithText(TextFormField, 'Số điện thoại');
+        await tester.scrollUntilVisible(
+          phone,
+          140,
+          scrollable: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        );
+        await tester.enterText(phone, input.phoneNumber);
+        final send = find.text('Gửi OTP qua WhatsApp');
+        await tester.ensureVisible(send);
+        await tester.pumpAndSettle();
+        await tester.tap(send);
+        await tester.pumpAndSettle();
+        final otp = find.widgetWithText(TextFormField, 'Mã OTP WhatsApp');
+        await tester.ensureVisible(otp);
+        await tester.pumpAndSettle();
+        await tester.enterText(otp, '123456');
+        expect(tester.getRect(otp).bottom, lessThanOrEqualTo(420));
+        expect(
+          tester
+              .getRect(
+                find.widgetWithText(FilledButton, 'Tạo tài khoản phụ huynh'),
+              )
+              .bottom,
+          lessThanOrEqualTo(420),
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        auth.dispose();
+      },
+    );
+  }
   test(
     'OTP request sends phone only and leaves session storage empty',
     () async {

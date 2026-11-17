@@ -10,6 +10,29 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() }, Toaster:
 let cache: QueryClient
 afterEach(() => { cleanup(); cache?.clear(); vi.restoreAllMocks() })
 
+it('retries loading children inside the open form without losing the reason', async () => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', '') } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute('open') } })
+  let offline = true
+  vi.spyOn(api, 'get').mockImplementation(async url => {
+    if (url === '/parent/students') {
+      if (offline) throw new Error('offline')
+      return { data: [{ studentId: 'child', fullName: 'Nguyễn An', className: 'A3', schoolYear: '2026-2027', yearStartDate: schoolToday(), yearEndDate: '2027-05-31' }] }
+    }
+    return { data: url === '/academic-years' ? [] : { items: [], total: 0, students: [] } }
+  })
+  cache = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={cache}><AbsencesPage /></QueryClientProvider>)
+  fireEvent.click(screen.getByRole('button', { name: 'Đăng ký không ăn' }))
+  const dialog = within(screen.getByRole('dialog', { name: 'Đăng ký không ăn' }))
+  fireEvent.change(dialog.getByLabelText('Lý do'), { target: { value: 'Gia đình có việc' } })
+  const retry = await dialog.findByRole('button', { name: 'Thử lại danh sách trẻ' })
+  offline = false
+  fireEvent.click(retry)
+  await dialog.findByRole('option', { name: 'Nguyễn An · A3' })
+  expect((dialog.getByLabelText('Lý do') as HTMLTextAreaElement).value).toBe('Gia đình có việc')
+})
+
 it('prevents submitting a closed school day while allowing a period with another serving day', async () => {
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', '') } })
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute('open') } })

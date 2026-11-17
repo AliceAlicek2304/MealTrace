@@ -21,6 +21,33 @@ function fill() {
   fireEvent.change(screen.getByLabelText('Nhập lại mật khẩu'), { target: { value: draft.password } })
 }
 describe('Parent signup', () => {
+  it('uses the server resend deadline and focuses the received OTP field', async () => {
+    vi.spyOn(authApi, 'requestParentOtp').mockResolvedValue({ ...challenge, resendAt: new Date(Date.now() + 90000).toISOString() })
+    render(<LoginPage onLogin={vi.fn()} />)
+    fireEvent.click(screen.getByText('Đăng ký phụ huynh')); fill()
+    fireEvent.click(screen.getByText('Gửi OTP qua WhatsApp'))
+    const otp = await screen.findByLabelText('Mã OTP WhatsApp')
+    expect(document.activeElement).toBe(otp)
+    expect(screen.getByRole('button', { name: /Gửi lại sau (89|90)s/ }).hasAttribute('disabled')).toBe(true)
+  })
+  it('shows OTP delivery progress without claiming account creation has started', async () => {
+    let finish!: (value: authApi.ParentOtpChallenge) => void
+    vi.spyOn(authApi, 'requestParentOtp').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    render(<LoginPage onLogin={vi.fn()} />)
+    fireEvent.click(screen.getByText('Đăng ký phụ huynh')); fill()
+    fireEvent.click(screen.getByText('Gửi OTP qua WhatsApp'))
+    expect(screen.getByRole('button', { name: 'Đang gửi OTP…' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByText('Đang đăng ký…')).toBeNull()
+    finish(challenge)
+    await screen.findByLabelText('Mã OTP WhatsApp')
+  })
+  it('lets a parent check both password entries without clearing their values', () => {
+    render(<LoginPage onLogin={vi.fn()} />)
+    fireEvent.click(screen.getByText('Đăng ký phụ huynh')); fill()
+    fireEvent.click(screen.getByLabelText('Hiện mật khẩu'))
+    expect((screen.getByLabelText(/^Mật khẩu/) as HTMLInputElement).type).toBe('text')
+    expect((screen.getByLabelText('Nhập lại mật khẩu') as HTMLInputElement).value).toBe(draft.password)
+  })
   it('requires a fresh OTP after editing the phone and sends no password when requesting OTP', async () => {
     const register = vi.spyOn(authApi, 'registerParent')
     render(<LoginPage onLogin={vi.fn()} />)

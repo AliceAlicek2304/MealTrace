@@ -138,7 +138,7 @@ function ReviewForm({ model }: Readonly<{ model: PortionAmendmentModel }>) {
   const { shownRequest, detail, isAdmin, stale, busy, reason, setReason, review, query } = model
   return <div className="workflow-form"><p>{shownRequest && requestStudentNames(shownRequest)} · {shownRequest?.willEat ? 'Tăng' : 'Giảm'} {shownRequest?.quantity} suất · {shownRequest && statuses[shownRequest.status]}</p>
         <p>Lý do đề nghị: {shownRequest?.reason}</p>
-        <QueryState loading={detail.isPending} error={detail.isError} loadingMessage="Đang tải bản nguồn…" errorMessage="Không tải được bản nguồn.">{detail.data && <>
+        <QueryState loading={detail.isPending} error={detail.isError} loadingMessage="Đang tải bản nguồn…" errorMessage="Không tải được bản nguồn." onRetry={() => void detail.refetch()}>{detail.data && <>
           <SnapshotView title="Nguồn yêu cầu" snapshot={detail.data.before} />
           {detail.data.after && <SnapshotView title="Bản sau duyệt" snapshot={detail.data.after} />}</>}</QueryState>
         {isAdmin && shownRequest?.status === 'PENDING' && <>

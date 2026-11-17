@@ -1,22 +1,32 @@
-import { KitchenWorkspace } from './features/kitchen/KitchenWorkspace'
-import { AdminToolsPage } from './features/access/AdminToolsPage'
-import { KitchenSettlementsPage } from './features/kitchen/KitchenSettlementsPage'
-import { ParentLinksPage } from './features/workflow/ParentLinksPage'
-import { useEffect, useRef, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, Leaf, LogOut, ShieldCheck, UserRound, Users, School, ClipboardList, CalendarOff, Menu } from 'lucide-react'
 import { Modal } from './components/Modal'
 import { api, apiErrorMessage, getAccessToken, setAccessToken } from './lib/api'
 import { canOpenPage, defaultPage, pageFromHash, usePageNavigation } from './lib/navigation'
-import { AccountsPage } from './features/access/AccountsPage'
 import type { CurrentUser, LoginResponse } from './features/access/authApi'
 import { LoginPage } from './features/access/LoginPage'
 import { ProfilePage } from './features/access/ProfilePage'
-import { MealDaysPage } from './features/meals/MealDaysPage'
-import { ClassesPage } from './features/workflow/ClassesPage'
-import { AbsencesPage } from './features/workflow/AbsencesPage'
-import { PortionsPage } from './features/workflow/PortionsPage'
-import { MealCalendarPage } from './features/workflow/MealCalendarPage'
+
+const KitchenWorkspace = lazy(() => import('./features/kitchen/KitchenWorkspace').then(module => ({ default: module.KitchenWorkspace })))
+const AdminToolsPage = lazy(() => import('./features/access/AdminToolsPage').then(module => ({ default: module.AdminToolsPage })))
+const KitchenSettlementsPage = lazy(() => import('./features/kitchen/KitchenSettlementsPage').then(module => ({ default: module.KitchenSettlementsPage })))
+const ParentLinksPage = lazy(() => import('./features/workflow/ParentLinksPage').then(module => ({ default: module.ParentLinksPage })))
+const AccountsPage = lazy(() => import('./features/access/AccountsPage').then(module => ({ default: module.AccountsPage })))
+const MealDaysPage = lazy(() => import('./features/meals/MealDaysPage').then(module => ({ default: module.MealDaysPage })))
+const ClassesPage = lazy(() => import('./features/workflow/ClassesPage').then(module => ({ default: module.ClassesPage })))
+const AbsencesPage = lazy(() => import('./features/workflow/AbsencesPage').then(module => ({ default: module.AbsencesPage })))
+const PortionsPage = lazy(() => import('./features/workflow/PortionsPage').then(module => ({ default: module.PortionsPage })))
+const MealCalendarPage = lazy(() => import('./features/workflow/MealCalendarPage').then(module => ({ default: module.MealCalendarPage })))
+
+class PageLoadBoundary extends Component<Readonly<{ children: ReactNode }>, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() {
+    if (this.state.failed) return <div role="alert" className="empty compact"><p>Chưa mở được chức năng. Vui lòng tải lại trang hoặc chọn mục khác.</p><button type="button" className="button secondary" onClick={() => window.location.reload()}>Tải lại trang</button></div>
+    return this.props.children
+  }
+}
 
 const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
 const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
@@ -116,7 +126,7 @@ export default function App() {
     </aside>
     <div className="content">
       <header><span>MealTrace / {pageName}</span><span className="user-actions"><span>{user.fullName}</span><button type="button" onClick={() => { void logout() }}><LogOut size={16} /> Đăng xuất</button></span></header>
-      <main><PageContent page={page} user={user} onPasswordChanged={clearSession} /></main>
+      <main><PageLoadBoundary key={page}><Suspense fallback={<output aria-live="polite" className="empty compact">Đang mở chức năng…</output>}><PageContent page={page} user={user} onPasswordChanged={clearSession} /></Suspense></PageLoadBoundary></main>
     </div>
   </div>
 }

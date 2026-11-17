@@ -73,6 +73,7 @@ h1 { color: #28374e; }
 .login-main { position: relative; }
 .login-card { border: 3px solid #fff; border-radius: 25px; box-shadow: 0 10px 0 #e9dfd2, 0 21px 40px #75604a1c; }
 .login-icon { background: #ffe2d6; color: #a63f31; box-shadow: 0 5px 0 #f0c0b3; transform: rotate(-7deg); }
+.login-card .password-visibility { min-height: 44px; margin: 0 0 12px; gap: 10px; font-size: 13px; font-weight: 600; }
 .login-card h2 { color: #29374f; font-size: 34px; }
 .login-button { height: 48px; width: 100%; }
 .login-hint { border-color: #eee6db; }
@@ -219,7 +220,8 @@ h1 { color: #28374e; }
   .login-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
   .login-side { padding: 28px 24px; }
   .login-main { padding: 28px 20px; }
-  .login-card { padding: 24px; }
+  .login-card { padding: 20px; }
+  .login-card h2 { font-size: 26px; line-height: 1.25; }
   .login-side h1 { font-size: 34px; }
   .page-head { flex-wrap: wrap; }
   .page-head > div { flex: 1 1 320px; min-width: 0; }

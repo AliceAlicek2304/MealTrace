@@ -87,7 +87,7 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onImportHis
     {view === 'classes' && <section className="panel workflow-lists"><div className="panel-head"><h2>Danh sách lớp</h2><button type="button" className="button primary" onClick={onCreate}>Tạo lớp</button></div>
       <FilterPanel activeCount={[classSearchTerm].filter(Boolean).length}><div className="list-toolbar"><label className="field">Tìm lớp<input placeholder="Tên lớp hoặc niên khóa" value={classSearch} onChange={e => { setClassSearch(e.target.value); setClassPage(1) }} /></label></div></FilterPanel>
       <SearchFeedback waiting={classSearchWaiting} fetching={classes.isFetching} />
-      <QueryState loading={classes.isPending} error={classes.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(classes.error)}>
+      <QueryState loading={classes.isPending} error={classes.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(classes.error)} onRetry={() => void classes.refetch()}>
         {!classes.data?.items.length && <p className="empty compact">{classSearchTerm ? 'Không có lớp phù hợp tìm kiếm.' : 'Chưa có lớp.'}</p>}
         <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Lớp</th><th scope="col">Năm học</th><th scope="col">Trẻ đang học</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {classes.data?.items.map(room => <tr key={room.id}><td><strong>{room.name}</strong></td><td>{room.schoolYear}</td><td>{room.studentCount}</td>
@@ -102,7 +102,7 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onImportHis
         <label className="field">Trạng thái hôm nay<select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="ACTIVE">Đang học</option><option value="INACTIVE">Chưa học / đã ngừng</option></select></label>
         <label className="field">Liên kết phụ huynh<select value={parentStatus} onChange={e => { setParentStatus(e.target.value); setPage(1) }}><option value="">Tất cả</option><option value="UNLINKED">Chưa liên kết</option><option value="LINKED">Đã liên kết</option></select></label></div></FilterPanel>
       <SearchFeedback waiting={searchWaiting} fetching={students.isFetching} />
-      <QueryState loading={students.isPending} error={students.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(students.error)}>
+      <QueryState loading={students.isPending} error={students.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(students.error)} onRetry={() => void students.refetch()}>
         {!students.data?.items.length && <p className="empty compact">{searchTerm || classId || status || parentStatus ? 'Không có trẻ phù hợp bộ lọc.' : 'Chưa có trẻ.'}</p>}
         <div className="table-wrap"><ResponsiveTable><thead><tr><th scope="col">Trẻ / mã trẻ</th><th scope="col">Lớp</th><th scope="col">Trạng thái</th><th scope="col">Phụ huynh</th><th scope="col">Thao tác</th></tr></thead><tbody>
         {students.data?.items.map(student => <tr key={student.id}><td><button type="button" className="parent-summary" aria-label={`Xem hồ sơ ${student.fullName}`} onClick={() => setProfileTarget(student)}><strong>{student.fullName}</strong></button><small className="record-secondary">{student.studentCode}</small></td><td>{student.className}</td><td><span className={`status ${student.isActive ? 'active' : 'suspended'}`}>{student.isActive ? 'Đang học' : 'Chưa học / đã ngừng'}</span></td>
@@ -139,7 +139,7 @@ export function StudentDirectory({ onLink, view, onCreate, onImport, onImportHis
       </article>)}</div>
     </Modal>}
     {historyTarget && <Modal title={`Lịch sử: ${historyTarget.fullName}`} description={historyTarget.studentCode} onClose={() => setHistoryTarget(null)}>
-      <div className="workflow-form"><QueryState loading={history.isPending} error={history.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(history.error)} loadingClassName="form-help" errorClassName="error">{!history.data?.length ? <p>Chưa có lịch sử ghi danh.</p> : history.data.map(item =>
+      <div className="workflow-form"><QueryState loading={history.isPending} error={history.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(history.error)} loadingClassName="form-help" errorClassName="error" onRetry={() => void history.refetch()}>{!history.data?.length ? <p>Chưa có lịch sử ghi danh.</p> : history.data.map(item =>
         <div className="entry" key={item.id}><strong>{item.className} · {item.schoolYear}</strong><small>{item.startDate} → {item.endDate ? `${item.endDate} (không bao gồm ngày này)` : 'Chưa kết thúc'}</small><p>{item.reason}</p>{item.endReason && <p>Kết thúc: {item.endReason}</p>}</div>)}</QueryState></div>
     </Modal>}
   </>

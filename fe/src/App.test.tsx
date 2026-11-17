@@ -5,7 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, getAccessToken, setAccessToken } from './lib/api'
 import App from './App'
 
-vi.mock('./features/workflow/ClassesPage', () => ({ ClassesPage: () => <h1>Danh sách lớp thử</h1> }))
+const pageState = vi.hoisted(() => ({ fail: false }))
+vi.mock('./features/workflow/ClassesPage', () => ({ ClassesPage: () => {
+  if (pageState.fail) throw new Error('Simulated page load failure')
+  return <h1>Danh sách lớp thử</h1>
+} }))
 vi.mock('./features/workflow/PortionsPage', () => ({ PortionsPage: () => <h1>Số suất thử</h1> }))
 vi.mock('./features/access/ProfilePage', () => ({ ProfilePage: () => <h1>Hồ sơ thử</h1> }))
 
@@ -16,11 +20,25 @@ function mount() {
   return render(<QueryClientProvider client={cache}><App /></QueryClientProvider>)
 }
 beforeEach(() => {
+  pageState.fail = false
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })))
 })
 afterEach(() => { cleanup(); cache.clear(); setAccessToken(null); window.history.replaceState(null, '', '/'); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('Session restoration and navigation', () => {
+  it('keeps navigation available when a page fails and recovers on another page', async () => {
+    setAccessToken('test-token')
+    window.history.replaceState(null, '', '#/classes')
+    vi.spyOn(api, 'get').mockResolvedValue({ data: user })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    pageState.fail = true
+    mount()
+    expect((await screen.findByRole('alert')).textContent).toContain('Chưa mở được chức năng')
+    expect(screen.getByRole('button', { name: 'Tải lại trang' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Số suất' }))
+    expect(await screen.findByRole('heading', { name: 'Số suất thử' })).toBeTruthy()
+    expect(getAccessToken()).toBe('test-token')
+  })
   it('opens login directly at the root without an introduction page', () => {
     setAccessToken(null)
     window.history.replaceState(null, '', '/')
@@ -46,7 +64,7 @@ describe('Session restoration and navigation', () => {
     await screen.findByRole('heading', { name: 'Danh sách lớp thử' })
     fireEvent.click(screen.getByRole('button', { name: 'Số suất' }))
     expect(window.location.hash).toBe('#/portions')
-    expect(screen.getByRole('heading', { name: 'Số suất thử' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Số suất thử' })).toBeTruthy()
     window.location.hash = '/classes'
     window.dispatchEvent(new HashChangeEvent('hashchange'))
     expect(await screen.findByRole('heading', { name: 'Danh sách lớp thử' })).toBeTruthy()

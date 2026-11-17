@@ -1,6 +1,6 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 14/11/2026 (đồng bộ các nhánh vào cuong). Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Kế hoạch triển khai: [docs/implementation-plan.md](docs/implementation-plan.md). Phân công chi tiết BE: [docs/backend-task-assignment-v1.3.md](docs/backend-task-assignment-v1.3.md). Phân tích khoảng trống: [docs/gap-analysis-v1.3.md](docs/gap-analysis-v1.3.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 17/11/2026 (rà UX Web/Android trên cuong). Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Kế hoạch triển khai: [docs/implementation-plan.md](docs/implementation-plan.md). Phân công chi tiết BE: [docs/backend-task-assignment-v1.3.md](docs/backend-task-assignment-v1.3.md). Phân tích khoảng trống: [docs/gap-analysis-v1.3.md](docs/gap-analysis-v1.3.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
@@ -114,6 +114,11 @@ Các API nguyên liệu/công thức chưa đồng nghĩa đã hoàn thành toà
 5. Đăng ký mẫu WhatsApp sản xuất cho tin ngoài cửa sổ hội thoại; xử lý SMS với Twilio. Email, phí/sổ cái, offline ảnh và dashboard nâng cao làm sau; Android đang nghiệm thu các luồng API hiện có.
 
 ## 6. Làm việc chung
+
+- UX Web/Android 17/11/2026: đăng ký phụ huynh hiển thị đúng trạng thái gửi OTP/đăng ký, dùng thời điểm gửi lại từ BE và tự chuyển vào ô nhập mã. Android không bắt chờ khi SĐT sai, báo lỗi cạnh SĐT; timer dừng khi không còn cần. Web có lựa chọn hiện mật khẩu và tiêu đề đăng ký gọn trên điện thoại. Giữ nguyên xác minh OTP, hạn mức và phân quyền BE.
+- Các danh sách/hồ sơ Web có nút thử tải lại tại chỗ khi lỗi kết nối, gồm lớp/trẻ, năm học, tài khoản, suất, ngoại lệ và bữa ăn; form báo không ăn tải lại trẻ mà giữ lý do đang nhập. Trạng thái yêu cầu liên kết phải hiển thị trên màn hình nhỏ, không ẩn như thông tin phụ.
+- Web tách mã theo trang; có trạng thái đang mở và màn hình khôi phục khi tải trang lỗi, giữ menu/phiên để chọn chức năng khác. Build không còn chunk trên 500 kB. Kiểm tra trình duyệt 320/390/768/1280 px với dữ liệu giả; Flutter kiểm tra chữ lớn và bàn phím 320/390/768 px. Web 90 test pass/build pass; Android 362 test pass/analyzer sạch. Chưa nghiệm thu trên thiết bị Android thật trong lượt này. Không gọi nhà cung cấp hoặc ghi DB ứng dụng.
+
 
 - Đồng bộ nhánh 14/11/2026: toàn bộ tip remote main/nam/hung/dat/Bao/mobile/web đã có trong cuong. Merge main bổ sung bộ tài liệu Review 2; giữ giao diện và luồng nghiệp vụ hiện hành. Sửa tích hợp Android để theme/brand và bộ chọn giao diện dùng đúng thành phần chung, không để feature phụ thuộc app composition root. Cấu hình kết nối DB cá nhân nằm trong file local bỏ qua Git.
 - Web bổ sung nguyên liệu/công thức/dinh dưỡng, chi tiết tài khoản lấy từ API, lịch sử xử lý (lọc/phân trang/chi tiết trước-sau/xuất CSV), tra cứu nguồn báo cáo và gửi tin thử sau xác nhận. Android bổ sung lịch sử xử lý với chi tiết và sao chép CSV. Lịch sử/truy vết/tài khoản/gửi thử chỉ Admin; nguyên liệu/công thức dành Admin và Bếp. API chưa có danh sách công thức/báo cáo nên tra cứu theo mã, không tự tạo danh mục giả. Các endpoint tương thích dùng chung UI với bản search, không tạo màn hình trùng. Giữ chuẩn bảng/thẻ, bộ lọc thu gọn, modal/bottom sheet chi tiết; không đưa provider secret hay ghi chú nội bộ lên UI.

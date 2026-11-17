@@ -66,7 +66,7 @@ export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
     setTarget({ student, kind }); setHistoryPage(1); setReason(''); setAction(student.willEat ? 'ABSENT' : 'EAT')
   }
   const historyContent = <>
-    <QueryState loading={history.isPending} error={history.isError} loadingMessage="Đang tải lịch sử…" errorMessage={apiErrorMessage(history.error)}>
+    <QueryState loading={history.isPending} error={history.isError} loadingMessage="Đang tải lịch sử…" errorMessage={apiErrorMessage(history.error)} onRetry={() => void history.refetch()}>
       {!history.data?.items.length && <p className="form-help">Chưa có ngoại lệ.</p>}
       {history.data?.items.map(event => <div className="entry" key={event.id}><strong>{actionLabel[event.action]}</strong>
         <small>{event.actorName || (event.isLegacy ? 'Dữ liệu cũ: chưa ghi người xử lý' : 'Chưa có tên người xử lý')} · {schoolDateTime(event.recordedAt)}</small>
@@ -80,7 +80,7 @@ export function MealExceptions({ mealId }: Readonly<{ mealId: string }>) {
       <label className="field">Lớp<select value={classId} onChange={e => { setClassId(e.target.value); setPage(1) }}><option value="">Tất cả lớp được xem</option>
         {decisions.data?.classes.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div></FilterPanel>
     <SearchFeedback waiting={searchWaiting} fetching={decisions.isFetching} />
-    <QueryState loading={decisions.isPending} error={decisions.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(decisions.error)}>
+    <QueryState loading={decisions.isPending} error={decisions.isError} loadingMessage="Đang tải…" errorMessage={apiErrorMessage(decisions.error)} onRetry={() => void decisions.refetch()}>
       {!canEdit && <p className="empty compact">{decisions.data?.isCancelled ? `Phiên đã hủy: ${decisions.data.cancellationReason ?? 'Theo lịch trường'}` : 'Đã qua giờ chốt hoặc phiên đã chốt; chỉ xem thông tin và lịch sử.'}</p>}
       {decisions.data?.isSettled && <div className="workflow-form">
         <QueryState loading={applied.isPending} error={applied.isError} loadingMessage="Đang tải suất hiện hành…" errorMessage="Không tải được suất hiện hành." onRetry={() => void applied.refetch()}>

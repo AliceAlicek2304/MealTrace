@@ -17,40 +17,69 @@ class _RegisterPageState extends State<RegisterPage> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  final _phoneField = GlobalKey<FormFieldState<String>>();
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
   final _otp = TextEditingController();
+  final _otpFocus = FocusNode();
   ParentOtpChallenge? _challenge;
   Timer? _timer;
   DateTime? _resendAt;
-  int get _resendSeconds => _resendAt == null
-      ? 0
-      : _resendAt!.difference(DateTime.now()).inSeconds.clamp(0, 60);
+  int get _resendSeconds {
+    final remaining = _resendAt?.difference(DateTime.now()).inMilliseconds ?? 0;
+    return remaining <= 0 ? 0 : (remaining / 1000).ceil();
+  }
+
   String? _error;
+  bool _sendingOtp = false;
+
+  String get _otpButtonLabel {
+    if (_sendingOtp) return 'Đang gửi OTP…';
+    if (_resendSeconds > 0) return 'Gửi lại sau ${_resendSeconds}s';
+    return _challenge == null ? 'Gửi OTP qua WhatsApp' : 'Gửi lại OTP WhatsApp';
+  }
+
+  void _startClock() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendSeconds == 0 &&
+          !(_challenge?.expiresAt.isAfter(DateTime.now()) ?? false)) {
+        timer.cancel();
+      }
+      setState(() {});
+    });
+  }
 
   Future<void> _sendOtp() async {
     if (widget.auth.busy || _resendSeconds > 0) return;
+    if (!_phoneField.currentState!.validate()) return;
     setState(() {
       _error = null;
+      _sendingOtp = true;
       _challenge = null;
       _otp.clear();
     });
     _resendAt = DateTime.now().add(const Duration(seconds: 60));
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-    final result = await widget.auth.requestParentOtp(_phone.text);
-    if (!mounted || result == null) return;
-    setState(() {
-      _challenge = result;
-      _resendAt = result.resendAt;
-      _otp.clear();
-    });
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
+    _startClock();
+    try {
+      final result = await widget.auth.requestParentOtp(_phone.text);
+      if (!mounted || result == null) return;
+      setState(() {
+        _challenge = result;
+        _resendAt = result.resendAt;
+        _otp.clear();
+      });
+      _startClock();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _otpFocus.requestFocus();
+      });
+    } finally {
+      if (mounted) setState(() => _sendingOtp = false);
+    }
   }
 
   bool _obscure = true;
@@ -79,6 +108,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _otpFocus.dispose();
     for (final controller in [_name, _phone, _password, _confirmation, _otp]) {
       controller.dispose();
     }
@@ -124,8 +154,10 @@ class _RegisterPageState extends State<RegisterPage> {
                     textInputAction: TextInputAction.next,
                   ),
                   TextFormField(
+                    key: _phoneField,
                     controller: _phone,
                     onChanged: (_) => setState(() {
+                      _timer?.cancel();
                       _challenge = null;
                       _resendAt = null;
                       _otp.clear();
@@ -138,30 +170,36 @@ class _RegisterPageState extends State<RegisterPage> {
                       labelText: 'Số điện thoại',
                     ),
                     textInputAction: TextInputAction.next,
+                    validator: (value) =>
+                        ParentRegistration(
+                              '',
+                              value ?? '',
+                              '',
+                            ).normalizedPhone ==
+                            null
+                        ? 'SĐT Việt Nam không hợp lệ.'
+                        : null,
                   ),
                   OutlinedButton(
                     onPressed: busy || _resendSeconds > 0 ? null : _sendOtp,
-                    child: Text(
-                      _resendSeconds > 0
-                          ? 'Gửi lại sau ${_resendSeconds}s'
-                          : _challenge == null
-                          ? 'Gửi OTP qua WhatsApp'
-                          : 'Gửi lại OTP WhatsApp',
-                    ),
+                    child: Text(_otpButtonLabel),
                   ),
                   if (_challenge != null) ...[
                     Text(_challenge!.message),
                     TextFormField(
                       controller: _otp,
+                      focusNode: _otpFocus,
                       enabled: !busy,
                       maxLength: 6,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       autofillHints: const [AutofillHints.oneTimeCode],
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Mã OTP WhatsApp',
                         helperText:
-                            'Mã có hiệu lực 5 phút. Gửi lại sẽ vô hiệu mã cũ.',
+                            _challenge!.expiresAt.isAfter(DateTime.now())
+                            ? 'Mã có hiệu lực 5 phút. Gửi lại sẽ vô hiệu mã cũ.'
+                            : 'Mã đã hết hạn. Vui lòng gửi lại OTP.',
                         helperMaxLines: 2,
                       ),
                     ),
@@ -234,7 +272,11 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               child: FilledButton(
                 onPressed: busy ? null : _submit,
-                child: Text(busy ? 'Đang đăng ký…' : 'Tạo tài khoản phụ huynh'),
+                child: Text(
+                  busy && !_sendingOtp
+                      ? 'Đang đăng ký…'
+                      : 'Tạo tài khoản phụ huynh',
+                ),
               ),
             ),
           ),

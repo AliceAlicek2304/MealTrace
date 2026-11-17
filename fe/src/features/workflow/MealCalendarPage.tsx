@@ -18,9 +18,9 @@ type Plan = { date: string; mealType: string; action: string }
 type Preview = { items: Plan[]; previewToken: string; createCount: number; restoreCount: number; existingCount: number }
 type Edit = { code: string; revision: number; kind: 'schedule' | 'day'; date?: string }
 type Audit = { id: string; date: string | null; kind: string; reason: string; actorName: string; recordedAt: string }
-function CalendarLoadState({ loading, error, children }: Readonly<{ loading: boolean; error: string | null; children: ReactNode }>) {
+function CalendarLoadState({ loading, error, onRetry, children }: Readonly<{ loading: boolean; error: string | null; onRetry: () => void; children: ReactNode }>) {
   if (loading) return <p>Đang tải lịch…</p>
-  if (error) return <p className="error">{error}</p>
+  if (error) return <div role="alert" className="error"><p>{error}</p><button type="button" className="button secondary" onClick={onRetry}>Thử lại lịch bữa ăn</button></div>
   return children
 }
 const weekdays = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
@@ -115,7 +115,7 @@ export function MealCalendarPage() {
         <label className="field">Lọc ngày<select value={dayStatus} onChange={e => { setDayStatus(e.target.value); setDayPage(1) }}><option value="">Tất cả ngày</option><option value="OPEN">Có tổ chức ăn</option><option value="CLOSED">Không tổ chức ăn</option><option value="EXCEPTION">Ngày đặc biệt</option></select></label>
         <div className="table-actions"><button type="button" className="button secondary" onClick={() => setPeriod('week')}>1 tuần</button><button type="button" className="button secondary" onClick={() => setPeriod('month')}>1 tháng</button><button type="button" className="button secondary" onClick={() => setPeriod('year')} data-compact-label="Cả năm" aria-label="Cả năm học">Cả năm học</button></div></div></FilterPanel>}
     </section>
-    {code && <CalendarLoadState loading={calendar.isPending} error={calendar.isError ? apiErrorMessage(calendar.error) : null}>{data && <section className="panel workflow-lists"><div className="panel-head"><div><h2>Lịch bữa ăn · {code}</h2><p>{data.revision ? `${data.weekdays.map(x => weekdays[x]).join(', ') || 'Chỉ mở ngày đặc biệt'} · ${data.mealTypes.join(', ')}` : 'Chưa thiết lập lịch tuần.'}</p></div>
+    {code && <CalendarLoadState onRetry={() => void calendar.refetch()} loading={calendar.isPending} error={calendar.isError ? apiErrorMessage(calendar.error) : null}>{data && <section className="panel workflow-lists"><div className="panel-head"><div><h2>Lịch bữa ăn · {code}</h2><p>{data.revision ? `${data.weekdays.map(x => weekdays[x]).join(', ') || 'Chỉ mở ngày đặc biệt'} · ${data.mealTypes.join(', ')}` : 'Chưa thiết lập lịch tuần.'}</p></div>
         <div className="table-actions calendar-actions"><button type="button" className="button secondary" data-compact-label="Lịch tuần" aria-label={data.revision ? "Sửa lịch tuần" : "Thiết lập lịch tuần"} title={data.revision ? 'Sửa lịch tuần' : 'Thiết lập lịch tuần'} onClick={openSchedule}>{data.revision ? 'Sửa lịch tuần' : 'Thiết lập lịch tuần'}</button>
           <button type="button" className="button secondary" onClick={() => setHistoryOpen(true)}>Lịch sử</button>
           <button type="button" className="button primary" data-compact-label="Tạo lịch" aria-label="Tạo lịch hàng loạt" title="Tạo lịch hàng loạt" disabled={!data.revision || calendar.isFetching || preview.isPending || !currentRange.from || !currentRange.to || currentRange.to < currentRange.from} onClick={() => preview.mutate({ code, input: { ...currentRange, expectedRevision: data.revision } })}>Tạo lịch hàng loạt</button></div></div>

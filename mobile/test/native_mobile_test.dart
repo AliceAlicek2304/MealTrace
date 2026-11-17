@@ -10,6 +10,7 @@ import 'package:mealtrace_mobile/app/theme.dart';
 import 'package:mealtrace_mobile/features/auth/data/auth_api.dart';
 import 'package:mealtrace_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:mealtrace_mobile/features/auth/presentation/login_page.dart';
+import 'package:mealtrace_mobile/features/auth/presentation/register_page.dart';
 import 'package:mealtrace_mobile/features/school/domain/school_models.dart';
 import 'package:mealtrace_mobile/features/school/presentation/school_controller.dart';
 import 'package:mealtrace_mobile/features/school/presentation/school_form_page.dart';
@@ -122,7 +123,22 @@ void main() {
       tester.view.physicalSize = const Size(390, 850);
       final auth = createController(
         AuthApi(
-          MockClient((_) async => jsonResponse(userJson)),
+          MockClient(
+            (request) async => jsonResponse(
+              request.url.path.endsWith('/otp')
+                  ? {
+                      'challengeId': 'visual-code',
+                      'expiresAt': DateTime.now()
+                          .add(const Duration(minutes: 5))
+                          .toIso8601String(),
+                      'resendAt': DateTime.now()
+                          .add(const Duration(seconds: 90))
+                          .toIso8601String(),
+                      'message': 'Mã xác nhận đã được gửi.',
+                    }
+                  : userJson,
+            ),
+          ),
           'https://example.test/api',
         ),
         MemoryStore(),
@@ -139,6 +155,28 @@ void main() {
       );
       await tester.pumpAndSettle();
       await save('mobile-design-login-390');
+      expect(tester.takeException(), isNull);
+      await auth.restore();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: capture,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: mealTraceTheme,
+            home: RegisterPage(auth: auth),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final phone = find.widgetWithText(TextFormField, 'Số điện thoại');
+      await tester.ensureVisible(phone);
+      await tester.enterText(phone, '0901234567');
+      final send = find.text('Gửi OTP qua WhatsApp');
+      await tester.ensureVisible(send);
+      await tester.pumpAndSettle();
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      await save('mobile-ux-otp-390');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       auth.dispose();
