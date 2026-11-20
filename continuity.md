@@ -1,10 +1,10 @@
 # MealTrace — Trạng thái dự án
 
-> Cập nhật 17/11/2026 (rà UX Web/Android trên cuong). Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Kế hoạch triển khai: [docs/implementation-plan.md](docs/implementation-plan.md). Phân công chi tiết BE: [docs/backend-task-assignment-v1.3.md](docs/backend-task-assignment-v1.3.md). Phân tích khoảng trống: [docs/gap-analysis-v1.3.md](docs/gap-analysis-v1.3.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
+> Cập nhật 21/11/2026 (đồng bộ các nhánh remote vào cuong). Tài liệu nghiệp vụ: [PROPOSAL.md](PROPOSAL.md). Kế hoạch triển khai: [docs/implementation-plan.md](docs/implementation-plan.md). Phân công chi tiết BE: [docs/backend-task-assignment-v1.3.md](docs/backend-task-assignment-v1.3.md). Phân tích khoảng trống: [docs/gap-analysis-v1.3.md](docs/gap-analysis-v1.3.md). Phần dưới là trạng thái hiện tại; roadmap cũ không được dùng để suy ra tính năng đã hoàn thành.
 
 ## 1. Tổng quan
 
-MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docker. Hướng triển khai hiện tại: mỗi trường dùng một DB riêng; chưa làm mô hình nhiều trường chung DB. `mobile/` dùng Flutter chỉ cho Android trên cuong; đã tích hợp phiên đăng nhập và giao diện các API nghiệp vụ hiện có cho đủ vai trò, gồm phần nguyên liệu/công thức/dinh dưỡng và truy vết báo cáo chưa có trên web. Cần nghiệm thu trên thiết bị và dữ liệu thực. README gốc để trống theo yêu cầu.
+MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docker. Hướng triển khai hiện tại: mỗi trường dùng một DB riêng; chưa làm mô hình nhiều trường chung DB. `mobile/` dùng Flutter chỉ cho Android trên cuong; đã tích hợp phiên đăng nhập và giao diện các luồng v1.3 cho đủ vai trò, gồm phần nguyên liệu/công thức/dinh dưỡng và truy vết báo cáo chưa có trên web. Các API v1.4 vừa đồng bộ chưa có UI tương ứng. Cần nghiệm thu trên thiết bị và dữ liệu thực. README gốc để trống theo yêu cầu.
 
 ### Tech stack đã chốt
 
@@ -32,7 +32,8 @@ MealTrace quản lý bữa ăn bán trú trường mầm non. Không dùng Docke
 | Lịch bữa ăn | Admin thiết lập thứ và bữa phục vụ; xem trước/tạo hàng loạt tuần/tháng/năm học; sửa ngày nghỉ/học bù, giữ lịch sử. |
 | Ngoại lệ trước chốt | Teacher/Admin ghi có suất/không có suất/khôi phục mặc định, kèm lý do và nguồn; Teacher chỉ lớp được giao. |
 | Chốt và điều chỉnh | Admin chốt suất theo lớp; Teacher/Admin gửi một phiếu cho nhiều trẻ hoặc số lượng bếp không gắn trẻ; Admin duyệt/từ chối toàn phiếu; thêm phiên bản mới, giữ gốc. FE chọn nhanh trẻ phù hợp trong trang, giữ lựa chọn qua trang/tìm kiếm, bỏ từng trẻ và xem tổng suất trước/sau. Kitchen đọc suất áp dụng và chênh lệch. |
-| Nguyên liệu/dinh dưỡng — Hùng | Đã merge BE nguyên liệu/phiên bản, công thức/phiên bản, tính Kcal/đạm/béo/carbohydrate, nguồn dữ liệu và thời gian áp dụng/ghi nhận. Web và Android có danh mục, form cập nhật dinh dưỡng, tạo/thêm bản công thức và tra cứu dinh dưỡng. Chưa hoàn chỉnh luồng bếp lập/duyệt/công bố thực đơn. |
+| Nguyên liệu/dinh dưỡng — Hùng | Đã merge BE nguyên liệu/phiên bản, công thức/phiên bản, tính Kcal/đạm/béo/carbohydrate, nguồn dữ liệu và thời gian áp dụng/ghi nhận. Web và Android có danh mục, form cập nhật dinh dưỡng, tạo/thêm bản công thức và tra cứu dinh dưỡng. Đã nhập thêm BE v1.4 cho nhà cung cấp/nguồn theo ngày, lập/duyệt/công bố thực đơn, dinh dưỡng đóng băng và dự trù nguyên liệu; migration đi kèm trong source. Các luồng v1.4 mới chưa có UI Web/Android và chưa nghiệm thu vận hành. |
+| Serving và minh chứng — Nam | Đã merge 4 endpoint ghi/xem Serving, thêm phiên bản và lịch sử; DTO phân bổ nguyên liệu theo nhiều nguồn, lý do đổi món, thiếu nguồn, ClientRequestId và ExpectedVersion. Service hiện dùng bộ nhớ static, chưa lưu PostgreSQL, chưa xác minh snapshotToken hoặc các khóa tham chiếu với DB; lịch sử chỉ giữ metadata, chưa giữ đầy đủ đồ thị phiên bản cũ. Chưa có UI Web/Android. docs/photo-api-contract-v1.4.md là hợp đồng đề xuất, chưa có API upload/duyệt/xem ảnh triển khai. |
 | FE | Style claymorphism, tiếng Việt và Sonner toast. Lỗi API/kết nối và kiểm tra file dùng toast trong modal (toasterId edit-modal); lỗi dữ liệu từng dòng giữ cạnh dòng tương ứng để đối chiếu. Các trang quản lý dùng table với tìm kiếm/lọc ở phía trên; tạo/sửa/xem chi tiết/hủy mở modal. Lớp/trẻ/năm học và chi tiết suất chia tab, không hiển thị tất cả form cùng lúc. Điều hướng dùng URL dạng #/classes, #/portions… và hỗ trợ nút quay lại. Phiên được giữ trong tab bằng sessionStorage, kiểm tra /auth/me khi tải lại; hết hạn cần đăng nhập lại, lỗi mạng có nút thử lại. Kết quả gửi tin dùng thông báo dễ hiểu cho mọi vai trò. Không đưa ghi chú nội bộ, nhà cung cấp/API, cấu hình sandbox/gửi thử hoặc mã trạng thái kỹ thuật lên giao diện; lưu các thông tin này trong tài liệu phát triển. Giao diện màn hình nhỏ dùng sidebar trượt từ trái, danh sách dạng thẻ không kéo ngang; bộ lọc và thông tin phụ có thể mở rộng, popup liên hệ phụ huynh dạng thẻ. Quy trình UI thống nhất: đối chiếu continuity trước khi sửa, ưu tiên thông tin chính trên màn hình nhỏ và đưa thông tin phụ vào mở rộng/modal; kiểm tra trình duyệt thực ở 320/390/768 px và desktop, không chỉ dựa vào build/test, trước khi bàn giao. Cần tiếp tục nghiệm thu với dữ liệu thực. |
 
 ### Phân quyền hiện hành
@@ -88,6 +89,7 @@ Các API nguyên liệu/công thức chưa đồng nghĩa đã hoàn thành toà
 
 ## 4. Đang làm và vấn đề còn lại
 
+- Đồng bộ ngày 21/11/2026: merge origin/main (gồm Bao), origin/dat, origin/hung và origin/nam vào cuong; origin/mobile và origin/web đã nằm trong lịch sử cuong. Giữ đăng nhập trực tiếp, lazy routes, error boundary và UX mới của cuong khi giải quyết xung đột Dat; nhận chỉnh bộ lọc trạng thái liên kết. KitchenEndpoints đăng ký đồng thời module Hùng và Serving Nam. Nam có 4 commit mới: c72b83d, 3953331, cc661be, 3a6f0c4; 8 unit test Serving và 3 trường hợp ranh giới giờ chốt Lunch. Không coi unit test service là nghiệm thu HTTP/DB hoặc phân quyền. Chưa áp migration mới lên DB vận hành. Đã sửa ServingService singleton giữ ICurrentActor scoped thành scoped và khai báo phản hồi CSV dự trù trong Swagger. Bộ kiểm thử khởi động Development, Swagger, model migration và Serving/cutoff chạy lại 14/14 qua. Web 90 test/build qua; Android analyzer qua, 361/362 test qua, test đối chiếu API chưa nhận diện các nhóm endpoint v1.4 mới và các API mới chưa có UI. Không bỏ qua test này để báo hoàn tất.
 - BE2 (Nam) — Cutoff tự động, settlement và Kitchen acknowledgement (Baseline v1.3):
   + Hoàn tất BE2-CORE-02: CutoffAt động theo từng bữa được áp dụng trong SchoolTime.cs, MealCalendarService.cs và WorkflowService.cs (Breakfast 21:00 D-1; Lunch/Snack 07:00 D; fallback 07:30 D). Không tự đổi CutoffAt của phiên cũ.
   + Hoàn tất BE2-CORE-01: MealSettlementWorker chạy nền theo chu kỳ 30 giây, tự chốt phiên đến hạn, hỗ trợ chạy bù sau khởi động trễ, bỏ qua phiên hủy và tránh chốt trùng. Bộ kiểm thử worker có trên nhánh nam.
@@ -107,8 +109,8 @@ Các API nguyên liệu/công thức chưa đồng nghĩa đã hoàn thành toà
 
 ## 5. Chưa triển khai và hướng tiếp theo
 
-1. Hoàn thiện thực đơn theo nhóm tuổi, duyệt/công bố và dinh dưỡng đầy đủ với nguồn dữ liệu rõ ràng.
-2. Chế biến thực tế/đổi món, ảnh và hồ sơ minh chứng; Parent theo dõi bản công bố.
+1. Tích hợp UI Web/Android và nghiệm thu luồng thực đơn v1.4 vừa merge; kiểm tra migration PostgreSQL, quyền, dữ liệu và snapshot dinh dưỡng.
+2. Hoàn thiện Serving Nam: persistence/phiên bản bất biến, xác minh nguồn và snapshot, kiểm thử HTTP/phân quyền; sau đó upload/duyệt/xem ảnh theo contract và UI tương ứng.
 3. Báo cáo, truy vết nguồn, bản đã duyệt và bản tính lại; thống nhất mẫu báo cáo và người duyệt.
 4. Mở rộng import PDF hoặc thông tin bổ sung khi chốt phạm vi. XLSX hiện nhập họ tên/ngày sinh/giới tính vào lớp Admin chọn; chưa tự tạo/ghép Parent theo SĐT. Không mặc định 100 trẻ = 100 Parent; anh chị em dùng chung tài khoản.
 5. Đăng ký mẫu WhatsApp sản xuất cho tin ngoài cửa sổ hội thoại; xử lý SMS với Twilio. Email, phí/sổ cái, offline ảnh và dashboard nâng cao làm sau; Android đang nghiệm thu các luồng API hiện có.

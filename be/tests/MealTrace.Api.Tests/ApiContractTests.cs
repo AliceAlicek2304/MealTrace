@@ -49,7 +49,7 @@ public sealed class ApiContractTests
                 foreach (var response in successes)
                 {
                     if (response.Key == "204") { Assert.Empty(response.Value.Content); continue; }
-                    if (path.Key == "/api/admin/audit-logs/export")
+                    if (path.Key is "/api/admin/audit-logs/export" or "/api/kitchen/ingredient-estimates/{id}/export")
                     {
                         Assert.True(response.Value.Content.ContainsKey("text/csv"));
                         Assert.Equal("string", response.Value.Content["text/csv"].Schema.Type);
