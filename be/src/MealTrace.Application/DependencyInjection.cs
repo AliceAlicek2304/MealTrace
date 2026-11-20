@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IRecipeService, RecipeService>();
         services.AddScoped<INutritionService, NutritionService>();
         services.AddScoped<IKitchenSettlementService, KitchenSettlementService>();
+        services.AddSingleton<IServingService, ServingService>();
         services.AddScoped<AuthService>();
         services.AddScoped<ParentSignupOtpService>();
         services.AddScoped<AccountService>();
