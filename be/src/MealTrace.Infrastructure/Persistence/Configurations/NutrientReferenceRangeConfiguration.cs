@@ -17,9 +17,17 @@ internal sealed class NutrientReferenceRangeConfiguration : IEntityTypeConfigura
         builder.Property(x => x.Source).HasMaxLength(200);
         builder.Property(x => x.SourceRef).HasMaxLength(500);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.RecordedByUserId).OnDelete(DeleteBehavior.Restrict);
+
+        // Phase 3: basis, meal type, versioning. Rows written earlier keep Basis null ("unspecified").
+        builder.Property(x => x.Basis).HasMaxLength(10);
+        builder.Property(x => x.MealType).HasMaxLength(30);
+        builder.Property(x => x.Reason).HasMaxLength(500);
+        builder.HasIndex(x => x.SupersedesId).IsUnique();
+        builder.HasOne<NutrientReferenceRange>().WithMany().HasForeignKey(x => x.SupersedesId).OnDelete(DeleteBehavior.Restrict);
         builder.ToTable(t =>
         {
             t.HasCheckConstraint("CK_NutrientReferenceRanges_Nutrient", "\"Nutrient\" IN ('kcal', 'proteinG', 'fatG', 'carbG')");
+            t.HasCheckConstraint("CK_NutrientReferenceRanges_Basis", "\"Basis\" IS NULL OR \"Basis\" IN ('perMeal', 'daily')");
             t.HasCheckConstraint("CK_NutrientReferenceRanges_Bounds", "\"MinValue\" IS NOT NULL OR \"MaxValue\" IS NOT NULL");
             t.HasCheckConstraint("CK_NutrientReferenceRanges_Order", "\"MinValue\" IS NULL OR \"MaxValue\" IS NULL OR \"MinValue\" <= \"MaxValue\"");
             t.HasCheckConstraint("CK_NutrientReferenceRanges_Interval", "\"EffectiveTo\" IS NULL OR \"EffectiveTo\" > \"EffectiveFrom\"");

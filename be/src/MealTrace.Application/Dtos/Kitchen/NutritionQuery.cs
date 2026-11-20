@@ -5,4 +5,4 @@ namespace MealTrace.Application.Dtos.Kitchen;
 /// Mode "pinned" uses the ingredient versions stored on the recipe lines; ValidAt/KnownAt are not allowed with it.
 /// </summary>
 public sealed record NutritionQuery(
-    string? Mode = null, DateTimeOffset? ValidAt = null, DateTimeOffset? KnownAt = null, string? AgeGroup = null);
+    string? Mode = null, DateTimeOffset? ValidAt = null, DateTimeOffset? KnownAt = null, string? AgeGroup = null, string? MealType = null);

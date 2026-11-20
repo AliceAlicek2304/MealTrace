@@ -24,6 +24,31 @@ public sealed class PhaseOneRbacTests
         POST /api/kitchen/recipes AK
         POST /api/kitchen/recipes/{id:guid}/versions AK
         GET /api/kitchen/recipes/{id:guid}/versions/{v:int}/nutrition AK
+        GET /api/kitchen/recipes AK
+        GET /api/kitchen/recipes/{id:guid}/versions AK
+        POST /api/kitchen/suppliers AK
+        POST /api/kitchen/suppliers/{id:guid}/versions AK
+        GET /api/kitchen/suppliers AK
+        GET /api/kitchen/suppliers/{id:guid}/history AK
+        POST /api/kitchen/ingredient-source-entries AK
+        POST /api/kitchen/ingredient-source-entries/{id:guid}/versions AK
+        GET /api/kitchen/ingredient-source-entries AK
+        GET /api/kitchen/ingredient-source-entries/{id:guid}/history AK
+        POST /api/kitchen/menus AK
+        GET /api/kitchen/menus AK
+        GET /api/kitchen/menus/{id:guid} AK
+        POST /api/kitchen/menus/{id:guid}/versions AK
+        POST /api/kitchen/menus/{id:guid}/submit AK
+        GET /api/kitchen/menus/{id:guid}/history AK
+        GET /api/kitchen/menus/{id:guid}/nutrition AK
+        POST /api/kitchen/ingredient-estimates AK
+        GET /api/kitchen/ingredient-estimates/{id:guid} AK
+        GET /api/kitchen/ingredient-estimates/{id:guid}/export AK
+        GET /api/kitchen/nutrition-references AK
+        POST /api/admin/menus/{id:guid}/review A
+        POST /api/admin/menus/{id:guid}/publish A
+        POST /api/admin/nutrition-references A
+        GET /api/parent/students/{studentId:guid}/menus P
         GET /api/admin/audit-logs A
         GET /api/admin/audit-logs/{auditId} A
         GET /api/admin/audit-logs/entities/{entityType}/{entityId} A

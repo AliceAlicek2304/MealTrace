@@ -40,20 +40,30 @@ internal sealed class NutritionRepository(MealTraceDbContext db) : INutritionRep
                     Quantity = ri.Quantity,
                     Unit = ri.Unit,
                     WeightBasis = ri.WeightBasis,
-                    Pinned = pinned
+                    Pinned = pinned,
+                    IngredientUnit = ingredient.Unit
                 }
 
             ).ToListAsync(ct);
         });
     }
-    public async Task<List<NutrientReferenceRange>> ListReferenceRangesAsync(string ageGroup, DateTimeOffset knownUtc, CancellationToken ct)
+    public async Task<List<NutrientReferenceRange>> ListReferenceRangesAsync(string ageGroup, DateTimeOffset? knownUtc, CancellationToken ct)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
             var lowered = ageGroup.ToLowerInvariant();
-            return await db.NutrientReferenceRanges.AsNoTracking()
-                .Where(r => r.AgeGroup.ToLower() == lowered && r.RecordedAt <= knownUtc)
-                .ToListAsync(ct);
+            var query = db.NutrientReferenceRanges.AsNoTracking().Where(r => r.AgeGroup.ToLower() == lowered);
+            if (knownUtc is { } known)
+                query = query.Where(r => r.RecordedAt <= known);
+            return await query.ToListAsync(ct);
         });
     }
+    public async Task<NutrientReferenceRange?> FindReferenceAsync(Guid id, CancellationToken ct)
+    {
+        return await PersistenceErrors.ExecuteAsync(async () =>
+        {
+            return await db.NutrientReferenceRanges.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id, ct);
+        });
+    }
+    public void AddReference(NutrientReferenceRange value) => db.NutrientReferenceRanges.Add(value);
 }

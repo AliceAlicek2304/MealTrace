@@ -1,5 +1,6 @@
 using System.Data;
 using MealTrace.Application.Abstractions;
+using MealTrace.Application.Abstractions.Kitchen;
 using MealTrace.Application.Abstractions.Repositories;
 using MealTrace.Application.Dtos.Kitchen;
 using MealTrace.Application.Exceptions;
@@ -565,17 +566,17 @@ public sealed class KitchenNutritionV13Tests
         w.Ranges.Add(new NutrientReferenceRange
         {
             AgeGroup = "Toddler", Nutrient = "kcal", MinValue = 500m, MaxValue = 700m, Source = "Council table 2026",
-            SourceRef = "p.12", EffectiveFrom = D(1), RecordedAt = D(1)
+            SourceRef = "p.12", EffectiveFrom = D(1), RecordedAt = D(1), Basis = "perMeal"
         });
         w.Ranges.Add(new NutrientReferenceRange
         {
             AgeGroup = "Toddler", Nutrient = "proteinG", MinValue = 10m, MaxValue = 15m, Source = "Council table 2026",
-            EffectiveFrom = D(1), RecordedAt = D(1)
+            EffectiveFrom = D(1), RecordedAt = D(1), Basis = "perMeal"
         });
         w.Ranges.Add(new NutrientReferenceRange
         {
             AgeGroup = "Toddler", Nutrient = "fatG", MinValue = 5m, MaxValue = 10m, Source = "Council table 2026",
-            EffectiveFrom = D(1), RecordedAt = D(1)
+            EffectiveFrom = D(1), RecordedAt = D(1), Basis = "perMeal"
         });
 
         var result = await w.Nutrition.CalculateAsync(recipe.RecipeId, 1, new NutritionQuery(null, null, null, "toddler"), default);
@@ -615,7 +616,7 @@ internal sealed class K13Actor : ICurrentActor
     public bool IsInRole(string role) => true;
 }
 
-internal sealed class K13World
+internal sealed partial class K13World
 {
     public readonly K13Clock Clock = new(new DateTimeOffset(2026, 1, 2, 0, 0, 0, TimeSpan.Zero));
     public readonly K13Actor Actor = new();
@@ -639,9 +640,28 @@ internal sealed class K13World
         var uow = new Uow(this);
         var ingredientService = new IngredientService(new IngredientRepo(this), Clock, uow, Actor);
         Ingredients = ingredientService;
-        Recipes = new RecipeService(new RecipeRepo(this), ingredientService, Clock, uow, Actor);
-        Nutrition = new NutritionService(new NutritionRepo(this), ingredientService, Clock);
+        var nutritionRepo = new NutritionRepo(this);
+        Recipes = new RecipeService(new RecipeRepo(this), ingredientService, Clock, uow, Actor, nutritionRepo);
+        Nutrition = new NutritionService(nutritionRepo, ingredientService, Clock);
+        InitBe1(uow, ingredientService, nutritionRepo, Nutrition);
     }
+
+    private void Commit(object item)
+    {
+        switch (item)
+        {
+            case Ingredient x: Ingredient_.Add(x); break;
+            case IngredientVersion x: IngredientVersions.Add(x); break;
+            case Recipe x: Recipe_.Add(x); break;
+            case RecipeVersion x: RecipeVersions.Add(x); break;
+            case RecipeIngredient x: RecipeIngredients.Add(x); break;
+            case NutrientReferenceRange x: Ranges.Add(x); break;
+            default: CommitExtra(item); break;
+        }
+    }
+
+    partial void CommitExtra(object item);
+    partial void InitBe1(IUnitOfWork uow, IIngredientService ingredients, INutritionRepository nutritionRepository, INutritionService nutritionService);
 
     public static Dictionary<string, string[]> Errors(KitchenException ex) =>
         (Dictionary<string, string[]>)ex.Extensions!["errors"]!;
@@ -680,16 +700,7 @@ internal sealed class K13World
 
             var count = w._pending.Count;
             foreach (var item in w._pending)
-            {
-                switch (item)
-                {
-                    case Ingredient x: w.Ingredient_.Add(x); break;
-                    case IngredientVersion x: w.IngredientVersions.Add(x); break;
-                    case Recipe x: w.Recipe_.Add(x); break;
-                    case RecipeVersion x: w.RecipeVersions.Add(x); break;
-                    case RecipeIngredient x: w.RecipeIngredients.Add(x); break;
-                }
-            }
+                w.Commit(item);
 
             w._pending.Clear();
             return Task.FromResult(count);
@@ -740,6 +751,24 @@ internal sealed class K13World
         public Task<Dictionary<Guid, Ingredient>> GetIngredientsByIdAsync(Guid[] ids, CancellationToken ct) =>
             Task.FromResult(w.Ingredient_.Where(i => ids.Contains(i.Id)).ToDictionary(i => i.Id));
 
+        public Task<Recipe?> FindRecipeAsync(Guid recipeId, CancellationToken ct) =>
+            Task.FromResult(w.Recipe_.SingleOrDefault(r => r.Id == recipeId));
+
+        private IEnumerable<Recipe> Filter(string? search) =>
+            string.IsNullOrWhiteSpace(search)
+                ? w.Recipe_
+                : w.Recipe_.Where(r => r.Name.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        public Task<int> CountRecipesAsync(string? search, CancellationToken ct) => Task.FromResult(Filter(search).Count());
+
+        public Task<List<RecipeCatalogRow>> ListLatestRecipeVersionsAsync(string? search, int skip, int size, CancellationToken ct) =>
+            Task.FromResult(Filter(search).OrderBy(r => r.Name).ThenBy(r => r.Id).Skip(skip).Take(size)
+                .Select(r => new RecipeCatalogRow(r, w.RecipeVersions.Where(v => v.RecipeId == r.Id).OrderByDescending(v => v.Version).First()))
+                .ToList());
+
+        public Task<List<RecipeVersion>> ListRecipeVersionsAsync(Guid recipeId, CancellationToken ct) =>
+            Task.FromResult(w.RecipeVersions.Where(v => v.RecipeId == recipeId).ToList());
+
         public void AddRecipeIngredients(IEnumerable<RecipeIngredient> value) => w._pending.AddRange(value);
         public void AddRecipe(Recipe value) => w._pending.Add(value);
         public void AddRecipeVersion(RecipeVersion value) => w._pending.Add(value);
@@ -770,14 +799,20 @@ internal sealed class K13World
                     Quantity = line.Quantity,
                     Unit = line.Unit,
                     WeightBasis = line.WeightBasis,
-                    Pinned = pinned
+                    Pinned = pinned,
+                    IngredientUnit = ingredient.Unit
                 }).ToList();
             return Task.FromResult(rows);
         }
 
-        public Task<List<NutrientReferenceRange>> ListReferenceRangesAsync(string ageGroup, DateTimeOffset knownUtc, CancellationToken ct) =>
+        public Task<List<NutrientReferenceRange>> ListReferenceRangesAsync(string ageGroup, DateTimeOffset? knownUtc, CancellationToken ct) =>
             Task.FromResult(w.Ranges
-                .Where(r => string.Equals(r.AgeGroup, ageGroup, StringComparison.OrdinalIgnoreCase) && r.RecordedAt <= knownUtc)
+                .Where(r => string.Equals(r.AgeGroup, ageGroup, StringComparison.OrdinalIgnoreCase) && (knownUtc is null || r.RecordedAt <= knownUtc))
                 .ToList());
+
+        public Task<NutrientReferenceRange?> FindReferenceAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult(w.Ranges.SingleOrDefault(r => r.Id == id));
+
+        public void AddReference(NutrientReferenceRange value) => w._pending.Add(value);
     }
 }

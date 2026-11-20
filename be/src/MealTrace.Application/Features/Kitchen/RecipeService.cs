@@ -9,7 +9,7 @@ namespace MealTrace.Application.Features.Kitchen;
 
 public sealed class RecipeService(
     IRecipeRepository repository, IIngredientService ingredients, TimeProvider time,
-    IUnitOfWork unitOfWork, ICurrentActor actor) : IRecipeService
+    IUnitOfWork unitOfWork, ICurrentActor actor, INutritionRepository lines) : IRecipeService
 {
     private const int MaxNameLength = 200;
     private const int MaxReasonLength = 500;
@@ -110,6 +110,37 @@ public sealed class RecipeService(
         return new RecipeVersionCreatedResponse(
             recipeId, next, version.Id, previous?.Version, previous?.Id,
             version.RecordedAt.ToVn(), version.RecordedByUserId, version.Reason, rounding);
+    }
+
+    public async Task<RecipeCatalogPage> ListAsync(string? search, int? page, int? pageSize, CancellationToken ct)
+    {
+        var (pageNo, size, skip) = KitchenPaging.Normalize(page, pageSize);
+        var total = await repository.CountRecipesAsync(search, ct);
+        var rows = await repository.ListLatestRecipeVersionsAsync(search, skip, size, ct);
+
+        return new RecipeCatalogPage(
+            rows.Select(r => new RecipeCatalogItem(r.Recipe.Id, r.Recipe.Name, r.Latest.Version, r.Latest.Id)).ToList(),
+            total, pageNo, size);
+    }
+
+    public async Task<RecipeVersionList> ListVersionsAsync(Guid recipeId, CancellationToken ct)
+    {
+        var recipe = await repository.FindRecipeAsync(recipeId, ct)
+            ?? throw KitchenException.NotFound("RECIPE_NOT_FOUND", "Recipe not found.");
+
+        var items = new List<RecipeVersionItem>();
+        foreach (var version in (await repository.ListRecipeVersionsAsync(recipeId, ct)).OrderBy(v => v.Version))
+        {
+            var rows = await lines.ListRecipeNutritionLinesAsync(version, ct);
+            items.Add(new RecipeVersionItem(
+                version.Id, version.Version, version.ServingBasis, RoundingOf(version), version.Reason,
+                version.RecordedAt.ToVn(), version.RecordedByUserId,
+                rows.Select(r => new RecipeVersionLine(
+                    r.IngredientId, r.IngredientName, r.PinnedVersionId, r.Quantity, r.Unit, r.WeightBasis ?? "gross",
+                    r.GramsPerPortion, r.Quantity is null && r.IngredientUnit == "ml")).ToList()));
+        }
+
+        return new RecipeVersionList(recipe.Id, recipe.Name, items);
     }
 
     private static KitchenException VersionConflict(int currentVersion) =>
