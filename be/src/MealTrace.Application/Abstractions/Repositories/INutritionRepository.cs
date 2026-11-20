@@ -10,6 +10,8 @@ public interface INutritionRepository
     Task<bool> RecipeExistsAsync(Guid recipeId, CancellationToken ct);
     Task<List<RecipeNutritionLineRow>> ListRecipeNutritionLinesAsync(RecipeVersion recipeVersion, CancellationToken ct);
 
-    /// <summary>Reference ranges recorded for the age group (case-insensitive) at or before knownUtc; validity is not filtered.</summary>
-    Task<List<NutrientReferenceRange>> ListReferenceRangesAsync(string ageGroup, DateTimeOffset knownUtc, CancellationToken ct);
+    /// <summary>Reference ranges recorded for the age group (case-insensitive); with knownUtc, only rows recorded at or before it. Validity is not filtered.</summary>
+    Task<List<NutrientReferenceRange>> ListReferenceRangesAsync(string ageGroup, DateTimeOffset? knownUtc, CancellationToken ct);
+    Task<NutrientReferenceRange?> FindReferenceAsync(Guid id, CancellationToken ct);
+    void AddReference(NutrientReferenceRange value);
 }

@@ -214,7 +214,7 @@ public sealed class IngredientService(
         existing.EffectiveFrom < (to ?? DateTimeOffset.MaxValue)
         && from < (existing.EffectiveTo ?? DateTimeOffset.MaxValue);
 
-    private static void ValidateSource(string? source, string? sourceRef, ValidationErrors errors)
+    internal static void ValidateSource(string? source, string? sourceRef, ValidationErrors errors)
     {
         if (string.IsNullOrEmpty(source))
             errors.Add("source", "source is required (e.g. the reference table or document name).");

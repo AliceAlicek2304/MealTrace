@@ -150,6 +150,134 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.ToTable("Ingredients");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.IngredientEstimate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("InputJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.ToTable("IngredientEstimates");
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.IngredientSourceEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("IngredientId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IngredientId");
+
+                    b.ToTable("IngredientSourceEntries");
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.IngredientSourceEntryVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeliveryRef")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("LotRef")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("PriorVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(14, 3)
+                        .HasColumnType("numeric(14,3)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("ReferenceDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("SourceEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SupplierRevisionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriorVersionId")
+                        .IsUnique();
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.HasIndex("ReferenceDate");
+
+                    b.HasIndex("SourceEntryId", "Version")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierRevisionId");
+
+                    b.ToTable("IngredientSourceEntryVersions", t =>
+                        {
+                            t.HasCheckConstraint("CK_IngredientSourceEntryVersions_Quantity", "\"Quantity\" > 0");
+
+                            t.HasCheckConstraint("CK_IngredientSourceEntryVersions_Unit", "\"Unit\" IN ('g', 'ml')");
+
+                            t.HasCheckConstraint("CK_IngredientSourceEntryVersions_Version", "\"Version\" >= 1");
+                        });
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.IngredientVersion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -513,6 +641,31 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.ToTable("MealSchedules");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.Menu", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MealDayId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("MealDayId")
+                        .IsUnique();
+
+                    b.ToTable("Menus");
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.MenuDish", b =>
                 {
                     b.Property<Guid>("Id")
@@ -534,6 +687,168 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.ToTable("MenuDishes");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MenuVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("PlannedPortions")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RecipeVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuVersionId", "RecipeVersionId")
+                        .IsUnique();
+
+                    b.HasIndex("RecipeVersionId");
+
+                    b.ToTable("MenuItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_MenuItems_PlannedPortions", "\"PlannedPortions\" IS NULL OR \"PlannedPortions\" >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuNutritionSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AgeComparisonStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("AgeGroup")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("AlgorithmVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("MenuVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuVersionId")
+                        .IsUnique();
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.ToTable("MenuNutritionSnapshots");
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuTransition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MenuVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("MenuVersionId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("MenuTransitions", t =>
+                        {
+                            t.HasCheckConstraint("CK_MenuTransitions_Sequence", "\"Sequence\" >= 1");
+
+                            t.HasCheckConstraint("CK_MenuTransitions_State", "\"State\" IN ('draft', 'submitted', 'approved', 'rejected', 'published')");
+                        });
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MenuId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PriorVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuId", "Version")
+                        .IsUnique();
+
+                    b.HasIndex("PriorVersionId")
+                        .IsUnique();
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.ToTable("MenuVersions", t =>
+                        {
+                            t.HasCheckConstraint("CK_MenuVersions_Version", "\"Version\" >= 1");
+                        });
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.NutrientReferenceRange", b =>
                 {
                     b.Property<Guid>("Id")
@@ -545,6 +860,10 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Basis")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<DateTimeOffset>("EffectiveFrom")
                         .HasColumnType("timestamp with time zone");
 
@@ -555,6 +874,10 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .HasPrecision(12, 3)
                         .HasColumnType("numeric(12,3)");
 
+                    b.Property<string>("MealType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<decimal?>("MinValue")
                         .HasPrecision(12, 3)
                         .HasColumnType("numeric(12,3)");
@@ -563,6 +886,10 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTimeOffset>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
@@ -579,14 +906,25 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.HasKey("Id");
+                    b.Property<Guid?>("SupersedesId")
+                        .HasColumnType("uuid");
 
-                    b.HasIndex("RecordedByUserId");
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("AgeGroup", "Nutrient");
 
+                    b.HasIndex("RecordedByUserId");
+
+                    b.HasIndex("SupersedesId")
+                        .IsUnique();
+
                     b.ToTable("NutrientReferenceRanges", t =>
                         {
+                            t.HasCheckConstraint("CK_NutrientReferenceRanges_Basis", "\"Basis\" IS NULL OR \"Basis\" IN ('perMeal', 'daily')");
+
                             t.HasCheckConstraint("CK_NutrientReferenceRanges_Bounds", "\"MinValue\" IS NOT NULL OR \"MaxValue\" IS NOT NULL");
 
                             t.HasCheckConstraint("CK_NutrientReferenceRanges_Interval", "\"EffectiveTo\" IS NULL OR \"EffectiveTo\" > \"EffectiveFrom\"");
@@ -1273,6 +1611,79 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.ToTable("StudentImportBatchItem");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.Supplier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.SupplierRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Contact")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("PriorVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriorVersionId")
+                        .IsUnique();
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.HasIndex("SupplierId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("SupplierRevisions", t =>
+                        {
+                            t.HasCheckConstraint("CK_SupplierRevisions_Version", "\"Version\" >= 1");
+                        });
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.TeacherAssignment", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1538,6 +1949,53 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.IngredientEstimate", b =>
+                {
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.IngredientSourceEntry", b =>
+                {
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Domain.Entities.Ingredient", null)
+                        .WithMany()
+                        .HasForeignKey("IngredientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.IngredientSourceEntryVersion", b =>
+                {
+                    b.HasOne("MealTrace.Domain.Entities.IngredientSourceEntryVersion", null)
+                        .WithMany()
+                        .HasForeignKey("PriorVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Domain.Entities.IngredientSourceEntry", null)
+                        .WithMany()
+                        .HasForeignKey("SourceEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MealTrace.Domain.Entities.SupplierRevision", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierRevisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.IngredientVersion", b =>
                 {
                     b.HasOne("MealTrace.Domain.Entities.Ingredient", "Ingredient")
@@ -1644,6 +2102,20 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.Menu", b =>
+                {
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Domain.Entities.MealDay", null)
+                        .WithMany()
+                        .HasForeignKey("MealDayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.MenuDish", b =>
                 {
                     b.HasOne("MealTrace.Domain.Entities.MealDay", "MealDay")
@@ -1663,11 +2135,78 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.Navigation("RecipeVersion");
                 });
 
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuItem", b =>
+                {
+                    b.HasOne("MealTrace.Domain.Entities.MenuVersion", null)
+                        .WithMany()
+                        .HasForeignKey("MenuVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MealTrace.Domain.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("RecipeVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuNutritionSnapshot", b =>
+                {
+                    b.HasOne("MealTrace.Domain.Entities.MenuVersion", null)
+                        .WithMany()
+                        .HasForeignKey("MenuVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuTransition", b =>
+                {
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Domain.Entities.MenuVersion", null)
+                        .WithMany()
+                        .HasForeignKey("MenuVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.MenuVersion", b =>
+                {
+                    b.HasOne("MealTrace.Domain.Entities.Menu", null)
+                        .WithMany()
+                        .HasForeignKey("MenuId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MealTrace.Domain.Entities.MenuVersion", null)
+                        .WithMany()
+                        .HasForeignKey("PriorVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("MealTrace.Domain.Entities.NutrientReferenceRange", b =>
                 {
                     b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Domain.Entities.NutrientReferenceRange", null)
+                        .WithMany()
+                        .HasForeignKey("SupersedesId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -1932,6 +2471,33 @@ namespace MealTrace.Infrastructure.Persistence.Migrations
                     b.HasOne("MealTrace.Domain.Entities.Student", null)
                         .WithMany()
                         .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.Supplier", b =>
+                {
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MealTrace.Domain.Entities.SupplierRevision", b =>
+                {
+                    b.HasOne("MealTrace.Domain.Entities.SupplierRevision", null)
+                        .WithMany()
+                        .HasForeignKey("PriorVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MealTrace.Domain.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

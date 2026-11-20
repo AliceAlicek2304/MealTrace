@@ -30,6 +30,16 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     public DbSet<RecipeVersion> RecipeVersions => Set<RecipeVersion>();
     public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
     public DbSet<NutrientReferenceRange> NutrientReferenceRanges => Set<NutrientReferenceRange>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<SupplierRevision> SupplierRevisions => Set<SupplierRevision>();
+    public DbSet<IngredientSourceEntry> IngredientSourceEntries => Set<IngredientSourceEntry>();
+    public DbSet<IngredientSourceEntryVersion> IngredientSourceEntryVersions => Set<IngredientSourceEntryVersion>();
+    public DbSet<Menu> Menus => Set<Menu>();
+    public DbSet<MenuVersion> MenuVersions => Set<MenuVersion>();
+    public DbSet<MenuItem> MenuItems => Set<MenuItem>();
+    public DbSet<MenuTransition> MenuTransitions => Set<MenuTransition>();
+    public DbSet<MenuNutritionSnapshot> MenuNutritionSnapshots => Set<MenuNutritionSnapshot>();
+    public DbSet<IngredientEstimate> IngredientEstimates => Set<IngredientEstimate>();
     public DbSet<MealDay> MealDays => Set<MealDay>();
     public DbSet<MenuDish> MenuDishes => Set<MenuDish>();
     public DbSet<MealRegistration> MealRegistrations => Set<MealRegistration>();
@@ -80,6 +90,16 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
         model.ApplyConfiguration(new Configurations.SettlementStudentConfiguration());
         model.ApplyConfiguration(new Configurations.RecipeIngredientConfiguration());
         model.ApplyConfiguration(new Configurations.NutrientReferenceRangeConfiguration());
+        model.ApplyConfiguration(new Configurations.SupplierConfiguration());
+        model.ApplyConfiguration(new Configurations.SupplierRevisionConfiguration());
+        model.ApplyConfiguration(new Configurations.IngredientSourceEntryConfiguration());
+        model.ApplyConfiguration(new Configurations.IngredientSourceEntryVersionConfiguration());
+        model.ApplyConfiguration(new Configurations.MenuConfiguration());
+        model.ApplyConfiguration(new Configurations.MenuVersionConfiguration());
+        model.ApplyConfiguration(new Configurations.MenuItemConfiguration());
+        model.ApplyConfiguration(new Configurations.MenuTransitionConfiguration());
+        model.ApplyConfiguration(new Configurations.MenuNutritionSnapshotConfiguration());
+        model.ApplyConfiguration(new Configurations.IngredientEstimateConfiguration());
         model.ApplyConfiguration(new Configurations.ReportSnapshotConfiguration());
         model.ApplyConfiguration(new Configurations.SettlementAcknowledgementConfiguration());
     }
@@ -104,7 +124,9 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
             (x.Entity is PortionSettlement or SettlementStudent or SettlementDecision or PortionAmendment or PortionAmendmentStudent or PortionAmendmentResolution or SettlementAcknowledgement)))
             throw new InvalidOperationException("Settlement snapshots and amendments are append-only.");
         if (ChangeTracker.Entries().Any(x => (x.State is EntityState.Modified or EntityState.Deleted) &&
-            (x.Entity is IngredientVersion or RecipeVersion or RecipeIngredient or NutrientReferenceRange)))
+            (x.Entity is IngredientVersion or RecipeVersion or RecipeIngredient or NutrientReferenceRange
+                or Supplier or SupplierRevision or IngredientSourceEntry or IngredientSourceEntryVersion
+                or Menu or MenuVersion or MenuItem or MenuTransition or MenuNutritionSnapshot or IngredientEstimate)))
             throw new InvalidOperationException("Nutrient data and recipe versions are append-only; record a new version instead.");
         if (ChangeTracker.Entries<MealCalendarAudit>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Calendar audit records are append-only.");

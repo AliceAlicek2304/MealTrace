@@ -14,7 +14,8 @@ public sealed class NutritionService(
 
     private sealed record Computation(
         List<NutritionLine> Lines, List<NutritionLineInput> Inputs, NutritionTotals PerServing,
-        List<IncompleteNutrientData> Incomplete, List<MissingIngredient> MissingConversion);
+        List<IncompleteNutrientData> Incomplete, List<MissingIngredient> MissingConversion,
+        List<MissingIngredient> Unverified);
 
     public Task<NutritionResponse> CalculateAsync(
         Guid recipeId, int version, DateTimeOffset? validAt, DateTimeOffset? knownAt, CancellationToken ct) =>
@@ -89,7 +90,7 @@ public sealed class NutritionService(
 
         AgeGroupComparison? comparison = null;
         if (!string.IsNullOrWhiteSpace(query.AgeGroup))
-            comparison = await CompareAsync(query.AgeGroup.Trim(), used.PerServing, valid, known, ct);
+            comparison = await CompareAsync(query.AgeGroup.Trim(), used.PerServing, query.MealType, valid, known, ct);
 
         var inputs = new NutritionInputs(
             pinnedMode ? null : valid.ToVn(),
@@ -101,7 +102,7 @@ public sealed class NutritionService(
 
         return new NutritionResponse(
             used.PerServing, used.Lines, rounding, inputs,
-            mode, pinnedTotals, delta, used.Incomplete, comparison);
+            mode, pinnedTotals, delta, used.Incomplete, comparison, used.Unverified);
     }
 
     /// <summary>
@@ -116,6 +117,7 @@ public sealed class NutritionService(
         var inputs = new List<NutritionLineInput>(rows.Count);
         var incomplete = new List<IncompleteNutrientData>();
         var missingConversion = new List<MissingIngredient>();
+        var unverified = new List<MissingIngredient>();
 
         decimal kcal = 0m, protein = 0m, fat = 0m, carb = 0m;
         var fatKnown = true;
@@ -148,6 +150,9 @@ public sealed class NutritionService(
             else
             {
                 grams = row.GramsPerPortion; // line recorded before v1.3: grams per portion as stored
+                // A legacy line of an ml ingredient was priced as grams with no density: flag it, do not trust it.
+                if (row.IngredientUnit == "ml")
+                    unverified.Add(new MissingIngredient(row.IngredientId, row.IngredientName));
             }
 
             var weightBasis = row.WeightBasis ?? "gross";
@@ -195,7 +200,7 @@ public sealed class NutritionService(
             fatKnown ? Round(fat, rounding.ProteinDecimals) : null,
             carbKnown ? Round(carb, rounding.ProteinDecimals) : null);
 
-        return new Computation(lines, inputs, perServing, incomplete, missingConversion);
+        return new Computation(lines, inputs, perServing, incomplete, missingConversion, unverified);
     }
 
     private static decimal Round(decimal value, int decimals) =>
@@ -204,46 +209,65 @@ public sealed class NutritionService(
     private static NutritionTotals Delta(NutritionTotals a, NutritionTotals b) =>
         new(a.Kcal - b.Kcal, a.ProteinG - b.ProteinG, a.FatG - b.FatG, a.CarbG - b.CarbG);
 
-    /// <summary>
-    /// Compares per-serving totals with the reference ranges recorded for the age group (data, not code: no range
-    /// values are built in). A range is applied to the per-serving value as stored, and is returned with its source.
-    /// </summary>
-    private async Task<AgeGroupComparison> CompareAsync(
-        string ageGroup, NutritionTotals perServing, DateTimeOffset valid, DateTimeOffset known, CancellationToken ct)
+    /// <inheritdoc />
+    public async Task<AgeGroupComparison> CompareAsync(
+        string ageGroup, NutritionTotals perMeal, string? mealType, DateTimeOffset validAt, DateTimeOffset knownAt,
+        CancellationToken ct)
     {
-        var rows = await repository.ListReferenceRangesAsync(ageGroup, known, ct);
+        var valid = validAt.ToUniversalTime();
+        var known = knownAt.ToUniversalTime();
+        var group = ageGroup.Trim();
 
-        var picked = rows
-            .Where(r => r.EffectiveFrom <= valid && (r.EffectiveTo is null || valid < r.EffectiveTo))
+        var rows = await repository.ListReferenceRangesAsync(group, known, ct);
+        var effective = ReferenceTimeline.Effective(rows, valid, known);
+
+        // Only documented per-meal ranges (for this meal type, or for any meal) may be compared with a per-meal value.
+        var usable = effective
+            .Where(r => r.Basis == ReferenceBasis.PerMeal
+                        && (r.MealType is null || string.Equals(r.MealType, mealType, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        var picked = usable
             .GroupBy(r => r.Nutrient)
-            .Select(g => g.OrderByDescending(r => r.EffectiveFrom).ThenByDescending(r => r.RecordedAt).First())
+            .Select(g => g.OrderByDescending(r => r.MealType is not null)
+                          .ThenByDescending(r => r.EffectiveFrom)
+                          .ThenByDescending(r => r.RecordedAt)
+                          .First())
             .OrderBy(r => r.Nutrient, StringComparer.Ordinal)
             .ToList();
 
+        var context = new Dictionary<string, object?>
+        {
+            ["ageGroup"] = group,
+            ["validAt"] = valid.ToVn(),
+            ["knownAt"] = known.ToVn()
+        };
+
         if (picked.Count == 0)
+        {
+            if (effective.Count > 0)
+                throw new KitchenException(422, "REFERENCE_BASIS_MISMATCH",
+                    $"The ranges recorded for age group '{group}' are daily or of unspecified basis, or for another meal type; " +
+                    "they are not compared with a per-meal value and no conversion rule exists.", context);
+
             throw new KitchenException(422, "AGE_GROUP_REFERENCE_MISSING",
-                $"No documented reference range is recorded for age group '{ageGroup}' at the requested time.",
-                new Dictionary<string, object?>
-                {
-                    ["ageGroup"] = ageGroup,
-                    ["validAt"] = valid.ToVn(),
-                    ["knownAt"] = known.ToVn()
-                });
+                $"No documented reference range is recorded for age group '{group}' at the requested time.", context);
+        }
 
         var items = picked.Select(r =>
         {
             decimal? value = r.Nutrient switch
             {
-                "kcal" => perServing.Kcal,
-                "proteinG" => perServing.ProteinG,
-                "fatG" => perServing.FatG,
-                "carbG" => perServing.CarbG,
+                "kcal" => perMeal.Kcal,
+                "proteinG" => perMeal.ProteinG,
+                "fatG" => perMeal.FatG,
+                "carbG" => perMeal.CarbG,
                 _ => null
             };
 
             return new AgeGroupComparisonItem(
                 r.Nutrient, value, r.MinValue, r.MaxValue, StatusOf(value, r.MinValue, r.MaxValue),
-                r.Id, r.Source, r.SourceRef);
+                r.Id, r.Source, r.SourceRef, r.Version, r.Basis, r.MealType);
         }).ToList();
 
         return new AgeGroupComparison(picked[0].AgeGroup, items);
