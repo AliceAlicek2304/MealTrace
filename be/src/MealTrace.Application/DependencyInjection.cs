@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IIngredientEstimateService, IngredientEstimateService>();
         services.AddScoped<INutritionReferenceService, NutritionReferenceService>();
         services.AddScoped<IKitchenSettlementService, KitchenSettlementService>();
+        services.AddSingleton<IServingService, ServingService>();
         services.AddScoped<AuthService>();
         services.AddScoped<ParentSignupOtpService>();
         services.AddScoped<AccountService>();
