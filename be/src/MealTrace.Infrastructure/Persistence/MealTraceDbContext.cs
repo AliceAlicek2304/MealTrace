@@ -42,6 +42,11 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
     public DbSet<SettlementAcknowledgement> SettlementAcknowledgements => Set<SettlementAcknowledgement>();
     public DbSet<MealEvidence> MealEvidence => Set<MealEvidence>();
     public DbSet<ReportSnapshot> ReportSnapshots => Set<ReportSnapshot>();
+    public DbSet<Serving> Servings => Set<Serving>();
+    public DbSet<ServingVersion> ServingVersions => Set<ServingVersion>();
+    public DbSet<ServedDish> ServedDishes => Set<ServedDish>();
+    public DbSet<IngredientUse> IngredientUses => Set<IngredientUse>();
+    public DbSet<SourceAllocation> SourceAllocations => Set<SourceAllocation>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -82,6 +87,11 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
         model.ApplyConfiguration(new Configurations.NutrientReferenceRangeConfiguration());
         model.ApplyConfiguration(new Configurations.ReportSnapshotConfiguration());
         model.ApplyConfiguration(new Configurations.SettlementAcknowledgementConfiguration());
+        model.ApplyConfiguration(new Configurations.ServingConfiguration());
+        model.ApplyConfiguration(new Configurations.ServingVersionConfiguration());
+        model.ApplyConfiguration(new Configurations.ServedDishConfiguration());
+        model.ApplyConfiguration(new Configurations.IngredientUseConfiguration());
+        model.ApplyConfiguration(new Configurations.SourceAllocationConfiguration());
     }
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -110,6 +120,8 @@ public sealed partial class MealTraceDbContext(DbContextOptions<MealTraceDbConte
             throw new InvalidOperationException("Calendar audit records are append-only.");
         if (ChangeTracker.Entries<MealRegistration>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Meal exceptions are append-only; record a new event instead.");
+        if (ChangeTracker.Entries().Any(x => (x.State is EntityState.Modified or EntityState.Deleted) && (x.Entity is ServingVersion or ServedDish or IngredientUse or SourceAllocation)))
+            throw new InvalidOperationException("Serving history is append-only; record a new version instead.");
         // Also covers seed/test creation through the DbContext, not just the HTTP endpoint.
         var added = ChangeTracker.Entries<Student>().Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToList();
         var now = _clock.GetUtcNow();
