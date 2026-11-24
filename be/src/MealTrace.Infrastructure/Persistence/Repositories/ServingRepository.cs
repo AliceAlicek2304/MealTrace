@@ -72,7 +72,7 @@ namespace MealTrace.Infrastructure.Persistence.Repositories
                 if (settlement is null )
                 {
                     return false;
-                }    
+                }
 
                 return await db.SettlementAcknowledgements.AsNoTracking()
                     .AnyAsync(a => a.MealDayId == settlement.MealDayId && a.SnapshotToken == snapshotToken, ct);
@@ -80,7 +80,7 @@ namespace MealTrace.Infrastructure.Persistence.Repositories
         }
 
         public void AddServing(Serving serving) => db.Servings.Add(serving);
-        
+
         public void AddServingVersion(ServingVersion version) => db.ServingVersions.Add(version);
     }
 }

@@ -11,7 +11,7 @@ namespace MealTrace.Application.Abstractions.Repositories
     {
 
         Task<ServingVersion?> FindVersionByClientRequestIdAsync(Guid clientRequestId, CancellationToken ct = default);
-        
+
         Task<Serving?> FindServingWithVersionAsync(Guid servingId, CancellationToken ct = default);
 
         Task<Serving?> FindServingByClassAndMealDayAsync(Guid mealDayId, Guid classId, CancellationToken ct = default);
