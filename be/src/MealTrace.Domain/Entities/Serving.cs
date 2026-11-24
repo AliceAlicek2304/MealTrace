@@ -7,11 +7,6 @@ public sealed class Serving
     public MealDay MealDay { get; set; } = null!;
     public Guid ClassId { get; set; }
     public SchoolClass Class { get; set; } = null!;
-    public Guid MenuVersionId { get; set; }
-    public Guid SettlementId { get; set; }
-    public required string SnapshotToken { get; set; }
-    public int Version { get; set; } = 1;
-    public DateTimeOffset RecordedAt { get; set; }
-    public required string ResponsibleStaffId { get; set; }
-    public List<ServedDish> Dishes { get; set; } = [];
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public List<ServingVersion> Versions { get; set; } = [];
 }

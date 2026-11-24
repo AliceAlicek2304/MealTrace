@@ -436,6 +436,95 @@ public sealed class ServingServiceTests
         Assert.True(response.HasSourceGap);
     }
 
+    [Fact]
+    public async Task RecordServing_DuplicateClientRequestId_DifferentPayload_Throws409IdempotentMismatch()
+    {
+        var service = new ServingService(_actor, _clock);
+        var recipeId = Guid.NewGuid();
+        var ingredientId = Guid.NewGuid();
+        var clientRequestId = Guid.NewGuid();
+
+        var request1 = new CreateServingRequest(
+            ClientRequestId: clientRequestId,
+            MealDayId: Guid.NewGuid(),
+            ClassId: Guid.NewGuid(),
+            MenuVersionId: Guid.NewGuid(),
+            SettlementId: Guid.NewGuid(),
+            SnapshotToken: "token-first",
+            Dishes:
+            [
+                new ServedDishInput(
+                    PlannedRecipeVersionId: recipeId,
+                    ActualRecipeVersionId: recipeId,
+                    ServedPortions: 20,
+                    SubstitutionReason: null,
+                    Ingredients:
+                    [
+                        new IngredientUseInput(
+                            IngredientId: ingredientId,
+                            NutrientVersionId: null,
+                            Quantity: 100m,
+                            Unit: "g",
+                            WeightBasis: "as_purchased",
+                            Allocations: [new SourceAllocationInput(Guid.NewGuid(), 100m, "g")],
+                            SourceGap: null)
+                    ])
+            ]);
+
+        var request2 = request1 with { SnapshotToken = "token-different" };
+
+        await service.RecordServingAsync(request1);
+        var ex = await Assert.ThrowsAsync<KitchenException>(() => service.RecordServingAsync(request2));
+
+        Assert.Equal(409, ex.Status);
+        Assert.Equal("IDEMPOTENT_PAYLOAD_MISMATCH", ex.Code);
+    }
+
+    [Fact]
+    public async Task RecordServing_MissingDishesOrEmptyToken_Throws400()
+    {
+        var service = new ServingService(_actor, _clock);
+
+        var request = new CreateServingRequest(
+            ClientRequestId: Guid.NewGuid(),
+            MealDayId: Guid.NewGuid(),
+            ClassId: Guid.NewGuid(),
+            MenuVersionId: Guid.NewGuid(),
+            SettlementId: Guid.NewGuid(),
+            SnapshotToken: "",
+            Dishes: []);
+
+        var ex = await Assert.ThrowsAsync<KitchenException>(() => service.RecordServingAsync(request));
+
+        Assert.Equal(400, ex.Status);
+        Assert.Equal("INVALID_SERVING", ex.Code);
+    }
+
+    [Fact]
+    public async Task AddServingVersion_NonExistentServing_Throws404()
+    {
+        var service = new ServingService(_actor, _clock);
+        var recipeId = Guid.NewGuid();
+
+        var versionRequest = new CreateServingVersionRequest(
+            ExpectedVersion: 1,
+            Reason: "Cập nhật",
+            Dishes:
+            [
+                new ServedDishInput(
+                    PlannedRecipeVersionId: recipeId,
+                    ActualRecipeVersionId: recipeId,
+                    ServedPortions: 20,
+                    SubstitutionReason: null,
+                    Ingredients: [])
+            ]);
+
+        var ex = await Assert.ThrowsAsync<KitchenException>(() => service.AddServingVersionAsync(Guid.NewGuid(), versionRequest));
+
+        Assert.Equal(404, ex.Status);
+        Assert.Equal("SERVING_NOT_FOUND", ex.Code);
+    }
+
     private sealed class TestActor : ICurrentActor
     {
         public Guid? UserId { get; set; } = Guid.NewGuid();
