@@ -1,0 +1,65 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - Bao
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: mealtrace_ci
+          POSTGRES_USER: mealtrace_ci
+          POSTGRES_PASSWORD: mealtrace_ci
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U mealtrace_ci -d mealtrace_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v6
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/mealtrace-dotnet
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore backend
+        run: dotnet restore be/MealTrace.sln
+
+      - name: Build backend
+        run: dotnet build be/MealTrace.sln --configuration Release --no-restore
+
+      - name: Run backend tests with PostgreSQL
+        id: tests
+        env:
+          MEALTRACE_TEST_CONNECTION: Host=127.0.0.1;Port=${{ job.services.postgres.ports['5432'] }};Database=mealtrace_ci;Username=mealtrace_ci;Password=mealtrace_ci
+        run: >-
+          dotnet test be/MealTrace.sln --configuration Release --no-build --no-restore
+          --logger "trx;LogFileName=backend.trx"
+          --logger "console;verbosity=normal"
+          --results-directory "${{ runner.temp }}/mealtrace-test-results"
+
+      - name: Upload backend TRX
+        if: ${{ !cancelled() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-results
+          path: ${{ runner.temp }}/mealtrace-test-results/backend.trx
+          if-no-files-found: error
