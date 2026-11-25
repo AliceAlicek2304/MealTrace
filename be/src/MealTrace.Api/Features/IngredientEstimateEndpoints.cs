@@ -29,6 +29,8 @@ internal static class IngredientEstimateEndpoints
             // UTF-8 with a byte-order mark so spreadsheets read Vietnamese names correctly.
             var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
             return Results.File(bytes, "text/csv; charset=utf-8", $"ingredient-estimate-{id}.csv");
-        });
+        }).Produces<Stream>(StatusCodes.Status200OK, "text/csv")
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
     }
 }
