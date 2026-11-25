@@ -10,7 +10,7 @@ internal sealed class ServingVersionConfiguration : IEntityTypeConfiguration<Ser
     {
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => new { x.ServingId, x.Version }).IsUnique();
-        builder.HasIndex(x => x.ClientRequestId);
+        builder.HasIndex(x => x.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         builder.Property(x => x.SnapshotToken).HasMaxLength(128);
         builder.Property(x => x.ResponsibleStaffId).HasMaxLength(64);
         builder.Property(x => x.CorrectionReason).HasMaxLength(500);
