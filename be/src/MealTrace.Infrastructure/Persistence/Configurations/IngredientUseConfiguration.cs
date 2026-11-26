@@ -14,6 +14,6 @@ internal sealed class IngredientUseConfiguration : IEntityTypeConfiguration<Ingr
         builder.Property(x => x.MissingReason).HasMaxLength(500);
         builder.Property(x => x.Quantity).HasPrecision(18, 4);
         builder.Property(x => x.MissingQuantity).HasPrecision(18, 4);
-        builder.HasMany(x => x.Allocations).WithOne(x => x.IngredientUse).HasForeignKey(x => x.IngredientUseId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(x => x.Allocations).WithOne(x => x.IngredientUse).HasForeignKey(x => x.IngredientUseId).OnDelete(DeleteBehavior.Restrict);
     }
 }

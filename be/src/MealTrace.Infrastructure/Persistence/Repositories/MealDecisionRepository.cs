@@ -104,8 +104,8 @@ internal sealed class MealDecisionRepository(MealTraceDbContext db) : IMealDecis
     private static IQueryable<Enrollment> Eligible(MealTraceDbContext db, MealDay day, DateTimeOffset now, Guid[]? allowedClasses)
     {
         var asOf = now < day.CutoffAt ? now : day.CutoffAt;
-        var query = EnrollmentQueries.OnDate(db, day.Date).Where(x => !day.IsCancelled &&
-            x.RecordedAt <= asOf && x.RecordedAt < day.CutoffAt &&
+        var query = EnrollmentQueries.OnDateAsOf(db, day.Date, asOf, day.CutoffAt).Where(x => !day.IsCancelled &&
+            x.RecordedAt < day.CutoffAt &&
             (day.SchoolYear == null || x.Class.SchoolYear == day.SchoolYear));
         return allowedClasses is null ? query : query.Where(x => allowedClasses.Contains(x.ClassId));
     }

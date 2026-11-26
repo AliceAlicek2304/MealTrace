@@ -41,7 +41,8 @@ public record ServingResponse(
     int Version,
     string ResponsibleStaffId,
     DateTimeOffset RecordedAt,
-    bool HasSourceGap);
+    bool HasSourceGap,
+    Guid? PriorVersionId = null);
 
 public record CreateServingVersionRequest(
     int ExpectedVersion,
@@ -88,4 +89,5 @@ public record ServingHistoryItem(
     DateTimeOffset RecordedAt,
     string ResponsibleStaffId,
     string? Reason,
-    bool HasSourceGap);
+    bool HasSourceGap,
+    Guid? PriorVersionId = null);

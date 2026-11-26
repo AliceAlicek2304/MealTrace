@@ -43,12 +43,13 @@
       "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
       "clientPhotoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       "servingVersionId": "4a73b189-9d7a-4284-850f-2b36551b9e01",
-      "state": "synced",
+      "syncState": "SYNCED",
+      "reviewState": "PENDING_REVIEW",
       "capturedAt": "2026-11-19T11:05:00+07:00",
       "receivedAt": "2026-11-19T11:06:12Z"
-     }
+    }
     ```
-  * **200 OK**: Khi app Android gửi lại (retry) với **CÙNG `clientPhotoId` VÀ CÙNG `sha256`**. Server không lưu lại file mới mà trả về chính bản ghi ảnh đã lưu trước đó.
+  * **200 OK**: Khi app Android gửi lại (retry) với **CÙNG `clientPhotoId` VÀ CÙNG `sha256`**. Server không lưu lại file mới mà trả về chính bản ghi ảnh đã lưu trước đó (`"syncState": "SYNCED"`, kèm `"reviewState"` hiện tại trên server).
   * **409 Conflict**: Gửi cùng `clientPhotoId` nhưng khác `sha256` (phát hiện mâu thuẫn dữ liệu từ thiết bị).
   * **400 / 422**: File không hợp lệ (sai signature header ảnh hoặc vượt quá 10 MiB).
   * **403 Forbidden**: Tài khoản không có vai trò `KITCHEN_STAFF`.
@@ -62,12 +63,16 @@
   ```json
   {
     "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "clientPhotoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "servingVersionId": "4a73b189-9d7a-4284-850f-2b36551b9e01",
     "capturedAt": "2026-11-19T11:05:00+07:00",
     "receivedAt": "2026-11-19T11:06:12Z",
-    "state": "pending",
+    "syncState": "SYNCED",
+    "reviewState": "PENDING_REVIEW",
+    "reviewVersion": 1,
     "reviewReason": null,
-    "reviewedAt": null
+    "reviewedAt": null,
+    "reviewedByUserId": null
   }
   ```
 
@@ -86,7 +91,20 @@
   ```
   *(Nếu `decision` là `"reject"` thì bắt buộc phải có `reason`).*
 * **Response:**
-  * **200 OK**: Cập nhật trạng thái thành công (`state = "approved"` hoặc `"rejected"`).
+  * **200 OK**: Cập nhật trạng thái thành công (`reviewState = "APPROVED"` hoặc `"REJECTED"`), kèm tăng `reviewVersion`:
+    ```json
+    {
+      "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "clientPhotoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "servingVersionId": "4a73b189-9d7a-4284-850f-2b36551b9e01",
+      "syncState": "SYNCED",
+      "reviewState": "APPROVED",
+      "reviewVersion": 2,
+      "reviewReason": "Ảnh món ăn rõ ràng, đúng suất phục vụ.",
+      "reviewedAt": "2026-11-19T11:15:00Z",
+      "reviewedByUserId": "7d444840-9dc0-11d1-b245-5ffdce74fad2"
+    }
+    ```
   * **409 Conflict**: Xung đột phiên bản kiểm tra (`expectedVersion` không khớp).
 
 ---
@@ -96,7 +114,7 @@
 * **Quyền:** `PARENT`
 * **Quy tắc bảo mật:**
   * Phụ huynh bắt buộc phải có liên kết hợp lệ (`ParentStudent` active) với `studentId`.
-  * Chỉ trả về các ảnh có trạng thái `"approved"`. Ảnh `"pending"` hoặc `"rejected"` hoàn toàn không lộ ra client phụ huynh.
+  * Chỉ trả về các ảnh có `reviewState = "APPROVED"`. Ảnh `"PENDING_REVIEW"` hoặc `"REJECTED"` hoàn toàn không lộ ra client phụ huynh.
 * **Response (200 OK):**
   ```json
   {
@@ -121,3 +139,28 @@
   * Header bắt buộc từ Server: `Cache-Control: no-store, private` (ngăn cấm proxy và cache công cộng lưu trữ).
   * Trả về luồng byte trực tiếp `image/jpeg` hoặc `image/png`.
   * Trả về **403 Forbidden** nếu phụ huynh không có liên kết với trẻ hoặc ảnh chưa được Admin duyệt. Không dùng URL public AWS/Cloudflare trực tiếp để tránh rò rỉ hình ảnh trẻ nhỏ.
+
+---
+
+## 3. Quy ước Trạng thái (Mobile Sync vs Server Review)
+
+Tách biệt hoàn toàn vòng đời đồng bộ hàng đợi offline phía thiết bị di động (`syncState`) khỏi vòng đời kiểm duyệt nghiệp vụ phía máy chủ (`reviewState`):
+
+### 3.1. `syncState` phía Mobile (Android Offline Queue)
+
+| Giá trị (`syncState`) | Ý nghĩa | Hành vi Mobile / Retry |
+| --- | --- | --- |
+| `QUEUED_OFFLINE` | Ảnh đã chụp và lưu cục bộ, đang chờ mạng hoặc đến lượt đẩy lên server | Giữ trong hàng đợi bền vững (survive kill/restart) |
+| `UPLOADING` | Đang thực hiện request `POST /api/kitchen/servings/{id}/photos` | Khóa item tránh worker gửi trùng song song |
+| `SYNCED` | Server đã xác nhận lưu thành công (`201 Created` hoặc `200 OK` idempotent retry) | Đánh dấu hoàn tất đồng bộ, gắn `id` và `receivedAt` từ server |
+| `FAILED_RETRYABLE` | Lỗi tạm thời (mất mạng, timeout, `5xx`, `429`) | Giữ nguyên `clientPhotoId` và `sha256` để retry với exponential backoff |
+| `FAILED_CONFLICT` | Server trả `409 Conflict` (cùng `clientPhotoId` nhưng khác `sha256`) | Dừng tự động retry; đánh dấu xung đột để bếp kiểm tra lại |
+| `FAILED_PERMANENT` | Server trả `400 Bad Request` / `422 Unprocessable Entity` (sai định dạng hoặc vượt quá 10 MiB) | Dừng retry; yêu cầu người dùng chụp/chọn lại ảnh hợp lệ |
+
+### 3.2. `reviewState` phía Server (Admin Moderation & Guardian Visibility)
+
+| Giá trị (`reviewState`) | Ý nghĩa | Quyền hiển thị & Quy tắc |
+| --- | --- | --- |
+| `PENDING_REVIEW` | Ảnh mới đồng bộ thành công, đang chờ Admin kiểm duyệt | `KITCHEN_STAFF` và `ADMIN` xem được metadata; **hoàn toàn ẩn với `PARENT`** |
+| `APPROVED` | Admin đã phê duyệt thông qua `POST /api/admin/photos/{id}/review` | Phụ huynh có liên kết `ParentStudent` active mới thấy trong danh sách và tải được qua `/content` |
+| `REJECTED` | Admin đã từ chối thông qua `POST /api/admin/photos/{id}/review` | **Hoàn toàn ẩn với `PARENT`**; **bắt buộc có `reason`** khi Admin từ chối |

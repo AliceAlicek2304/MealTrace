@@ -446,4 +446,40 @@ public sealed class SchoolTimeTests
 
         Assert.Equal(expectedStatus, response.StatusCode);
     }
+
+    [Theory]
+    [InlineData(-1, HttpStatusCode.OK)]
+    [InlineData(0, HttpStatusCode.Conflict)]
+    [InlineData(1, HttpStatusCode.Conflict)]
+    public async Task BreakfastException_BoundarySecondsEnforced(int secondsOffset, HttpStatusCode expectedStatus)
+    {
+        var dateD = FutureSchoolDay;
+        var cutoff = SchoolTime.Cutoff(dateD, "Breakfast");
+        var clock = new TestClock();
+        clock.Set(At(dateD.AddDays(-1), 19, 0));
+
+        using var factory = new AuthTestFactory(clock: clock);
+        using var client = factory.CreateClient();
+        var seed = await SeedScenario(factory, clock);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var day = (await db.MealDays.FindAsync(seed.DayId))!;
+            day.Date = dateD;
+            day.MealType = "Breakfast";
+            day.CutoffAt = cutoff;
+            await db.SaveChangesAsync();
+        }
+
+        clock.Set(cutoff.AddSeconds(secondsOffset));
+        await Authorize(client, seed.TeacherEmail, seed.Password);
+        var response = await client.PostAsJsonAsync($"/api/meal-days/{seed.DayId}/exceptions", new
+        {
+            studentId = seed.PresentId,
+            willEat = false,
+            reason = "Kiểm tra ranh giới giây chốt bữa sáng"
+        });
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+    }
 }

@@ -16,11 +16,24 @@ public sealed class MealCalendarService(IMealCalendarRepository repository, Time
     private DateOnly Today() => SchoolTime.Today(clock.GetUtcNow());
     private static string[] Types(string json) => JsonSerializer.Deserialize<string[]>(json) ?? [];
     private static bool ValidReason(string? reason) => !string.IsNullOrWhiteSpace(reason) && reason.Trim().Length <= 500;
+    private static readonly HashSet<string> CanonicalMealTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Breakfast", "Lunch", "Snack" 
+    };
+
     private static string[]? NormalizeTypes(string[]? types)
     {
         if (types is null || types.Length is < 1 or > 6 || types.Any(x => string.IsNullOrWhiteSpace(x) || x.Trim().Length > 60))
             return null;
-        var result = types.Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+
+        if (types.Any(x => !CanonicalMealTypes.Contains(x.Trim())))
+            return null;
+
+        var result = types.Select(x => CanonicalMealTypes.First(c => c.Equals(x.Trim(), StringComparison.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToArray();
+
         return result.Length == types.Length ? result : null;
     }
 

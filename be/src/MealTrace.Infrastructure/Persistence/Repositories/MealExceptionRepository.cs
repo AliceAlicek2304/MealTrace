@@ -68,9 +68,13 @@ internal sealed class MealExceptionRepository(MealTraceDbContext db) : IMealExce
     }
     public async Task<Enrollment?> FindEnrollmentAtCutoffAsync(MealDay day, Guid studentId, DateTimeOffset now)
     {
+        var asOf = now < day.CutoffAt ? now : day.CutoffAt;
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            return await EnrollmentQueries.OnDate(db, day.Date).Include("Class").FirstOrDefaultAsync(x => x.StudentId == studentId && x.RecordedAt <= (now < day.CutoffAt ? now : day.CutoffAt));
+            return await EnrollmentQueries.OnDateAsOf(db, day.Date, asOf, day.CutoffAt)
+                .Include("Class")
+                .Where(x => x.StudentId == studentId && x.RecordedAt < day.CutoffAt)
+                .FirstOrDefaultAsync();
         });
     }
 

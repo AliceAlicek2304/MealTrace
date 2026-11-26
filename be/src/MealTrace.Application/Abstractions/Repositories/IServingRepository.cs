@@ -1,26 +1,21 @@
-﻿using MealTrace.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MealTrace.Application.Models.Persistence;
+using MealTrace.Domain.Entities;
 
-namespace MealTrace.Application.Abstractions.Repositories
+namespace MealTrace.Application.Abstractions.Repositories;
+
+public interface IServingRepository
 {
-    public interface IServingRepository
-    {
+    Task<ServingVersion?> FindVersionByClientRequestIdAsync(Guid clientRequestId, CancellationToken ct = default);
 
-        Task<ServingVersion?> FindVersionByClientRequestIdAsync(Guid clientRequestId, CancellationToken ct = default);
+    Task<Serving?> FindServingWithVersionAsync(Guid servingId, CancellationToken ct = default);
 
-        Task<Serving?> FindServingWithVersionAsync(Guid servingId, CancellationToken ct = default);
+    Task<Serving?> FindServingByClassAndMealDayAsync(Guid mealDayId, Guid classId, CancellationToken ct = default);
 
-        Task<Serving?> FindServingByClassAndMealDayAsync(Guid mealDayId, Guid classId, CancellationToken ct = default);
+    Task<bool> MealDayIsActiveAndMatchesClassAsync(Guid mealDayId, Guid classId, CancellationToken ct = default);
+    Task<ServingSettlementValidationStatus> ValidateSettlementAsync(Guid settlementId, Guid mealDayId, Guid classId, string snapshotToken, CancellationToken ct = default);
+    Task<bool> RecipesExistAsync(Guid[] recipeVersionIds, CancellationToken ct = default);
+    Task<bool> IngredientsExistAsync(Guid[] ingredientIds, (Guid IngredientId, Guid NutrientVersionId)[] nutrientPairs, CancellationToken ct = default);
 
-        Task<bool> MealDayExistsAsync(Guid mealDayId, CancellationToken ct = default);
-        Task<bool> ClassExistsAsync(Guid classId, CancellationToken ct = default);
-        Task<bool> SettlementSnapshotMatchesAsync(Guid settlementId, string snapshotToken, CancellationToken ct = default);
-
-        void AddServing(Serving serving);
-        void AddServingVersion(ServingVersion version);
-    }
+    void AddServing(Serving serving);
+    void AddServingVersion(ServingVersion version);
 }
