@@ -78,3 +78,32 @@ public sealed class SettlementAuditSource(MealTraceDbContext db) : EfAuditSource
         students = row.Students.Count == 0 ? null : row.Students.OrderBy(s => s.StudentId).Select(s => new { s.StudentId }).ToArray()
     });
 }
+
+public sealed class SettlementAcknowledgementAuditSource(MealTraceDbContext db) : EfAuditSource<SettlementAcknowledgement>
+{
+    public override string Name => "settlement-acknowledgement";
+
+    protected override IQueryable<AuditProjection<SettlementAcknowledgement>> Events =>
+        db.SettlementAcknowledgements.AsNoTracking().Select(row => new AuditProjection<SettlementAcknowledgement>
+        {
+            Event = row,
+            Id = row.Id,
+            At = row.AcknowledgedAt,
+            Action = "kitchen.settlement.acknowledge",
+            EntityType = nameof(SettlementAcknowledgement),
+            EntityId = row.Id
+        });
+
+    protected override AuditActor? Actor(AuditProjection<SettlementAcknowledgement> row) =>
+        Guid.TryParse(row.Event.AcknowledgedBy, out var id) && id != Guid.Empty ? new AuditActor(id, null) : null;
+
+    protected override IQueryable<AuditProjection<SettlementAcknowledgement>> FilterActor(
+        IQueryable<AuditProjection<SettlementAcknowledgement>> query, Guid actor)
+    {
+        var actorIds = new[] { actor.ToString("D"), actor.ToString("N"), actor.ToString("B"), actor.ToString("P"), actor.ToString("X") };
+        return query.Where(row => actorIds.Contains(row.Event.AcknowledgedBy.Trim().ToLower()));
+    }
+
+    protected override JsonElement? After(SettlementAcknowledgement row) =>
+        Json(new { row.Id, row.MealDayId, count = row.PortionsCount });
+}

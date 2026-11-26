@@ -143,6 +143,19 @@ public sealed class AuditTests
         using var factory = new AuthTestFactory();
         var seed = await factory.SeedUsersAsync();
         using var client = factory.CreateClient();
+        var acknowledgement = new SettlementAcknowledgement
+        {
+            MealDay = new MealDay { Date = DateOnly.FromDateTime(At.Date), MealType = "Lunch", CutoffAt = At, SettledAt = At },
+            AcknowledgedAt = At,
+            AcknowledgedBy = seed.TeacherId.ToString(),
+            PortionsCount = 1
+        };
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            db.SettlementAcknowledgements.Add(acknowledgement);
+            await db.SaveChangesAsync();
+        }
         if (role is not null)
         {
             using var scope = factory.Services.CreateScope();
@@ -152,7 +165,8 @@ public sealed class AuditTests
             Assert.True((await users.AddToRoleAsync(user, role)).Succeeded);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, seed.TeacherEmail, seed.Password));
         }
-        foreach (var route in new[] { Root, $"{Root}/calendar:{Guid.NewGuid()}", $"{Root}/entities/Student/{Guid.NewGuid()}",
+        foreach (var route in new[] { Root, $"{Root}/calendar:{Guid.NewGuid()}", $"{Root}/settlement-acknowledgement:{acknowledgement.Id}",
+            $"{Root}/entities/SettlementAcknowledgement/{acknowledgement.Id}",
             Root + "/export?from=2026-10-01T00:00:00Z&to=2026-10-31T00:00:00Z&format=csv" })
         {
             var response = await client.GetAsync(route);
@@ -201,6 +215,11 @@ public sealed class AuditTests
                 CutoffAt = At, SettledBy = seed.TeacherId.ToString(), Decisions = [new SettlementDecision { StudentId = studentId,
                     StudentName = "Trẻ audit", StudentCode = "A", WillEat = true, Source = "Enrollment" }] };
             db.PortionSettlements.Add(settlement);
+            db.SettlementAcknowledgements.Add(new SettlementAcknowledgement
+            {
+                MealDayId = day.Id, AcknowledgedAt = At.AddHours(3),
+                AcknowledgedBy = seed.TeacherId.ToString("B").ToUpperInvariant(), PortionsCount = 1
+            });
             var amendment = new PortionAmendment { BaseSettlement = settlement, StudentId = Guid.Empty, StudentName = "", StudentCode = "",
                 Reason = "Điều chỉnh", RequestedBy = seed.TeacherId, RequestedByName = "Tên yêu cầu", RequestedAt = At.AddHours(3),
                 Students = [new PortionAmendmentStudent { StudentId = studentId, StudentName = "Trẻ audit", StudentCode = "A" }] };
@@ -219,7 +238,7 @@ public sealed class AuditTests
         var service = check.ServiceProvider.GetRequiredService<AuditService>();
         var sources = check.ServiceProvider.GetServices<IAuditSource>().ToArray();
         var all = await service.ListAsync(new AuditFilter(At, At.AddDays(1)), pageSize: 100);
-        Assert.Equal(14, all.Total);
+        Assert.Equal(15, all.Total);
         var paged = new List<AuditEntry>();
         for (var page = 1; page <= 4; page++) paged.AddRange((await service.ListAsync(new AuditFilter(At, At.AddDays(1)), page, 4)).Items);
         Assert.Equal(all.Items.Select(x => x.Id), paged.Select(x => x.Id));
