@@ -20,14 +20,22 @@ internal static class RecipeEndpoints
             async (Guid id, CreateRecipeVersionRequest request, IRecipeService service, CancellationToken ct) =>
                 Results.Json(await service.AddVersionAsync(id, request, ct), statusCode: StatusCodes.Status201Created)).Produces<RecipeVersionCreatedResponse>(StatusCodes.Status201Created);
 
-        // GET /api/kitchen/recipes/{id}/versions/{v}/nutrition?mode=&validAt=&knownAt=&ageGroup=
+        // GET /api/kitchen/recipes?search=&page=&pageSize=  -> each recipe with its latest version id
+        group.MapGet("", async (string? search, int? page, int? pageSize, IRecipeService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(search, page, pageSize, ct))).Produces<RecipeCatalogPage>();
+
+        // GET /api/kitchen/recipes/{id}/versions  -> every version with reason, actor, rounding rule and lines
+        group.MapGet("/{id:guid}/versions", async (Guid id, IRecipeService service, CancellationToken ct) =>
+            Results.Ok(await service.ListVersionsAsync(id, ct))).Produces<RecipeVersionList>();
+
+        // GET /api/kitchen/recipes/{id}/versions/{v}/nutrition?mode=&validAt=&knownAt=&ageGroup=&mealType=
         //   mode=recompute (default): ingredient versions resolved at validAt/knownAt (default: now)
         //   mode=pinned:              ingredient versions stored on the recipe lines; validAt/knownAt not allowed
         // Note: a "+" in an offset such as +07:00 must be URL-encoded as %2B.
         group.MapGet("/{id:guid}/versions/{v:int}/nutrition",
-            async (Guid id, int v, string? mode, DateTimeOffset? validAt, DateTimeOffset? knownAt, string? ageGroup,
+            async (Guid id, int v, string? mode, DateTimeOffset? validAt, DateTimeOffset? knownAt, string? ageGroup, string? mealType,
                    INutritionService service, CancellationToken ct) =>
-                Results.Ok(await service.CalculateAsync(id, v, new NutritionQuery(mode, validAt, knownAt, ageGroup), ct)))
+                Results.Ok(await service.CalculateAsync(id, v, new NutritionQuery(mode, validAt, knownAt, ageGroup, mealType), ct)))
             .Produces<NutritionResponse>();
     }
 }

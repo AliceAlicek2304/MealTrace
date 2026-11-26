@@ -14,4 +14,7 @@ public sealed record RecipeNutritionLineRow
     public string? Unit { get; init; }
     public string? WeightBasis { get; init; }
     public IngredientVersion Pinned { get; init; } = default!;
+
+    /// <summary>The ingredient's own unit; with a null Quantity it shows a legacy ml line whose conversion is unknown.</summary>
+    public string IngredientUnit { get; init; } = "g";
 }

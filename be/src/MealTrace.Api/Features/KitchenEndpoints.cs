@@ -17,6 +17,23 @@ public static class KitchenEndpoints
         kitchen.MapIngredientEndpoints();
         kitchen.MapRecipeEndpoints();
         kitchen.MapKitchenSettlementEndpoints();
+        kitchen.MapKitchenSourceEndpoints();
+        kitchen.MapMenuEndpoints();
+        kitchen.MapIngredientEstimateEndpoints();
+        kitchen.MapNutritionReferenceEndpoints();
+
+        // Decisions that belong to the Admin only: menu review/publication and reference ranges.
+        var admin = app.MapGroup("/api/admin")
+            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
+            .AddEndpointFilter<KitchenProblemFilter>();
+        admin.MapAdminMenuEndpoints();
+        admin.MapAdminNutritionReferenceEndpoints();
+
+        // A parent reads only the published, frozen menu of a linked child.
+        var parent = app.MapGroup("/api/parent/students")
+            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Parent))
+            .AddEndpointFilter<KitchenProblemFilter>();
+        parent.MapParentMenuEndpoints();
 
         return app;
     }
