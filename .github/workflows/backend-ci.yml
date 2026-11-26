@@ -14,20 +14,6 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_DB: mealtrace_ci
-          POSTGRES_USER: mealtrace_ci
-          POSTGRES_PASSWORD: mealtrace_ci
-        ports:
-          - 5432/tcp
-        options: >-
-          --health-cmd "pg_isready -U mealtrace_ci -d mealtrace_ci"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
 
     steps:
       - uses: actions/checkout@v6
@@ -48,13 +34,44 @@ jobs:
 
       - name: Run backend tests with PostgreSQL
         id: tests
+        shell: bash
         env:
-          MEALTRACE_TEST_CONNECTION: Host=127.0.0.1;Port=${{ job.services.postgres.ports['5432'] }};Database=mealtrace_ci;Username=mealtrace_ci;Password=mealtrace_ci
-        run: >-
-          dotnet test be/MealTrace.sln --configuration Release --no-build --no-restore
-          --logger "trx;LogFileName=backend.trx"
-          --logger "console;verbosity=normal"
-          --results-directory "${{ runner.temp }}/mealtrace-test-results"
+          POSTGRES_DB: mealtrace_ci
+          POSTGRES_USER: mealtrace_ci
+        run: |
+          pg_auth_token="$(openssl rand -hex 32)"
+          printf '::add-mask::%s\n' "$pg_auth_token"
+          postgres_id="$(POSTGRES_PASSWORD="$pg_auth_token" docker run --detach --rm \
+            --publish 127.0.0.1::5432 \
+            --env POSTGRES_DB --env POSTGRES_USER --env POSTGRES_PASSWORD \
+            --env POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 \
+            --health-cmd 'PGPASSWORD="$POSTGRES_PASSWORD" psql -X --no-password -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT 1"' \
+            --health-interval 5s --health-timeout 5s --health-retries 10 \
+            postgres:18)"
+          trap 'docker rm --force "$postgres_id" >/dev/null 2>&1 || true' EXIT
+
+          for _ in {1..60}; do
+            health="$(docker inspect --format '{{.State.Health.Status}}' "$postgres_id")"
+            [[ "$health" == starting ]] || break
+            sleep 1
+          done
+          if [[ "$health" != healthy ]]; then
+            echo "::error::The PostgreSQL CI database did not become healthy."
+            exit 1
+          fi
+
+          endpoint="$(docker port "$postgres_id" 5432/tcp)"
+          if [[ ! "$endpoint" =~ ^127\.0\.0\.1:([0-9]+)$ ]]; then
+            echo "::error::Expected a single PostgreSQL loopback port."
+            exit 1
+          fi
+          port="${BASH_REMATCH[1]}"
+          PGPASSWORD="$pg_auth_token" \
+            MEALTRACE_TEST_CONNECTION="Host=127.0.0.1;Port=$port;Database=$POSTGRES_DB;Username=$POSTGRES_USER" \
+            dotnet test be/MealTrace.sln --configuration Release --no-build --no-restore \
+              --logger "trx;LogFileName=backend.trx" \
+              --logger "console;verbosity=normal" \
+              --results-directory "${{ runner.temp }}/mealtrace-test-results"
 
       - name: Upload backend TRX
         if: ${{ !cancelled() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
