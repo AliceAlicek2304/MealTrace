@@ -82,4 +82,3 @@ MealType = "Lunch", CutoffAt = DateTimeOffset.UtcNow
                 });
         }
 }
-

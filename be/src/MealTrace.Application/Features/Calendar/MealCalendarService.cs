@@ -18,7 +18,7 @@ public sealed class MealCalendarService(IMealCalendarRepository repository, Time
     private static bool ValidReason(string? reason) => !string.IsNullOrWhiteSpace(reason) && reason.Trim().Length <= 500;
     private static readonly HashSet<string> CanonicalMealTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Breakfast", "Lunch", "Snack" 
+        "Breakfast", "Lunch", "Snack"
     };
 
     private static string[]? NormalizeTypes(string[]? types)
