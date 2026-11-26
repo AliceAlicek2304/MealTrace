@@ -220,6 +220,16 @@ public sealed class AuditTests
                 MealDayId = day.Id, AcknowledgedAt = At.AddHours(3),
                 AcknowledgedBy = seed.TeacherId.ToString("B").ToUpperInvariant(), PortionsCount = 1
             });
+            db.IngredientVersions.Add(new IngredientVersion
+            {
+                Ingredient = new Ingredient { Name = "Audit ingredient", Unit = "g" },
+                Version = 1, RecordedAt = At, EffectiveFrom = At, RecordedByUserId = seed.TeacherId
+            });
+            db.RecipeVersions.Add(new RecipeVersion
+            {
+                Recipe = new Recipe { Name = "Audit recipe" },
+                Version = 1, RecordedAt = At, RecordedByUserId = seed.TeacherId
+            });
             var amendment = new PortionAmendment { BaseSettlement = settlement, StudentId = Guid.Empty, StudentName = "", StudentCode = "",
                 Reason = "Điều chỉnh", RequestedBy = seed.TeacherId, RequestedByName = "Tên yêu cầu", RequestedAt = At.AddHours(3),
                 Students = [new PortionAmendmentStudent { StudentId = studentId, StudentName = "Trẻ audit", StudentCode = "A" }] };
@@ -238,9 +248,9 @@ public sealed class AuditTests
         var service = check.ServiceProvider.GetRequiredService<AuditService>();
         var sources = check.ServiceProvider.GetServices<IAuditSource>().ToArray();
         var all = await service.ListAsync(new AuditFilter(At, At.AddDays(1)), pageSize: 100);
-        Assert.Equal(15, all.Total);
+        Assert.Equal(17, all.Total);
         var paged = new List<AuditEntry>();
-        for (var page = 1; page <= 4; page++) paged.AddRange((await service.ListAsync(new AuditFilter(At, At.AddDays(1)), page, 4)).Items);
+        for (var page = 1; page <= 5; page++) paged.AddRange((await service.ListAsync(new AuditFilter(At, At.AddDays(1)), page, 4)).Items);
         Assert.Equal(all.Items.Select(x => x.Id), paged.Select(x => x.Id));
         Assert.Equal(sources.Select(x => x.Name).Order(), all.Items.Select(x => x.Source).Order());
         foreach (var source in sources)

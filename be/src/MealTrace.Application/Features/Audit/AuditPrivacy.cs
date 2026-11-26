@@ -16,7 +16,10 @@ public static partial class AuditPrivacy
         "startDate", "endDate", "baseSettlementId", "quantity", "isQuantityOnly",
         "approved", "appliedSettlementId", "version", "count", "kitchenAdjustment",
         "cutoffAt", "created", "batchId", "status", "parentId", "sourceRow", "amendmentId",
-        "absenceId", "exceptionId", "source"
+        "absenceId", "exceptionId", "source", "effectiveFrom", "effectiveTo",
+        "energyKcalPer100G", "proteinGPer100G", "fatGPer100G", "carbGPer100G",
+        "edibleFraction", "gramsPerMl", "hasSourceReference", "servingBasis",
+        "roundingKcalDecimals", "roundingMacroDecimals", "actorMissing"
     };
     private static readonly HashSet<string> Containers = new(StringComparer.OrdinalIgnoreCase)
         { "schedule", "exception", "sessions", "students", "decisions", "items" };
