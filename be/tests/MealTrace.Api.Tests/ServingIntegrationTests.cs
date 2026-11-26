@@ -1,12 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MealTrace.Api.Workers;
 using MealTrace.Application.Dtos.Kitchen;
 using MealTrace.Domain.Entities;
+using MealTrace.Domain.Security;
 using MealTrace.Domain.Time;
+using MealTrace.Infrastructure.Identity;
 using MealTrace.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using static MealTrace.Api.Tests.AuthenticationTests;
 using static MealTrace.Api.Tests.KitchenSettlementTests;
 using static MealTrace.Api.Tests.MealExceptionTests;
@@ -284,6 +289,7 @@ public sealed class ServingIntegrationTests
             BuildSplitServingRequest(h, Guid.NewGuid(), source1, source2));
         Assert.Equal(HttpStatusCode.Created, v1Res.StatusCode);
         var v1 = (await v1Res.Content.ReadFromJsonAsync<ServingResponse>())!;
+        Assert.Null(v1.PriorVersionId);
 
         var v2Request = new CreateServingVersionRequest(
             ExpectedVersion: 1,
@@ -312,6 +318,7 @@ public sealed class ServingIntegrationTests
         Assert.Equal(HttpStatusCode.Created, v2Res.StatusCode);
         var v2 = (await v2Res.Content.ReadFromJsonAsync<ServingResponse>())!;
         Assert.Equal(2, v2.Version);
+        Assert.Equal(v1.VersionId, v2.PriorVersionId);
 
         var latest = await h.Client.GetFromJsonAsync<ServingDetailResponse>($"/api/kitchen/servings/{v1.Id}");
         Assert.NotNull(latest);
@@ -323,8 +330,10 @@ public sealed class ServingIntegrationTests
         Assert.Equal(2, history.Count);
         Assert.Equal(1, history[0].Version);
         Assert.Null(history[0].Reason);
+        Assert.Null(history[0].PriorVersionId);
         Assert.Equal(2, history[1].Version);
         Assert.Equal("Điều chỉnh món thực tế do thiếu nguyên liệu kho", history[1].Reason);
+        Assert.Equal(v1.VersionId, history[1].PriorVersionId);
 
         await RunWithReadDbAsync(h, postgres, async db =>
         {
@@ -339,6 +348,8 @@ public sealed class ServingIntegrationTests
             Assert.Equal(2, versions.Count);
             var persistedV1 = versions[0];
             Assert.Equal(1, persistedV1.Version);
+            Assert.Null(persistedV1.PriorVersionId);
+            Assert.Equal(persistedV1.Id, versions[1].PriorVersionId);
             var v1Dish = Assert.Single(persistedV1.Dishes);
             Assert.Equal(h.RecipeVersionId, v1Dish.ActualRecipeVersionId);
             var v1Ing = Assert.Single(v1Dish.IngredientUses);
@@ -399,7 +410,7 @@ public sealed class ServingIntegrationTests
         var first = (await firstRes.Content.ReadFromJsonAsync<ServingResponse>())!;
 
         var retrySameRes = await h.Client.PostAsJsonAsync("/api/kitchen/servings", validReq);
-        Assert.Equal(HttpStatusCode.Created, retrySameRes.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, retrySameRes.StatusCode);
         var retrySame = (await retrySameRes.Content.ReadFromJsonAsync<ServingResponse>())!;
         Assert.Equal(first.Id, retrySame.Id);
         Assert.Equal(first.VersionId, retrySame.VersionId);
@@ -455,7 +466,8 @@ public sealed class ServingIntegrationTests
         var servingRace = await Task.WhenAll(
             h.Client.PostAsJsonAsync("/api/kitchen/servings", foreignReq),
             client2.PostAsJsonAsync("/api/kitchen/servings", foreignReq));
-        Assert.All(servingRace, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        Assert.Single(servingRace, r => r.StatusCode == HttpStatusCode.Created);
+        Assert.Single(servingRace, r => r.StatusCode == HttpStatusCode.OK);
         var r1 = (await servingRace[0].Content.ReadFromJsonAsync<ServingResponse>())!;
         var r2 = (await servingRace[1].Content.ReadFromJsonAsync<ServingResponse>())!;
         Assert.Equal(r1.Id, r2.Id);
@@ -468,7 +480,159 @@ public sealed class ServingIntegrationTests
         });
     }
 
-    // ---- Scenario 4: Transfer at 07:15 after Lunch cutoff 07:00 keeps student in ClassA ----
+    // ---- Scenario 3b: Strict RBAC & Stale Settlement Protection ----
+
+    [Fact]
+    public async Task ServingEndpoints_EnforceStrictRbac()
+    {
+        using var h = await CreateSettledHarnessAsync(postgres: false);
+        var createReq = BuildSplitServingRequest(h, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var createdRes = await h.Client.PostAsJsonAsync("/api/kitchen/servings", createReq);
+        Assert.Equal(HttpStatusCode.Created, createdRes.StatusCode);
+        var created = (await createdRes.Content.ReadFromJsonAsync<ServingResponse>())!;
+
+        var versionReq = new CreateServingVersionRequest(1, "Cập nhật", createReq.Dishes);
+        var foreignReq = BuildSplitServingRequest(
+            h,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            classId: h.Seed.ForeignClassId,
+            settlementId: h.ForeignSettlementId);
+
+        // 1. Anonymous -> 401
+        h.Client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await h.Client.PostAsJsonAsync("/api/kitchen/servings", foreignReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await h.Client.PostAsJsonAsync($"/api/kitchen/servings/{created.Id}/versions", versionReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}/history")).StatusCode);
+
+        // 2. Teacher -> 403
+        await Authorize(h.Client, h.Seed.TeacherEmail, h.Seed.Password);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync("/api/kitchen/servings", foreignReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync($"/api/kitchen/servings/{created.Id}/versions", versionReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}/history")).StatusCode);
+
+        // 3. Parent -> 403
+        await Authorize(h.Client, "parent@test.local", h.Seed.Password);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync("/api/kitchen/servings", foreignReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync($"/api/kitchen/servings/{created.Id}/versions", versionReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}/history")).StatusCode);
+
+        // 4. Admin -> 403 on writes, 200 on reads
+        await Authorize(h.Client, h.Seed.AdminEmail, h.Seed.Password);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync("/api/kitchen/servings", foreignReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync($"/api/kitchen/servings/{created.Id}/versions", versionReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}/history")).StatusCode);
+
+        // 5. Dual-role KitchenStaff + Admin -> 403 on writes, 200 on reads
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var kitchenUser = await users.FindByEmailAsync(h.KitchenEmail);
+            Assert.NotNull(kitchenUser);
+            Assert.True((await users.AddToRoleAsync(kitchenUser, RoleNames.Admin)).Succeeded);
+        }
+
+        await Authorize(h.Client, h.KitchenEmail, h.Seed.Password);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync("/api/kitchen/servings", foreignReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await h.Client.PostAsJsonAsync($"/api/kitchen/servings/{created.Id}/versions", versionReq)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await h.Client.GetAsync($"/api/kitchen/servings/{created.Id}/history")).StatusCode);
+    }
+
+    [Fact]
+    public Task StaleSettlementOrSnapshotToken_Returns409AndFreshSucceeds_Sqlite() =>
+        RunStaleSettlementCheckAsync(postgres: false);
+
+    [PostgresFact]
+    public Task StaleSettlementOrSnapshotToken_Returns409AndFreshSucceeds_Postgres() =>
+        RunStaleSettlementCheckAsync(postgres: true);
+
+    private static async Task RunStaleSettlementCheckAsync(bool postgres)
+    {
+        using var h = await CreateSettledHarnessAsync(postgres);
+
+        await Authorize(h.Client, h.Seed.TeacherEmail, h.Seed.Password);
+        var submitRes = await h.Client.PostAsJsonAsync($"/api/meal-days/{h.Seed.DayId}/amendments", new
+        {
+            classId = h.Seed.ClassId,
+            studentId = h.Seed.AbsentId,
+            baseSettlementId = h.SettlementId,
+            willEat = true,
+            reason = "Trẻ đi học lại bổ sung suất"
+        });
+        var amendmentId = await EventId(submitRes);
+
+        await Authorize(h.Client, h.Seed.AdminEmail, h.Seed.Password);
+        var reviewRes = await h.Client.PostAsJsonAsync($"/api/meal-days/{h.Seed.DayId}/amendments/{amendmentId}/review", new
+        {
+            approve = true,
+            reason = "Duyệt bổ sung suất ăn"
+        });
+        reviewRes.EnsureSuccessStatusCode();
+
+        Guid settlementV2Id;
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            settlementV2Id = await db.PortionSettlements
+                .Where(s => s.MealDayId == h.Seed.DayId && s.ClassId == h.Seed.ClassId)
+                .OrderByDescending(s => s.Version)
+                .Select(s => s.Id)
+                .FirstAsync();
+        }
+        Assert.NotEqual(h.SettlementId, settlementV2Id);
+
+        await Authorize(h.Client, h.KitchenEmail, h.Seed.Password);
+
+        // Old settlement_v1 + old token_v1 -> 409 Conflict
+        var staleBothRes = await h.Client.PostAsJsonAsync("/api/kitchen/servings",
+            BuildSplitServingRequest(h, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+                settlementId: h.SettlementId, snapshotToken: h.SnapshotToken));
+        Assert.Equal(HttpStatusCode.Conflict, staleBothRes.StatusCode);
+
+        // New settlement_v2 + old acknowledged token_v1 -> 409 Conflict
+        var staleTokenRes = await h.Client.PostAsJsonAsync("/api/kitchen/servings",
+            BuildSplitServingRequest(h, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+                settlementId: settlementV2Id, snapshotToken: h.SnapshotToken));
+        Assert.Equal(HttpStatusCode.Conflict, staleTokenRes.StatusCode);
+
+        var diffV2 = await h.Client.GetFromJsonAsync<JsonElement>($"/api/kitchen/settlements/{h.Seed.DayId}/diff");
+        var tokenV2 = diffV2.GetProperty("snapshotToken").GetString()!;
+        Assert.NotEqual(h.SnapshotToken, tokenV2);
+
+        // Fresh token_v2 before acknowledge -> 400 BadRequest
+        var unackedRes = await h.Client.PostAsJsonAsync("/api/kitchen/servings",
+            BuildSplitServingRequest(h, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+                settlementId: settlementV2Id, snapshotToken: tokenV2));
+        Assert.Equal(HttpStatusCode.BadRequest, unackedRes.StatusCode);
+
+        // Kitchen acknowledges token_v2
+        var ackV2Res = await h.Client.PostAsJsonAsync($"/api/kitchen/settlements/{h.Seed.DayId}/acknowledge", new
+        {
+            snapshotToken = tokenV2,
+            note = "Bếp xác nhận bản chốt v2"
+        });
+        Assert.Equal(HttpStatusCode.Created, ackV2Res.StatusCode);
+
+        // Old settlement_v1 + fresh token_v2 -> 409 Conflict
+        var staleSettlementRes = await h.Client.PostAsJsonAsync("/api/kitchen/servings",
+            BuildSplitServingRequest(h, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+                settlementId: h.SettlementId, snapshotToken: tokenV2));
+        Assert.Equal(HttpStatusCode.Conflict, staleSettlementRes.StatusCode);
+
+        // Fresh settlement_v2 + fresh acknowledged token_v2 -> 201 Created
+        var freshRes = await h.Client.PostAsJsonAsync("/api/kitchen/servings",
+            BuildSplitServingRequest(h, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+                settlementId: settlementV2Id, snapshotToken: tokenV2));
+        Assert.Equal(HttpStatusCode.Created, freshRes.StatusCode);
+    }
+
+    // ---- Scenario 4: Transfer and absence at 07:15 after Lunch cutoff 07:00 keep student in ClassA ----
 
     [Fact]
     public Task TransferAt0715AfterLunchCutoff0700_KeepsStudentInClassA_Sqlite() =>
@@ -492,10 +656,12 @@ public sealed class ServingIntegrationTests
         Guid classBId;
         Guid studentId;
         Guid dayId;
+        const string parentEmail = "parent_late_cutoff@test.local";
 
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<MealTraceDbContext>();
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var classB = new SchoolClass { Name = "Lớp Chuyển Đến B", SchoolYear = "2026-2027" };
             db.Classes.Add(classB);
 
@@ -523,6 +689,17 @@ public sealed class ServingIntegrationTests
                 CutoffAt = SchoolTime.Cutoff(date, "Lunch")
             };
             db.MealDays.Add(lunchDay);
+
+            var parent = new ApplicationUser
+            {
+                FullName = "Phụ huynh Nguyễn Minh Khang",
+                UserName = parentEmail,
+                Email = parentEmail,
+                EmailConfirmed = true
+            };
+            Assert.True((await users.CreateAsync(parent, seed.Password)).Succeeded);
+            Assert.True((await users.AddToRoleAsync(parent, RoleNames.Parent)).Succeeded);
+            db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = student.Id });
             await db.SaveChangesAsync();
 
             classBId = classB.Id;
@@ -530,9 +707,9 @@ public sealed class ServingIntegrationTests
             dayId = lunchDay.Id;
         }
 
-        await Authorize(client, seed.AdminEmail, seed.Password);
-
         clock.Set(At(date, 7, 15));
+
+        await Authorize(client, seed.AdminEmail, seed.Password);
         var transferRes = await client.PostAsJsonAsync($"/api/admin/students/{studentId}/enrollments", new
         {
             classId = classBId,
@@ -542,9 +719,23 @@ public sealed class ServingIntegrationTests
         });
         Assert.Equal(HttpStatusCode.NoContent, transferRes.StatusCode);
 
+        await Authorize(client, parentEmail, seed.Password);
+        var absenceRes = await client.PostAsJsonAsync("/api/parent/absences", new
+        {
+            studentId,
+            fromDate = date,
+            toDate = date,
+            reason = "Báo vắng lúc 07:15 sau giờ chốt bữa trưa"
+        });
+        Assert.Equal(HttpStatusCode.Created, absenceRes.StatusCode);
+
         clock.Set(At(date, 8, 0));
-        var settleRes = await client.PostAsync($"/api/meal-days/{dayId}/settle", null);
-        Assert.Equal(HttpStatusCode.OK, settleRes.StatusCode);
+        var worker = new MealSettlementWorker(
+            factory.Services.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<MealSettlementWorker>.Instance,
+            clock);
+        var settledCount = await worker.ProcessPendingSettlementsAsync(CancellationToken.None);
+        Assert.Equal(1, settledCount);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -558,10 +749,12 @@ public sealed class ServingIntegrationTests
             var settlement = Assert.Single(settlements);
             Assert.Equal(classAId, settlement.ClassId);
             Assert.Equal(1, settlement.Count);
+            Assert.Equal("system", settlement.SettledBy);
             Assert.Equal(studentId, Assert.Single(settlement.Students).StudentId);
             Assert.DoesNotContain(settlements, s => s.ClassId == classBId);
         }
 
+        await Authorize(client, seed.AdminEmail, seed.Password);
         var portions = await client.GetFromJsonAsync<JsonElement>($"/api/meal-days/{dayId}/portions");
         var room = Assert.Single(portions.GetProperty("classes").EnumerateArray());
         Assert.Equal(classAId, room.GetProperty("classId").GetGuid());

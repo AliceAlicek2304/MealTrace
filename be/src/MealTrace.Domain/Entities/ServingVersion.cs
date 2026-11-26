@@ -6,6 +6,7 @@ public sealed class ServingVersion
     public Guid ServingId { get; set; }
     public Serving Serving { get; set; } = null!;
     public int Version { get; set; } = 1;
+    public Guid? PriorVersionId { get; set; }
     public Guid MenuVersionId { get; set; }
     public Guid SettlementId { get; set; }
     public required string SnapshotToken { get; set; }

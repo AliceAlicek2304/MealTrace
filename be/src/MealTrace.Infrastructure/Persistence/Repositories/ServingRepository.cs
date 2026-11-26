@@ -1,4 +1,7 @@
-﻿using MealTrace.Application.Abstractions.Repositories;
+﻿using System.Security.Cryptography;
+using System.Text;
+using MealTrace.Application.Abstractions.Repositories;
+using MealTrace.Application.Models.Persistence;
 using MealTrace.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -65,19 +68,51 @@ internal sealed class ServingRepository(MealTraceDbContext db) : IServingReposit
         });
     }
 
-    public async Task<bool> SettlementMatchesSessionAsync(Guid settlementId, Guid mealDayId, Guid classId, string snapshotToken, CancellationToken ct = default)
+    public async Task<ServingSettlementValidationStatus> ValidateSettlementAsync(Guid settlementId, Guid mealDayId, Guid classId, string snapshotToken, CancellationToken ct = default)
     {
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            var settlementMatches = await db.PortionSettlements.AsNoTracking()
-                .AnyAsync(s => s.Id == settlementId && s.MealDayId == mealDayId && (s.ClassId == null || s.ClassId == classId), ct);
-            if (!settlementMatches)
+            var settlements = await db.PortionSettlements.AsNoTracking()
+                .Where(s => s.MealDayId == mealDayId)
+                .Select(s => new { s.Id, s.ClassId, s.Version })
+                .ToListAsync(ct);
+
+            var settlement = settlements.FirstOrDefault(s => s.Id == settlementId && (s.ClassId == null || s.ClassId == classId));
+            if (settlement is null)
             {
-                return false;
+                return ServingSettlementValidationStatus.Invalid;
             }
 
-            return await db.SettlementAcknowledgements.AsNoTracking()
-                .AnyAsync(a => a.MealDayId == mealDayId && a.SnapshotToken == snapshotToken, ct);
+            var versions = settlements
+                .Where(s => s.ClassId.HasValue)
+                .GroupBy(s => s.ClassId!.Value)
+                .OrderBy(g => g.Key)
+                .Select(g => g.OrderByDescending(s => s.Version).First().Id.ToString("N"));
+            var expectedToken = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{mealDayId:N}:{string.Join(":", versions)}")));
+
+            var latestForClass = settlements
+                .Where(s => s.ClassId == classId)
+                .OrderByDescending(s => s.Version)
+                .FirstOrDefault();
+            if (latestForClass is not null && settlement.Id != latestForClass.Id)
+            {
+                return ServingSettlementValidationStatus.Stale;
+            }
+
+            if (!string.Equals(snapshotToken, expectedToken, StringComparison.OrdinalIgnoreCase))
+            {
+                var wasAcknowledged = await db.SettlementAcknowledgements.AsNoTracking()
+                    .AnyAsync(a => a.MealDayId == mealDayId && a.SnapshotToken == snapshotToken, ct);
+                return wasAcknowledged
+                    ? ServingSettlementValidationStatus.Stale
+                    : ServingSettlementValidationStatus.Invalid;
+            }
+
+            var isCurrentAcknowledged = await db.SettlementAcknowledgements.AsNoTracking()
+                .AnyAsync(a => a.MealDayId == mealDayId && a.SnapshotToken == expectedToken, ct);
+            return isCurrentAcknowledged
+                ? ServingSettlementValidationStatus.Valid
+                : ServingSettlementValidationStatus.Invalid;
         });
     }
 

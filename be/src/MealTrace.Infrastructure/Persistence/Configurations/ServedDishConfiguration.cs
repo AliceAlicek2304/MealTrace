@@ -10,6 +10,6 @@ internal sealed class ServedDishConfiguration : IEntityTypeConfiguration<ServedD
     {
         builder.HasKey(x => x.Id);
         builder.Property(x => x.SubstitutionReason).HasMaxLength(500);
-        builder.HasMany(x => x.IngredientUses).WithOne(x => x.ServedDish).HasForeignKey(x => x.ServedDishId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(x => x.IngredientUses).WithOne(x => x.ServedDish).HasForeignKey(x => x.ServedDishId).OnDelete(DeleteBehavior.Restrict);
     }
 }

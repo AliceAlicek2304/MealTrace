@@ -1,4 +1,5 @@
-﻿using MealTrace.Domain.Entities;
+﻿using MealTrace.Application.Models.Persistence;
+using MealTrace.Domain.Entities;
 
 namespace MealTrace.Application.Abstractions.Repositories;
 
@@ -11,7 +12,7 @@ public interface IServingRepository
     Task<Serving?> FindServingByClassAndMealDayAsync(Guid mealDayId, Guid classId, CancellationToken ct = default);
 
     Task<bool> MealDayIsActiveAndMatchesClassAsync(Guid mealDayId, Guid classId, CancellationToken ct = default);
-    Task<bool> SettlementMatchesSessionAsync(Guid settlementId, Guid mealDayId, Guid classId, string snapshotToken, CancellationToken ct = default);
+    Task<ServingSettlementValidationStatus> ValidateSettlementAsync(Guid settlementId, Guid mealDayId, Guid classId, string snapshotToken, CancellationToken ct = default);
     Task<bool> RecipesExistAsync(Guid[] recipeVersionIds, CancellationToken ct = default);
     Task<bool> IngredientsExistAsync(Guid[] ingredientIds, (Guid IngredientId, Guid NutrientVersionId)[] nutrientPairs, CancellationToken ct = default);
 

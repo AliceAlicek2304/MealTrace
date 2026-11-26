@@ -71,9 +71,10 @@ internal sealed class MealExceptionRepository(MealTraceDbContext db) : IMealExce
         var asOf = now < day.CutoffAt ? now : day.CutoffAt;
         return await PersistenceErrors.ExecuteAsync(async () =>
         {
-            return await EnrollmentQueries.OnDateAsOf(db, day.Date, asOf)
+            return await EnrollmentQueries.OnDateAsOf(db, day.Date, asOf, day.CutoffAt)
                 .Include("Class")
-                .FirstOrDefaultAsync(x => x.StudentId == studentId);
+                .Where(x => x.StudentId == studentId && x.RecordedAt < day.CutoffAt)
+                .FirstOrDefaultAsync();
         });
     }
 

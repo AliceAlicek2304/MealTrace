@@ -15,6 +15,8 @@ internal sealed class ServingVersionConfiguration : IEntityTypeConfiguration<Ser
         builder.Property(x => x.ResponsibleStaffId).HasMaxLength(64);
         builder.Property(x => x.CorrectionReason).HasMaxLength(500);
         builder.Property(x => x.RequestPayloadHash).HasMaxLength(64);
-        builder.HasMany(x => x.Dishes).WithOne(x => x.ServingVersion).HasForeignKey(x => x.ServingVersionId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<ServingVersion>().WithMany().HasForeignKey(x => x.PriorVersionId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.PriorVersionId).IsUnique().HasFilter("\"PriorVersionId\" IS NOT NULL");
+        builder.HasMany(x => x.Dishes).WithOne(x => x.ServingVersion).HasForeignKey(x => x.ServingVersionId).OnDelete(DeleteBehavior.Restrict);
     }
 }

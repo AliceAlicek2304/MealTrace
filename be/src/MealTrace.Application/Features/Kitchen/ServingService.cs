@@ -8,7 +8,9 @@ using MealTrace.Application.Abstractions.Kitchen;
 using MealTrace.Application.Abstractions.Repositories;
 using MealTrace.Application.Dtos.Kitchen;
 using MealTrace.Application.Exceptions;
+using MealTrace.Application.Models.Persistence;
 using MealTrace.Domain.Entities;
+using MealTrace.Domain.Security;
 
 namespace MealTrace.Application.Features.Kitchen;
 
@@ -29,7 +31,12 @@ public sealed class ServingService(
     }
 
     public async Task<ServingResponse> RecordServingAsync(CreateServingRequest request, CancellationToken ct = default)
+        => (await RecordServingWithStatusAsync(request, ct)).Response;
+
+    public async Task<ServingWriteResult> RecordServingWithStatusAsync(CreateServingRequest request, CancellationToken ct = default)
     {
+        EnsureKitchenWriter();
+
         if (request.Dishes is null || request.Dishes.Count == 0 || string.IsNullOrWhiteSpace(request.SnapshotToken))
         {
             throw new KitchenException(400, "INVALID_SERVING", "SnapshotToken và danh sách món ăn không được để trống.");
@@ -51,7 +58,7 @@ public sealed class ServingService(
             {
                 if (string.Equals(existing.RequestPayloadHash, payloadHash, StringComparison.OrdinalIgnoreCase))
                 {
-                    return ToServingResponse(existing);
+                    return new ServingWriteResult(ToServingResponse(existing), IsReplay: true);
                 }
 
                 throw new KitchenException(409, "IDEMPOTENT_PAYLOAD_MISMATCH", "Cùng ClientRequestId nhưng nội dung yêu cầu khác nhau.");
@@ -63,7 +70,13 @@ public sealed class ServingService(
             throw new KitchenException(400, "INVALID_MEAL_DAY_OR_CLASS", "Phiên ăn hoặc lớp học không hợp lệ, đã hủy hoặc không cùng niên khóa.");
         }
 
-        if (!await _repository.SettlementMatchesSessionAsync(request.SettlementId, request.MealDayId, request.ClassId, request.SnapshotToken, ct))
+        var settlementStatus = await _repository.ValidateSettlementAsync(request.SettlementId, request.MealDayId, request.ClassId, request.SnapshotToken, ct);
+        if (settlementStatus == ServingSettlementValidationStatus.Stale)
+        {
+            throw new KitchenException(409, "STALE_SETTLEMENT", "Bản chốt suất ăn hoặc SnapshotToken đã cũ. Vui lòng tải lại bản chốt mới nhất.");
+        }
+
+        if (settlementStatus == ServingSettlementValidationStatus.Invalid)
         {
             throw new KitchenException(400, "INVALID_SETTLEMENT_SNAPSHOT", "Bản chốt suất ăn hoặc SnapshotToken không khớp với phiên ăn và lớp học.");
         }
@@ -96,6 +109,7 @@ public sealed class ServingService(
             ServingId = servingId,
             Serving = serving,
             Version = 1,
+            PriorVersionId = null,
             MenuVersionId = request.MenuVersionId,
             SettlementId = request.SettlementId,
             SnapshotToken = request.SnapshotToken,
@@ -121,14 +135,14 @@ public sealed class ServingService(
                 var existing = await _repository.FindVersionByClientRequestIdAsync(request.ClientRequestId.Value, ct);
                 if (existing is not null && string.Equals(existing.RequestPayloadHash, payloadHash, StringComparison.OrdinalIgnoreCase))
                 {
-                    return ToServingResponse(existing);
+                    return new ServingWriteResult(ToServingResponse(existing), IsReplay: true);
                 }
             }
 
             throw new KitchenException(409, "SERVING_CONFLICT", "Bản ghi suất ăn bị xung đột với dữ liệu đã tồn tại.");
         }
 
-        return new ServingResponse(servingId, versionId, 1, staffId, recordedAt, hasSourceGap);
+        return new ServingWriteResult(new ServingResponse(servingId, versionId, 1, staffId, recordedAt, hasSourceGap, null), IsReplay: false);
     }
 
     public async Task<ServingDetailResponse?> GetServingAsync(Guid id, CancellationToken ct = default)
@@ -184,9 +198,16 @@ public sealed class ServingService(
 
     public async Task<ServingResponse> AddServingVersionAsync(Guid id, CreateServingVersionRequest request, CancellationToken ct = default)
     {
+        EnsureKitchenWriter();
+
         if (request.Dishes is null || request.Dishes.Count == 0)
         {
             throw new KitchenException(400, "INVALID_SERVING", "Danh sách món ăn không được để trống.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length > 500)
+        {
+            throw new KitchenException(400, "CORRECTION_REASON_REQUIRED", "Cần lý do hợp lệ (tối đa 500 ký tự) khi điều chỉnh suất ăn.");
         }
 
         ValidateDishes(request.Dishes);
@@ -222,12 +243,13 @@ public sealed class ServingService(
             Id = newVersionId,
             ServingId = serving.Id,
             Version = newVersionNumber,
+            PriorVersionId = latestVersion.Id,
             MenuVersionId = latestVersion.MenuVersionId,
             SettlementId = latestVersion.SettlementId,
             SnapshotToken = latestVersion.SnapshotToken,
             RecordedAt = recordedAt,
             ResponsibleStaffId = staffId,
-            CorrectionReason = request.Reason,
+            CorrectionReason = request.Reason.Trim(),
             ClientRequestId = null,
             RequestPayloadHash = null,
             Dishes = MapDishEntities(request.Dishes, newVersionId)
@@ -243,7 +265,7 @@ public sealed class ServingService(
             throw new KitchenException(409, "VERSION_CONFLICT", "Dữ liệu đã có phiên bản mới hơn.");
         }
 
-        return new ServingResponse(serving.Id, newVersionId, newVersionNumber, staffId, recordedAt, hasSourceGap);
+        return new ServingResponse(serving.Id, newVersionId, newVersionNumber, staffId, recordedAt, hasSourceGap, latestVersion.Id);
     }
 
     public async Task<List<ServingHistoryItem>> GetServingHistoryAsync(Guid id, CancellationToken ct = default)
@@ -262,7 +284,8 @@ public sealed class ServingService(
                 v.RecordedAt,
                 v.ResponsibleStaffId,
                 v.CorrectionReason,
-                v.Dishes.Any(d => d.IngredientUses.Any(u => u.MissingQuantity.HasValue && u.MissingQuantity.Value > 0))
+                v.Dishes.Any(d => d.IngredientUses.Any(u => u.MissingQuantity.HasValue && u.MissingQuantity.Value > 0)),
+                v.PriorVersionId
             ))
             .ToList();
     }
@@ -296,6 +319,38 @@ public sealed class ServingService(
         }
     }
 
+    private void EnsureKitchenWriter()
+    {
+        if (!_actor.IsInRole(RoleNames.KitchenStaff) || _actor.IsInRole(RoleNames.Admin))
+        {
+            throw new KitchenException(403, "FORBIDDEN", "Chỉ nhân viên bếp được phép ghi nhận hoặc điều chỉnh suất ăn phục vụ.");
+        }
+    }
+
+    private static (decimal Quantity, string BaseUnit) NormalizeToBaseUnit(decimal qty, string? unit)
+    {
+        var normalized = (unit ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "kg" => (qty * 1000m, "g"),
+            "l" => (qty * 1000m, "ml"),
+            _ => (qty, normalized)
+        };
+    }
+
+    private static decimal ConvertToTargetUnit(decimal qty, string? fromUnit, string toUnit)
+    {
+        var (baseQty, fromBase) = NormalizeToBaseUnit(qty, fromUnit);
+        var (_, toBase) = NormalizeToBaseUnit(0m, toUnit);
+        if (string.IsNullOrEmpty(fromBase) || string.IsNullOrEmpty(toBase) || !string.Equals(fromBase, toBase, StringComparison.Ordinal))
+        {
+            throw new KitchenException(400, "UNIT_MISMATCH", "Đơn vị phân bổ nguồn không tương thích với đơn vị nguyên liệu.");
+        }
+
+        var targetNormalized = toUnit.Trim().ToLowerInvariant();
+        return targetNormalized is "kg" or "l" ? baseQty / 1000m : baseQty;
+    }
+
     private static void ValidateDishes(List<ServedDishInput> dishes)
     {
         foreach (var dish in dishes)
@@ -317,9 +372,9 @@ public sealed class ServingService(
 
             foreach (var ingredient in dish.Ingredients)
             {
-                if (ingredient.Quantity <= 0)
+                if (ingredient.Quantity <= 0 || string.IsNullOrWhiteSpace(ingredient.Unit))
                 {
-                    throw new KitchenException(400, "INVALID_SERVING", "Định lượng nguyên liệu phải lớn hơn 0.");
+                    throw new KitchenException(400, "INVALID_SERVING", "Định lượng và đơn vị nguyên liệu phải hợp lệ.");
                 }
 
                 if (ingredient.SourceGap is { MissingQuantity: < 0 })
@@ -327,6 +382,12 @@ public sealed class ServingService(
                     throw new KitchenException(400, "INVALID_ALLOCATION", "Lượng thiếu hụt nguồn không được âm.");
                 }
 
+                if (ingredient.SourceGap is { MissingQuantity: > 0 } && string.IsNullOrWhiteSpace(ingredient.SourceGap.Reason))
+                {
+                    throw new KitchenException(400, "SOURCE_GAP_REASON_REQUIRED", "Cần lý do khi khai báo thiếu hụt nguồn nguyên liệu.");
+                }
+
+                var allocSum = 0m;
                 var seenSources = new HashSet<Guid>();
                 if (ingredient.Allocations is not null)
                 {
@@ -336,12 +397,24 @@ public sealed class ServingService(
                         {
                             throw new KitchenException(400, "INVALID_ALLOCATION", "Phân bổ nguồn phải có mã hợp lệ, số lượng dương và không trùng nguồn.");
                         }
+
+                        allocSum += ConvertToTargetUnit(allocation.Quantity, allocation.Unit, ingredient.Unit);
                     }
                 }
 
-                var allocSum = ingredient.Allocations?.Sum(a => a.Quantity) ?? 0m;
-                var gapQty = ingredient.SourceGap?.MissingQuantity ?? 0m;
-                if (Math.Abs(allocSum + gapQty - ingredient.Quantity) > 0.001m)
+                var gapQty = 0m;
+                if (ingredient.SourceGap is { MissingQuantity: > 0 })
+                {
+                    gapQty = ConvertToTargetUnit(ingredient.SourceGap.MissingQuantity, ingredient.SourceGap.Unit, ingredient.Unit);
+                }
+                else if (ingredient.SourceGap is not null && !string.IsNullOrWhiteSpace(ingredient.SourceGap.Unit))
+                {
+                    ConvertToTargetUnit(0m, ingredient.SourceGap.Unit, ingredient.Unit);
+                }
+
+                var (actualBaseQty, _) = NormalizeToBaseUnit(allocSum + gapQty, ingredient.Unit);
+                var (targetBaseQty, _) = NormalizeToBaseUnit(ingredient.Quantity, ingredient.Unit);
+                if (Math.Abs(actualBaseQty - targetBaseQty) > 0.001m)
                 {
                     throw new KitchenException(422, "ALLOCATION_MISMATCH", "Tổng lượng phân bổ nguồn không khớp định lượng thực dùng.");
                 }
@@ -352,7 +425,7 @@ public sealed class ServingService(
     private static ServingResponse ToServingResponse(ServingVersion version)
     {
         var hasGap = version.Dishes.Any(d => d.IngredientUses.Any(u => u.MissingQuantity.HasValue && u.MissingQuantity.Value > 0));
-        return new ServingResponse(version.ServingId, version.Id, version.Version, version.ResponsibleStaffId, version.RecordedAt, hasGap);
+        return new ServingResponse(version.ServingId, version.Id, version.Version, version.ResponsibleStaffId, version.RecordedAt, hasGap, version.PriorVersionId);
     }
 
     private static string ComputePayloadHash(CreateServingRequest request)
@@ -400,8 +473,10 @@ public sealed class ServingService(
                     Quantity = i.Quantity,
                     Unit = i.Unit,
                     WeightBasis = i.WeightBasis,
-                    MissingQuantity = i.SourceGap?.MissingQuantity,
-                    MissingReason = i.SourceGap?.Reason,
+                    MissingQuantity = i.SourceGap is { MissingQuantity: > 0 }
+                        ? ConvertToTargetUnit(i.SourceGap.MissingQuantity, i.SourceGap.Unit, i.Unit)
+                        : i.SourceGap?.MissingQuantity,
+                    MissingReason = i.SourceGap?.Reason?.Trim(),
                     Allocations = []
                 };
 
@@ -454,7 +529,8 @@ public sealed class ServingService(
 
         public Task<bool> MealDayIsActiveAndMatchesClassAsync(Guid mealDayId, Guid classId, CancellationToken ct = default) => Task.FromResult(true);
 
-        public Task<bool> SettlementMatchesSessionAsync(Guid settlementId, Guid mealDayId, Guid classId, string snapshotToken, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<ServingSettlementValidationStatus> ValidateSettlementAsync(Guid settlementId, Guid mealDayId, Guid classId, string snapshotToken, CancellationToken ct = default)
+            => Task.FromResult(ServingSettlementValidationStatus.Valid);
 
         public Task<bool> RecipesExistAsync(Guid[] recipeVersionIds, CancellationToken ct = default) => Task.FromResult(true);
 

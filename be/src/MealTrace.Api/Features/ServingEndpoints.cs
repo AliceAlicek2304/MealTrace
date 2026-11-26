@@ -11,9 +11,11 @@ internal static class ServingEndpoints
 
         group.MapPost("", async (CreateServingRequest request, IServingService service, CancellationToken ct) =>
         {
-            var result = await service.RecordServingAsync(request, ct);
-            return Results.Json(result, statusCode: StatusCodes.Status201Created);
-        }).Produces<ServingResponse>(StatusCodes.Status201Created);
+            var write = await service.RecordServingWithStatusAsync(request, ct);
+            return write.IsReplay
+                ? Results.Ok(write.Response)
+                : Results.Json(write.Response, statusCode: StatusCodes.Status201Created);
+        }).Produces<ServingResponse>(StatusCodes.Status201Created).Produces<ServingResponse>(StatusCodes.Status200OK);
 
         group.MapGet("/{id:guid}", async (Guid id, IServingService service, CancellationToken ct) =>
         {

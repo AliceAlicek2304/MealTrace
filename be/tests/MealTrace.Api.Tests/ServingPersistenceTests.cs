@@ -48,9 +48,26 @@ public sealed class ServingPersistenceTests : IDisposable
         Assert.Equal(500, servingVersionType.FindProperty(nameof(ServingVersion.CorrectionReason))?.GetMaxLength());
         Assert.Equal(64, servingVersionType.FindProperty(nameof(ServingVersion.RequestPayloadHash))?.GetMaxLength());
 
+        var priorVersionFk = servingVersionType.GetForeignKeys()
+            .Single(fk => fk.Properties.Select(p => p.Name).SequenceEqual([nameof(ServingVersion.PriorVersionId)]));
+        Assert.Equal(typeof(ServingVersion), priorVersionFk.PrincipalEntityType.ClrType);
+        Assert.Equal(DeleteBehavior.Restrict, priorVersionFk.DeleteBehavior);
+
+        var priorVersionIndex = servingVersionType.GetIndexes()
+            .Single(ix => ix.Properties.Select(p => p.Name).SequenceEqual([nameof(ServingVersion.PriorVersionId)]));
+        Assert.True(priorVersionIndex.IsUnique);
+        Assert.Equal("\"PriorVersionId\" IS NOT NULL", priorVersionIndex.GetFilter());
+
+        var servingToVersionFk = servingVersionType.GetForeignKeys()
+            .Single(fk => fk.Properties.Select(p => p.Name).SequenceEqual([nameof(ServingVersion.ServingId)]));
+        Assert.Equal(DeleteBehavior.Restrict, servingToVersionFk.DeleteBehavior);
+
         var servedDishType = model.FindEntityType(typeof(ServedDish));
         Assert.NotNull(servedDishType);
         Assert.Equal(500, servedDishType.FindProperty(nameof(ServedDish.SubstitutionReason))?.GetMaxLength());
+        var versionToDishFk = servedDishType.GetForeignKeys()
+            .Single(fk => fk.Properties.Select(p => p.Name).SequenceEqual([nameof(ServedDish.ServingVersionId)]));
+        Assert.Equal(DeleteBehavior.Restrict, versionToDishFk.DeleteBehavior);
 
         var ingredientUseType = model.FindEntityType(typeof(IngredientUse));
         Assert.NotNull(ingredientUseType);
@@ -59,12 +76,18 @@ public sealed class ServingPersistenceTests : IDisposable
         Assert.Equal(500, ingredientUseType.FindProperty(nameof(IngredientUse.MissingReason))?.GetMaxLength());
         Assert.Equal(18, ingredientUseType.FindProperty(nameof(IngredientUse.Quantity))?.GetPrecision());
         Assert.Equal(4, ingredientUseType.FindProperty(nameof(IngredientUse.Quantity))?.GetScale());
+        var dishToUseFk = ingredientUseType.GetForeignKeys()
+            .Single(fk => fk.Properties.Select(p => p.Name).SequenceEqual([nameof(IngredientUse.ServedDishId)]));
+        Assert.Equal(DeleteBehavior.Restrict, dishToUseFk.DeleteBehavior);
 
         var sourceAllocationType = model.FindEntityType(typeof(SourceAllocation));
         Assert.NotNull(sourceAllocationType);
         Assert.Equal(20, sourceAllocationType.FindProperty(nameof(SourceAllocation.Unit))?.GetMaxLength());
         Assert.Equal(18, sourceAllocationType.FindProperty(nameof(SourceAllocation.Quantity))?.GetPrecision());
         Assert.Equal(4, sourceAllocationType.FindProperty(nameof(SourceAllocation.Quantity))?.GetScale());
+        var useToAllocationFk = sourceAllocationType.GetForeignKeys()
+            .Single(fk => fk.Properties.Select(p => p.Name).SequenceEqual([nameof(SourceAllocation.IngredientUseId)]));
+        Assert.Equal(DeleteBehavior.Restrict, useToAllocationFk.DeleteBehavior);
     }
 
     [Fact]

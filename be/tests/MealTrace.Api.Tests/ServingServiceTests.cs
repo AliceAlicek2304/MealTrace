@@ -2,6 +2,7 @@ using MealTrace.Application.Abstractions;
 using MealTrace.Application.Dtos.Kitchen;
 using MealTrace.Application.Exceptions;
 using MealTrace.Application.Features.Kitchen;
+using MealTrace.Domain.Security;
 
 namespace MealTrace.Api.Tests;
 
@@ -388,13 +389,17 @@ public sealed class ServingServiceTests
 
         Assert.Equal(created.Id, v2.Id);
         Assert.Equal(2, v2.Version);
+        Assert.Null(created.PriorVersionId);
+        Assert.Equal(created.VersionId, v2.PriorVersionId);
 
         var history = await service.GetServingHistoryAsync(created.Id);
         Assert.Equal(2, history.Count);
         Assert.Equal(1, history[0].Version);
         Assert.Null(history[0].Reason);
+        Assert.Null(history[0].PriorVersionId);
         Assert.Equal(2, history[1].Version);
         Assert.Equal("Tăng 5 suất ăn phát sinh", history[1].Reason);
+        Assert.Equal(created.VersionId, history[1].PriorVersionId);
     }
 
     [Fact]
@@ -525,9 +530,213 @@ public sealed class ServingServiceTests
         Assert.Equal("SERVING_NOT_FOUND", ex.Code);
     }
 
-    private sealed class TestActor : ICurrentActor
+    [Fact]
+    public async Task RecordServing_AndAddVersion_AdminRole_Throws403()
     {
+        var adminActor = new TestActor(RoleNames.Admin);
+        var service = new ServingService(adminActor, _clock);
+        var recipeId = Guid.NewGuid();
+        var ingredientId = Guid.NewGuid();
+
+        var request = new CreateServingRequest(
+            ClientRequestId: Guid.NewGuid(),
+            MealDayId: Guid.NewGuid(),
+            ClassId: Guid.NewGuid(),
+            MenuVersionId: Guid.NewGuid(),
+            SettlementId: Guid.NewGuid(),
+            SnapshotToken: "token-admin",
+            Dishes:
+            [
+                new ServedDishInput(
+                    PlannedRecipeVersionId: recipeId,
+                    ActualRecipeVersionId: recipeId,
+                    ServedPortions: 10,
+                    SubstitutionReason: null,
+                    Ingredients:
+                    [
+                        new IngredientUseInput(
+                            IngredientId: ingredientId,
+                            NutrientVersionId: null,
+                            Quantity: 100m,
+                            Unit: "g",
+                            WeightBasis: "as_purchased",
+                            Allocations: [new SourceAllocationInput(Guid.NewGuid(), 100m, "g")],
+                            SourceGap: null)
+                    ])
+            ]);
+
+        var createEx = await Assert.ThrowsAsync<KitchenException>(() => service.RecordServingAsync(request));
+        Assert.Equal(403, createEx.Status);
+        Assert.Equal("FORBIDDEN", createEx.Code);
+
+        var dualRoleActor = new TestActor(RoleNames.KitchenStaff, RoleNames.Admin);
+        var dualService = new ServingService(dualRoleActor, _clock);
+        var dualEx = await Assert.ThrowsAsync<KitchenException>(() => dualService.RecordServingAsync(request));
+        Assert.Equal(403, dualEx.Status);
+        Assert.Equal("FORBIDDEN", dualEx.Code);
+
+        var versionEx = await Assert.ThrowsAsync<KitchenException>(() => service.AddServingVersionAsync(Guid.NewGuid(),
+            new CreateServingVersionRequest(1, "Lý do hợp lệ", request.Dishes)));
+        Assert.Equal(403, versionEx.Status);
+        Assert.Equal("FORBIDDEN", versionEx.Code);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task AddServingVersion_MissingReason_Throws400(string reason)
+    {
+        var service = new ServingService(_actor, _clock);
+        var recipeId = Guid.NewGuid();
+        var ingredientId = Guid.NewGuid();
+
+        var request = new CreateServingRequest(
+            ClientRequestId: Guid.NewGuid(),
+            MealDayId: Guid.NewGuid(),
+            ClassId: Guid.NewGuid(),
+            MenuVersionId: Guid.NewGuid(),
+            SettlementId: Guid.NewGuid(),
+            SnapshotToken: "token-reason",
+            Dishes:
+            [
+                new ServedDishInput(
+                    PlannedRecipeVersionId: recipeId,
+                    ActualRecipeVersionId: recipeId,
+                    ServedPortions: 20,
+                    SubstitutionReason: null,
+                    Ingredients:
+                    [
+                        new IngredientUseInput(
+                            IngredientId: ingredientId,
+                            NutrientVersionId: null,
+                            Quantity: 100m,
+                            Unit: "g",
+                            WeightBasis: "as_purchased",
+                            Allocations: [new SourceAllocationInput(Guid.NewGuid(), 100m, "g")],
+                            SourceGap: null)
+                    ])
+            ]);
+
+        var created = await service.RecordServingAsync(request);
+        var ex = await Assert.ThrowsAsync<KitchenException>(() => service.AddServingVersionAsync(created.Id,
+            new CreateServingVersionRequest(1, reason, request.Dishes)));
+
+        Assert.Equal(400, ex.Status);
+        Assert.Equal("CORRECTION_REASON_REQUIRED", ex.Code);
+    }
+
+    [Fact]
+    public async Task RecordServing_SourceGapMissingReason_Throws400()
+    {
+        var service = new ServingService(_actor, _clock);
+        var recipeId = Guid.NewGuid();
+        var ingredientId = Guid.NewGuid();
+
+        var request = new CreateServingRequest(
+            ClientRequestId: Guid.NewGuid(),
+            MealDayId: Guid.NewGuid(),
+            ClassId: Guid.NewGuid(),
+            MenuVersionId: Guid.NewGuid(),
+            SettlementId: Guid.NewGuid(),
+            SnapshotToken: "token-gap-reason",
+            Dishes:
+            [
+                new ServedDishInput(
+                    PlannedRecipeVersionId: recipeId,
+                    ActualRecipeVersionId: recipeId,
+                    ServedPortions: 20,
+                    SubstitutionReason: null,
+                    Ingredients:
+                    [
+                        new IngredientUseInput(
+                            IngredientId: ingredientId,
+                            NutrientVersionId: null,
+                            Quantity: 1000m,
+                            Unit: "g",
+                            WeightBasis: "as_purchased",
+                            Allocations: [new SourceAllocationInput(Guid.NewGuid(), 800m, "g")],
+                            SourceGap: new SourceGapInput(200m, "g", "  "))
+                    ])
+            ]);
+
+        var ex = await Assert.ThrowsAsync<KitchenException>(() => service.RecordServingAsync(request));
+        Assert.Equal(400, ex.Status);
+        Assert.Equal("SOURCE_GAP_REASON_REQUIRED", ex.Code);
+    }
+
+    [Fact]
+    public async Task RecordServing_UnitConversion_KgWithGramsSucceeds_AndIncompatibleUnitsThrow400()
+    {
+        var service = new ServingService(_actor, _clock);
+        var recipeId = Guid.NewGuid();
+        var ingredientId = Guid.NewGuid();
+
+        var validKgRequest = new CreateServingRequest(
+            ClientRequestId: Guid.NewGuid(),
+            MealDayId: Guid.NewGuid(),
+            ClassId: Guid.NewGuid(),
+            MenuVersionId: Guid.NewGuid(),
+            SettlementId: Guid.NewGuid(),
+            SnapshotToken: "token-kg",
+            Dishes:
+            [
+                new ServedDishInput(
+                    PlannedRecipeVersionId: recipeId,
+                    ActualRecipeVersionId: recipeId,
+                    ServedPortions: 30,
+                    SubstitutionReason: null,
+                    Ingredients:
+                    [
+                        new IngredientUseInput(
+                            IngredientId: ingredientId,
+                            NutrientVersionId: null,
+                            Quantity: 1m,
+                            Unit: "kg",
+                            WeightBasis: "as_purchased",
+                            Allocations:
+                            [
+                                new SourceAllocationInput(Guid.NewGuid(), 600m, "g"),
+                                new SourceAllocationInput(Guid.NewGuid(), 400m, "g")
+                            ],
+                            SourceGap: null)
+                    ])
+            ]);
+
+        var response = await service.RecordServingAsync(validKgRequest);
+        Assert.Equal(1, response.Version);
+
+        var mismatchedUnitRequest = validKgRequest with
+        {
+            ClientRequestId = Guid.NewGuid(),
+            Dishes =
+            [
+                validKgRequest.Dishes[0] with
+                {
+                    Ingredients =
+                    [
+                        validKgRequest.Dishes[0].Ingredients[0] with
+                        {
+                            Unit = "g",
+                            Quantity = 1000m,
+                            Allocations = [new SourceAllocationInput(Guid.NewGuid(), 1000m, "ml")]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var ex = await Assert.ThrowsAsync<KitchenException>(() => service.RecordServingAsync(mismatchedUnitRequest));
+        Assert.Equal(400, ex.Status);
+        Assert.Equal("UNIT_MISMATCH", ex.Code);
+    }
+
+    private sealed class TestActor(params string[] roles) : ICurrentActor
+    {
+        private readonly HashSet<string> _roles = roles.Length == 0
+            ? [RoleNames.KitchenStaff]
+            : [.. roles];
+
         public Guid? UserId { get; set; } = Guid.NewGuid();
-        public bool IsInRole(string role) => true;
+        public bool IsInRole(string role) => _roles.Contains(role);
     }
 }
