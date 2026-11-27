@@ -24,7 +24,7 @@ internal sealed class AuditOpenApiFilter : IOperationFilter
             Add("action", new() { Type = "string", MaxLength = 100 }, "Ví dụ calendar.generate, account.password_reset, portion.settle.");
             if (!timeline)
             {
-                Add("entityType", new() { Type = "string", MaxLength = 100 }, "Student, MealCalendar, Account, PortionAmendment, PortionSettlement, ParentLinkRequest hoặc StudentImportBatch.");
+                Add("entityType", new() { Type = "string", MaxLength = 100 }, "Student, MealCalendar, Account, PortionAmendment, PortionSettlement, SettlementAcknowledgement, ParentLinkRequest, StudentImportBatch, Ingredient hoặc Recipe.");
                 Add("entityId", new() { Type = "string", MaxLength = 200 }, "GUID entity; MealCalendar dùng mã năm học. Student + ID mở rộng qua FK/membership thực.");
             }
             if (export) Add("format", new() { Type = "string", Default = new OpenApiString("csv"), Enum = [new OpenApiString("csv")] }, "CSV UTF-8 BOM, escape và masking điện thoại.");
