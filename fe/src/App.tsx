@@ -9,6 +9,9 @@ import { LoginPage } from './features/access/LoginPage'
 import { ProfilePage } from './features/access/ProfilePage'
 
 const KitchenWorkspace = lazy(() => import('./features/kitchen/KitchenWorkspace').then(module => ({ default: module.KitchenWorkspace })))
+const KitchenSourcesPage = lazy(() => import('./features/kitchen/KitchenSourcesPage').then(module => ({ default: module.KitchenSourcesPage })))
+const KitchenMenusPage = lazy(() => import('./features/kitchen/KitchenMenusPage').then(module => ({ default: module.KitchenMenusPage })))
+const ParentMenusPage = lazy(() => import('./features/kitchen/ParentMenusPage').then(module => ({ default: module.ParentMenusPage })))
 const AdminToolsPage = lazy(() => import('./features/access/AdminToolsPage').then(module => ({ default: module.AdminToolsPage })))
 const KitchenSettlementsPage = lazy(() => import('./features/kitchen/KitchenSettlementsPage').then(module => ({ default: module.KitchenSettlementsPage })))
 const ParentLinksPage = lazy(() => import('./features/workflow/ParentLinksPage').then(module => ({ default: module.ParentLinksPage })))
@@ -32,6 +35,7 @@ const mealRoles = new Set(['ADMIN', 'KITCHEN_STAFF'])
 const pageLabels: Record<NonNullable<ReturnType<typeof usePageNavigation>[0]>, string> = {
   catalog: 'Nguyên liệu & công thức', audit: 'Lịch sử xử lý', kitchen: 'Tiếp nhận suất ăn', links: 'Liên kết trẻ', accounts: 'Quản lý tài khoản', classes: 'Lớp và trẻ', calendar: 'Lịch bữa ăn',
   portions: 'Số suất', absences: 'Báo vắng', meals: 'Theo dõi bữa ăn', profile: 'Thông tin cá nhân',
+  sources: 'Nguồn nguyên liệu', menus: 'Thực đơn', 'parent-menus': 'Thực đơn của trẻ',
 }
 
 export default function App() {
@@ -152,6 +156,9 @@ function AppNavigation({ id, page, isAdmin, canRegisterStudents, canSeePortions,
     { id: 'meals', label: 'Theo dõi bữa ăn', icon: CalendarDays, visible: isMealStaff },
     { id: 'kitchen', label: 'Tiếp nhận suất ăn', icon: ClipboardList, visible: isMealStaff },
     { id: 'catalog', label: 'Nguyên liệu & công thức', icon: Leaf, visible: isMealStaff },
+    { id: 'sources', label: 'Nguồn nguyên liệu', icon: Leaf, visible: isMealStaff },
+    { id: 'menus', label: 'Thực đơn', icon: CalendarDays, visible: isMealStaff },
+    { id: 'parent-menus', label: 'Thực đơn của trẻ', icon: CalendarDays, visible: isParent },
     { id: 'audit', label: 'Lịch sử xử lý', icon: ClipboardList, visible: isAdmin },
     { id: 'links', label: 'Liên kết trẻ', icon: Users, visible: isParent || canRegisterStudents },
     { id: 'profile', label: 'Thông tin cá nhân', icon: UserRound, visible: true },
@@ -174,6 +181,9 @@ function PageContent({ page, user, onPasswordChanged }: Readonly<{
   const isAdmin = user.roles.includes('ADMIN')
   switch (page) {
     case 'catalog': return <KitchenWorkspace />
+    case 'sources': return <KitchenSourcesPage />
+    case 'menus': return <KitchenMenusPage isAdmin={isAdmin} />
+    case 'parent-menus': return <ParentMenusPage />
     case 'audit': return <AdminToolsPage />
     case 'kitchen': return <KitchenSettlementsPage canAcknowledge={!isAdmin && user.roles.includes('KITCHEN_STAFF')} />
     case 'accounts': return <AccountsPage />

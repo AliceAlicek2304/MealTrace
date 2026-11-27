@@ -442,3 +442,25 @@ h1 { color: #28374e; }
 .record-detail-values > div { min-width: 0; border-bottom: 1px solid #f1e9df; padding: 10px 0; }
 .record-detail-values dt { color: #647086; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
 .record-detail-values dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.operations-filter { padding: 12px 18px; }
+.operations-filter > .button { margin-top: 10px; }
+.operations-picker { display: grid; gap: 10px; min-width: 0; }
+.operations-picker > .button, .operations-inline { justify-self: start; }
+.operations-switch { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+.operations-items { margin: 0; padding-inline-start: 20px; overflow-wrap: anywhere; }
+.operations-items li + li { margin-top: 8px; }
+.operations-items small, .operations-dish small { display: block; }
+.operations-dish { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 135px) auto; align-items: center; gap: 10px; overflow-wrap: anywhere; }
+.operations-dish .field { margin: 0; }
+.operations-result-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.operations-result-head h3 { margin: 0; }
+.operations-nutrients { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.operations-nutrients > div { padding: 8px 10px; border-radius: 10px; background: #eef8f2; }
+.operations-nutrients dd { margin: 2px 0 0; font-weight: 800; overflow-wrap: anywhere; }
+.operations-nutrition-dish { margin-block: 10px; }
+.operations-period { padding-inline: 18px; color: #566477; }
+@media (max-width: 540px) {
+  .operations-filter { padding-inline: 12px; }
+  .operations-dish { grid-template-columns: minmax(0, 1fr) auto; }
+  .operations-dish > strong { grid-column: 1 / -1; }
+}

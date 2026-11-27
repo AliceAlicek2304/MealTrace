@@ -1,4 +1,27 @@
 enum SchoolOperation {
+  suppliers,
+  supplierHistory,
+  createSupplier,
+  reviseSupplier,
+  sourceReceipts,
+  sourceHistory,
+  createSourceReceipt,
+  reviseSourceReceipt,
+  recipeCatalog,
+  recipeVersions,
+  menus,
+  menuDetail,
+  menuHistory,
+  createMenu,
+  reviseMenu,
+  submitMenu,
+  reviewMenu,
+  publishMenu,
+  menuNutrition,
+  parentMenus,
+  createEstimate,
+  estimate,
+  estimateCsv,
   auditLogs,
   auditDetail,
   auditEntity,
@@ -165,6 +188,7 @@ List<String> rolesFor(SchoolOperation op) => switch (op) {
   SchoolOperation.createParentLink ||
   SchoolOperation.cancelParentLink ||
   SchoolOperation.children ||
+  SchoolOperation.parentMenus ||
   SchoolOperation.absences ||
   SchoolOperation.reportAbsence ||
   SchoolOperation.replaceAbsence ||
@@ -189,6 +213,26 @@ List<String> rolesFor(SchoolOperation op) => switch (op) {
   SchoolOperation.recordException ||
   SchoolOperation.requestAmendment => staffRoles,
   SchoolOperation.kitchenSettlements ||
+  SchoolOperation.suppliers ||
+  SchoolOperation.supplierHistory ||
+  SchoolOperation.createSupplier ||
+  SchoolOperation.reviseSupplier ||
+  SchoolOperation.sourceReceipts ||
+  SchoolOperation.sourceHistory ||
+  SchoolOperation.createSourceReceipt ||
+  SchoolOperation.reviseSourceReceipt ||
+  SchoolOperation.recipeCatalog ||
+  SchoolOperation.recipeVersions ||
+  SchoolOperation.menus ||
+  SchoolOperation.menuDetail ||
+  SchoolOperation.menuHistory ||
+  SchoolOperation.createMenu ||
+  SchoolOperation.reviseMenu ||
+  SchoolOperation.submitMenu ||
+  SchoolOperation.menuNutrition ||
+  SchoolOperation.createEstimate ||
+  SchoolOperation.estimate ||
+  SchoolOperation.estimateCsv ||
   SchoolOperation.ingredients ||
   SchoolOperation.createIngredient ||
   SchoolOperation.ingredientVersion ||

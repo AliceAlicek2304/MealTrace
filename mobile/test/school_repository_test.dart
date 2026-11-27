@@ -67,7 +67,8 @@ void main() {
         expect(sent!.url.host, 'example.test');
         expect(sent!.url.path, startsWith('/api/'));
         expect(sent!.url.toString(), isNot(contains('{')));
-        if (operation == SchoolOperation.auditExport) {
+        if (operation == SchoolOperation.auditExport ||
+            operation == SchoolOperation.estimateCsv) {
           expect(result.summary.text('csv'), isNotEmpty);
         } else {
           expect(result.records.length, 1);

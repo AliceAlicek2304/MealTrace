@@ -1,6 +1,9 @@
 import '../../../core/presentation/meal_widgets.dart';
 import 'kitchen_settlements_page.dart';
 import 'kitchen_catalog_page.dart';
+import 'kitchen_sources_page.dart';
+import 'kitchen_menus_page.dart';
+import 'parent_menus_page.dart';
 import 'recipe_page.dart';
 import 'report_lookup_page.dart';
 import 'notification_test_page.dart';
@@ -60,6 +63,11 @@ class _SchoolHomeState extends State<SchoolHome> {
         operation: SchoolOperation.children,
         title: 'Trẻ đã liên kết',
         icon: Icons.family_restroom_outlined,
+      ),
+      (
+        operation: SchoolOperation.parentMenus,
+        title: 'Thực đơn của trẻ',
+        icon: Icons.menu_book_outlined,
       ),
       (
         operation: SchoolOperation.parentLinks,
@@ -124,6 +132,16 @@ class _SchoolHomeState extends State<SchoolHome> {
         icon: Icons.kitchen_outlined,
       ),
       (
+        operation: SchoolOperation.sourceReceipts,
+        title: 'Nguồn nguyên liệu',
+        icon: Icons.local_shipping_outlined,
+      ),
+      (
+        operation: SchoolOperation.menus,
+        title: 'Thực đơn',
+        icon: Icons.restaurant_menu_outlined,
+      ),
+      (
         operation: SchoolOperation.nutrition,
         title: 'Công thức & dinh dưỡng',
         icon: Icons.menu_book_outlined,
@@ -167,6 +185,12 @@ class _SchoolHomeState extends State<SchoolHome> {
     MaterialPageRoute(
       builder: (_) => section.operation == SchoolOperation.auditLogs
           ? AuditPage(controller: controller)
+          : section.operation == SchoolOperation.sourceReceipts
+          ? KitchenSourcesPage(controller: controller)
+          : section.operation == SchoolOperation.menus
+          ? KitchenMenusPage(controller: controller)
+          : section.operation == SchoolOperation.parentMenus
+          ? ParentMenusPage(controller: controller)
           : section.operation == SchoolOperation.ingredients
           ? KitchenCatalogPage(
               repository: widget.repository,
@@ -283,6 +307,8 @@ class _SchoolHomeState extends State<SchoolHome> {
     SchoolOperation.meals ||
     SchoolOperation.kitchenSettlements => 'Bữa ăn & suất ăn',
     SchoolOperation.ingredients ||
+    SchoolOperation.sourceReceipts ||
+    SchoolOperation.menus ||
     SchoolOperation.nutrition => 'Bếp & dinh dưỡng',
     SchoolOperation.users ||
     SchoolOperation.yearConfiguration => 'Quản trị nhà trường',

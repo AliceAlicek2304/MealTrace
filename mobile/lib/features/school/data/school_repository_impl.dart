@@ -10,6 +10,65 @@ class ApiRoute {
 }
 
 const schoolRoutes = <SchoolOperation, ApiRoute>{
+  SchoolOperation.suppliers: ApiRoute('GET', '/kitchen/suppliers'),
+  SchoolOperation.supplierHistory: ApiRoute(
+    'GET',
+    '/kitchen/suppliers/{id}/history',
+  ),
+  SchoolOperation.createSupplier: ApiRoute('POST', '/kitchen/suppliers'),
+  SchoolOperation.reviseSupplier: ApiRoute(
+    'POST',
+    '/kitchen/suppliers/{id}/versions',
+  ),
+  SchoolOperation.sourceReceipts: ApiRoute(
+    'GET',
+    '/kitchen/ingredient-source-entries',
+  ),
+  SchoolOperation.sourceHistory: ApiRoute(
+    'GET',
+    '/kitchen/ingredient-source-entries/{id}/history',
+  ),
+  SchoolOperation.createSourceReceipt: ApiRoute(
+    'POST',
+    '/kitchen/ingredient-source-entries',
+  ),
+  SchoolOperation.reviseSourceReceipt: ApiRoute(
+    'POST',
+    '/kitchen/ingredient-source-entries/{id}/versions',
+  ),
+  SchoolOperation.recipeCatalog: ApiRoute('GET', '/kitchen/recipes'),
+  SchoolOperation.recipeVersions: ApiRoute(
+    'GET',
+    '/kitchen/recipes/{id}/versions',
+  ),
+  SchoolOperation.menus: ApiRoute('GET', '/kitchen/menus'),
+  SchoolOperation.menuDetail: ApiRoute('GET', '/kitchen/menus/{id}'),
+  SchoolOperation.menuHistory: ApiRoute('GET', '/kitchen/menus/{id}/history'),
+  SchoolOperation.createMenu: ApiRoute('POST', '/kitchen/menus'),
+  SchoolOperation.reviseMenu: ApiRoute('POST', '/kitchen/menus/{id}/versions'),
+  SchoolOperation.submitMenu: ApiRoute('POST', '/kitchen/menus/{id}/submit'),
+  SchoolOperation.reviewMenu: ApiRoute('POST', '/admin/menus/{id}/review'),
+  SchoolOperation.publishMenu: ApiRoute('POST', '/admin/menus/{id}/publish'),
+  SchoolOperation.menuNutrition: ApiRoute(
+    'GET',
+    '/kitchen/menus/{id}/nutrition',
+  ),
+  SchoolOperation.parentMenus: ApiRoute(
+    'GET',
+    '/parent/students/{studentId}/menus',
+  ),
+  SchoolOperation.createEstimate: ApiRoute(
+    'POST',
+    '/kitchen/ingredient-estimates',
+  ),
+  SchoolOperation.estimate: ApiRoute(
+    'GET',
+    '/kitchen/ingredient-estimates/{id}',
+  ),
+  SchoolOperation.estimateCsv: ApiRoute(
+    'GET',
+    '/kitchen/ingredient-estimates/{id}/export',
+  ),
   SchoolOperation.auditLogs: ApiRoute('GET', '/admin/audit-logs'),
   SchoolOperation.auditDetail: ApiRoute('GET', '/admin/audit-logs/{id}'),
   SchoolOperation.auditEntity: ApiRoute(
@@ -216,6 +275,10 @@ const arrayOperations = {
   SchoolOperation.calendarHistory,
 };
 const pagedOperations = {
+  SchoolOperation.suppliers,
+  SchoolOperation.sourceReceipts,
+  SchoolOperation.recipeCatalog,
+  SchoolOperation.menus,
   SchoolOperation.ingredients,
   SchoolOperation.kitchenSettlements,
   SchoolOperation.studentImportHistory,
@@ -234,6 +297,26 @@ const pagedOperations = {
 };
 
 List<String> queryFields(SchoolOperation operation) => switch (operation) {
+  SchoolOperation.suppliers ||
+  SchoolOperation.recipeCatalog => ['search', 'page', 'pageSize'],
+  SchoolOperation.sourceReceipts => [
+    'ingredientId',
+    'from',
+    'to',
+    'page',
+    'pageSize',
+  ],
+  SchoolOperation.menus => ['from', 'to', 'page', 'pageSize'],
+  SchoolOperation.menuDetail => ['version'],
+  SchoolOperation.menuNutrition => [
+    'version',
+    'mode',
+    'ageGroup',
+    'validAt',
+    'knownAt',
+  ],
+  SchoolOperation.parentMenus => ['from', 'to'],
+  SchoolOperation.estimateCsv => ['format'],
   SchoolOperation.auditLogs ||
   SchoolOperation.auditEntity ||
   SchoolOperation.auditExport => [
@@ -396,7 +479,8 @@ class SchoolRepositoryImpl implements SchoolRepository {
         }
         return SchoolResult(summary: SchoolRecord({}), records: []);
       }
-      if (operation == SchoolOperation.auditExport) {
+      if (operation == SchoolOperation.auditExport ||
+          operation == SchoolOperation.estimateCsv) {
         return SchoolResult(
           summary: SchoolRecord({'csv': utf8.decode(response.bodyBytes)}),
           records: [],

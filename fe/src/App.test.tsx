@@ -80,7 +80,7 @@ describe('Session restoration and navigation', () => {
     expect(screen.queryByRole('button', { name: 'Tài khoản' })).toBeNull()
   })
 
-  it.each(['catalog','audit','kitchen'])('does not load restricted API screens for a teacher at %s', async page => {
+  it.each(['catalog','audit','kitchen','sources','menus','parent-menus'])('does not load restricted API screens for a teacher at %s', async page => {
     setAccessToken('test-token')
     window.history.replaceState(null,'',`#/${page}`)
     const get=vi.spyOn(api,'get').mockResolvedValue({data:user})
