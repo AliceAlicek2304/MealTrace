@@ -20,6 +20,8 @@ public static class ReportCsvWriter
             writer.WriteLine(string.Join(',', headers.Select(header => Cell.Text(header).CsvValue)));
             foreach (var row in rows)
             {
+                if (row is null)
+                    throw new ArgumentException("CSV rows cannot contain null rows.", nameof(rows));
                 if (row.Count != headers.Count)
                     throw new ArgumentException("Each CSV row must have the same number of columns as the header.", nameof(rows));
 

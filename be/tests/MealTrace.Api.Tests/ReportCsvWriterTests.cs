@@ -52,6 +52,9 @@ public class ReportCsvWriterTests
     [InlineData(" \u00A0@SUM(1,2)")]
     [InlineData("\u001F\u200B\uFEFF=1+1")]
     [InlineData("\u200B＝1+1")]
+    [InlineData("\u200B＋1+1")]
+    [InlineData("\u200B－1+1")]
+    [InlineData("\u200B＠SUM(1,2)")]
     public void NeutralizesFormulaPrefixesInTextAndHeaders(string attempt)
     {
         var csv = ReportCsvWriter.WriteUtf8([attempt], [[Cell.Text(attempt)]]);
@@ -59,6 +62,18 @@ public class ReportCsvWriterTests
         Assert.Collection(Parse(csv),
             header => Assert.Equal("'" + attempt, Assert.Single(header)),
             row => Assert.Equal("'" + attempt, Assert.Single(row)));
+    }
+
+    [Theory]
+    [InlineData("\u200B\t ")]
+    [InlineData("A+B")]
+    [InlineData("contact@school.vn")]
+    public void LeavesOrdinaryTextAndWhitespaceUnprefixed(string value)
+    {
+        var csv = ReportCsvWriter.WriteUtf8(["Value"], [[Cell.Text(value)]]);
+
+        Assert.Equal("\"Value\"\r\n\"" + value + "\"\r\n", Encoding.UTF8.GetString(csv[3..]));
+        Assert.Equal(value, Assert.Single(Parse(csv)[1]));
     }
 
     [Fact]
@@ -109,6 +124,40 @@ public class ReportCsvWriterTests
     {
         Assert.Throws<ArgumentException>("rows", () =>
             ReportCsvWriter.WriteUtf8(["Supplier", "Quantity"], [[Cell.Text("Vườn A")]]));
+        Assert.Throws<ArgumentException>("rows", () =>
+            ReportCsvWriter.WriteUtf8(["Supplier"], [[Cell.Text("Vườn A"), Cell.Text("Extra")]]));
+    }
+
+    [Fact]
+    public void RejectsNullRows()
+    {
+        Assert.Throws<ArgumentException>("rows", () =>
+            ReportCsvWriter.WriteUtf8(["Supplier"], new IReadOnlyList<Cell>[] { null! }));
+    }
+
+    [Fact]
+    public void RejectsNullOrEmptyInputs()
+    {
+        Assert.Throws<ArgumentNullException>("headers", () => ReportCsvWriter.WriteUtf8(null!, []));
+        Assert.Throws<ArgumentNullException>("rows", () => ReportCsvWriter.WriteUtf8(["Supplier"], null!));
+        Assert.Throws<ArgumentException>("headers", () => ReportCsvWriter.WriteUtf8([], []));
+    }
+
+    [Fact]
+    public void EmptyRowsProduceOnlyTheHeaderAndBom()
+    {
+        var csv = ReportCsvWriter.WriteUtf8(["Supplier", "Quantity"], []);
+
+        Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, csv[..3]);
+        Assert.Equal("\"Supplier\",\"Quantity\"\r\n", Encoding.UTF8.GetString(csv[3..]));
+        Assert.Equal(new[] { "Supplier", "Quantity" }, Assert.Single(Parse(csv)));
+    }
+
+    [Fact]
+    public void RejectsInvalidUtf16InsteadOfEncodingReplacementCharacters()
+    {
+        Assert.Throws<EncoderFallbackException>(() =>
+            ReportCsvWriter.WriteUtf8(["Supplier"], [[Cell.Text("\uD800=1+1")]]));
     }
 
     private static List<string[]> Parse(byte[] csv)
