@@ -45,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<IAuditSource, Persistence.Audit.AmendmentResolutionAuditSource>();
         services.AddScoped<IAuditSource, Persistence.Audit.SettlementAuditSource>();
         services.AddScoped<IAuditSource, Persistence.Audit.SettlementAcknowledgementAuditSource>();
+        services.AddScoped<IAuditSource, Persistence.Audit.IngredientVersionAuditSource>();
+        services.AddScoped<IAuditSource, Persistence.Audit.RecipeVersionAuditSource>();
         services.AddScoped<IAuditSource>(sp => new Persistence.Audit.ParentLinkAuditSource(sp.GetRequiredService<MealTraceDbContext>()));
         services.AddScoped<IAuditSource>(sp => new Persistence.Audit.ParentLinkAuditSource(sp.GetRequiredService<MealTraceDbContext>(), "review"));
         services.AddScoped<IAuditSource>(sp => new Persistence.Audit.ParentLinkAuditSource(sp.GetRequiredService<MealTraceDbContext>(), "revoke"));
